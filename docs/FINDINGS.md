@@ -260,6 +260,10 @@ and decompiled framework trees are not included in this repository.
 - Customization-button scan codes: **59 bottom**, **60 top**. Separate
   gesture detectors and mappings support single, double and long presses,
   including screen-off actions. Enable accessibility and overlay permission.
+- Screen-on button actions can send Android DPAD up/down/left/right key events
+  through the root daemon. The focused app decides whether those keys scroll,
+  move focus, or do nothing. Legacy Night Light and Backlight actions modified
+  Android LCD settings rather than the HiBreak frontlight, so they are removed.
 - Frontlights use
   `/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light`
   and `lm3630a_warm_light` on the same path.

@@ -97,6 +97,10 @@
     </string-array>
     <string-array name="button_action_entries">
         <item>Clear Screen</item>
+        <item>Up</item>
+        <item>Down</item>
+        <item>Left</item>
+        <item>Right</item>
         <item>Previous Track</item>
         <item>Next Track</item>
         <item>Toggle Music</item>
@@ -104,12 +108,14 @@
         <item>Home</item>
         <item>Recent Apps</item>
         <item>Open Menu</item>
-        <item>Toggle Night Light</item>
-        <item>Toggle Backlight</item>
         <item>Nothing</item>
     </string-array>
     <string-array name="button_action_values">
         <item>clear</item>
+        <item>dpad_up</item>
+        <item>dpad_down</item>
+        <item>dpad_left</item>
+        <item>dpad_right</item>
         <item>previous_track</item>
         <item>next_track</item>
         <item>toggle_music</item>
@@ -117,8 +123,6 @@
         <item>home</item>
         <item>recents</item>
         <item>open_menu</item>
-        <item>toggle_night_light</item>
-        <item>toggle_backlight</item>
         <item>dummy</item>
     </string-array>
     <string-array name="button_action_entries_screen_off">

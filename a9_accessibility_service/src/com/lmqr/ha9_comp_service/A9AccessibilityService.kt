@@ -1,6 +1,5 @@
 package com.lmqr.ha9_comp_service
 
-import SystemSettingsManager
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException

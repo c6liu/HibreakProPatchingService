@@ -78,11 +78,13 @@ tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink.apk
 tools/build-daemon.sh build/a9_eink_server
 ```
 
-The APK gains five modes, the in-layout toolbar, the AOD inversion switch, and
-per-app refresh selectors on a separate page for installed launcher apps, with
-a confirmed reset-all action. Button settings appear
-top-first. Unsupported legacy static-lockscreen controls are removed/hidden;
-the legacy max-brightness override is removed.
+The APK gains five modes, the in-layout toolbar, the AOD inversion switch,
+screen-on DPAD button actions, and per-app refresh selectors on a separate page
+for installed launcher apps, with a confirmed reset-all action. Button
+settings appear top-first. Unsupported legacy static-lockscreen controls are
+removed/hidden, as are the LCD-only Night Light and Backlight button actions.
+The legacy max-brightness override is removed. Build the daemon from the
+matching source so it can dispatch the new DPAD commands.
 It has `sharedUserId` removed so it can run without the GSI's platform signing
 key. The AOSP module keeps its platform-signed integration configuration.
 

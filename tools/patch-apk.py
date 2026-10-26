@@ -72,6 +72,35 @@ def arrays(root):
 xml(B / "res/values/arrays.xml", arrays)
 
 
+def button_actions(root):
+    options = root.find("string-array[@name='button_action_entries']")
+    values = root.find("string-array[@name='button_action_values']")
+    labels = [item.text for item in options.findall("item")]
+    keys = [item.text for item in values.findall("item")]
+    assert len(labels) == len(keys)
+    actions = list(zip(labels, keys))
+    assert ("Toggle Night Light", "toggle_night_light") in actions
+    assert ("Toggle Backlight", "toggle_backlight") in actions
+    actions = [action for action in actions
+               if action not in (("Toggle Night Light", "toggle_night_light"),
+                                 ("Toggle Backlight", "toggle_backlight"))]
+    clear_index = actions.index(("Clear Screen", "clear")) + 1
+    actions[clear_index:clear_index] = [
+        ("Up", "dpad_up"), ("Down", "dpad_down"),
+        ("Left", "dpad_left"), ("Right", "dpad_right"),
+    ]
+    options.clear()
+    options.set("name", "button_action_entries")
+    values.clear()
+    values.set("name", "button_action_values")
+    for label, key in actions:
+        ET.SubElement(options, "item").text = label
+        ET.SubElement(values, "item").text = key
+
+
+xml(B / "res/values/arrays.xml", button_actions)
+
+
 def menu(root):
     row = root.find(f".//*[@{A}id='@id/linear_layout']")
     for button, name in zip(row, ("hd", "regal", "fast", "extreme")):
@@ -397,3 +426,82 @@ text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerApp
 """ + text[end:]
 fragment.write_text(text)
 print("Patched settings order, unsupported controls, and per-app refresh selectors.")
+
+action_manager = S / "button_mapper/ButtonActionManager.smali"
+replace(action_manager, "    .locals 11", "    .locals 13")
+replace(action_manager, '''    .line 17
+    new-instance p1, Lcom/lmqr/ha9_comp_service/button_mapper/ToggleNightLightAction;
+
+    invoke-direct {p1}, Lcom/lmqr/ha9_comp_service/button_mapper/ToggleNightLightAction;-><init>()V
+
+    const-string p2, "toggle_night_light"
+
+    invoke-static {p2, p1}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+
+    move-result-object v8
+
+    .line 18
+    new-instance p1, Lcom/lmqr/ha9_comp_service/button_mapper/ToggleBacklightAction;
+
+    invoke-direct {p1}, Lcom/lmqr/ha9_comp_service/button_mapper/ToggleBacklightAction;-><init>()V
+
+    const-string p2, "toggle_backlight"
+
+    invoke-static {p2, p1}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+
+    move-result-object v9
+
+    .line 19
+    new-instance p1, Lcom/lmqr/ha9_comp_service/button_mapper/PreviousTrackButtonAction;
+
+    invoke-direct {p1}, Lcom/lmqr/ha9_comp_service/button_mapper/PreviousTrackButtonAction;-><init>()V
+
+    const-string p2, "previous_track"
+
+    invoke-static {p2, p1}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+
+    move-result-object v10
+
+    filled-new-array/range {v1 .. v10}, [Lkotlin/Pair;''', '''    .line 17
+    new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
+
+    const-string p2, "dpad_up"
+
+    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+
+    invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+
+    move-result-object v8
+
+    new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
+    const-string p2, "dpad_down"
+    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+    move-result-object v9
+
+    new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
+    const-string p2, "dpad_left"
+    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+    move-result-object v10
+
+    new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
+    const-string p2, "dpad_right"
+    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+    move-result-object v11
+
+    new-instance p1, Lcom/lmqr/ha9_comp_service/button_mapper/PreviousTrackButtonAction;
+    invoke-direct {p1}, Lcom/lmqr/ha9_comp_service/button_mapper/PreviousTrackButtonAction;-><init>()V
+    const-string p2, "previous_track"
+    invoke-static {p2, p1}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
+    move-result-object v12
+
+    filled-new-array/range {v1 .. v12}, [Lkotlin/Pair;''')
+(S / "button_mapper/DpadButtonAction.smali").write_text(
+    (Path(__file__).resolve().parent / "smali/DpadButtonAction.smali").read_text())
+for obsolete in (
+        B / "smali/SystemSettingsManager.smali",
+        S / "button_mapper/ToggleNightLightAction.smali",
+        S / "button_mapper/ToggleBacklightAction.smali"):
+    obsolete.unlink()

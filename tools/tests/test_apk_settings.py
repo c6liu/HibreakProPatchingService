@@ -55,6 +55,20 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertFalse(any(APP + "initialExpandedChildrenCount" in node.attrib
                              for node in root.iter()))
 
+    def test_directional_actions_replace_unsupported_lcd_controls(self):
+        root = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        entries = root.find("string-array[@name='button_action_entries']")
+        values = root.find("string-array[@name='button_action_values']")
+        self.assertEqual(
+            [(entry.text, value.text) for entry, value in zip(entries, values)][:5],
+            [("Clear Screen", "clear"), ("Up", "dpad_up"), ("Down", "dpad_down"),
+             ("Left", "dpad_left"), ("Right", "dpad_right")],
+        )
+        self.assertNotIn("Toggle Night Light", [item.text for item in entries])
+        self.assertNotIn("Toggle Backlight", [item.text for item in entries])
+        self.assertNotIn("toggle_night_light", [item.text for item in values])
+        self.assertNotIn("toggle_backlight", [item.text for item in values])
+
 
 class PatchedApkSettingsTests(unittest.TestCase):
     @classmethod
@@ -120,6 +134,29 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn("->changeMode", receiver)
         self.assertEqual(ET.parse(self.decoded / "res/xml/per_app_preferences.xml")
                          .getroot()[0].get(APP + "key"), "reset_app_refresh_modes")
+        arrays = ET.parse(self.decoded / "res/values/arrays.xml").getroot()
+        entries = arrays.find("string-array[@name='button_action_entries']")
+        values = arrays.find("string-array[@name='button_action_values']")
+        self.assertEqual(
+            [(entry.text, value.text) for entry, value in zip(entries, values)][:5],
+            [("Clear Screen", "clear"), ("Up", "dpad_up"), ("Down", "dpad_down"),
+             ("Left", "dpad_left"), ("Right", "dpad_right")],
+        )
+        action_manager = (smali / "button_mapper/ButtonActionManager.smali").read_text()
+        for direction in ("up", "down", "left", "right"):
+            self.assertIn(f'"dpad_{direction}"', action_manager)
+        self.assertNotIn("ToggleNightLightAction", action_manager)
+        self.assertNotIn("ToggleBacklightAction", action_manager)
+        self.assertFalse((self.decoded / "smali/SystemSettingsManager.smali").exists())
+        self.assertFalse((smali / "button_mapper/ToggleNightLightAction.smali").exists())
+        self.assertFalse((smali / "button_mapper/ToggleBacklightAction.smali").exists())
+        dpad = (smali / "button_mapper/DpadButtonAction.smali").read_text()
+        self.assertIn("->runCommands", dpad)
+        daemon = (ROOT / "a9_eink_daemon/eink_daemon.c").read_text()
+        for command, code in (("up", "19"), ("down", "20"),
+                              ("left", "21"), ("right", "22")):
+            self.assertIn(f'command, "dpad_{command}"', daemon)
+            self.assertIn(f'sendDpadKey("{code}")', daemon)
         self.run_command("java", "-jar", self.apktool, "b", self.decoded,
                          "-o", self.work / "settings.apk")
         self.assertTrue((self.work / "settings.apk").is_file())

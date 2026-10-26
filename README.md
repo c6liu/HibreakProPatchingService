@@ -75,7 +75,14 @@ on edge-to-edge Android versions.
 ### Settings
 
 - Button mappings are shown **top button first, then bottom button**. Existing
-  mappings are unchanged.
+  mappings are unchanged. The available actions now include **Up, Down, Left,
+  and Right**, which send Android DPAD key presses to the focused app. They can
+  be assigned to screen-on single, double or long presses; screen-off actions
+  remain restricted to media, Clear Screen and Nothing. Whether a DPAD key
+  scrolls or changes focus depends on the foreground app.
+- **Toggle Night Light** and **Toggle Backlight** have been removed from the
+  button actions. They changed Android LCD color-temperature / screen-brightness
+  settings, not the HiBreak e-ink display or its cold/warm frontlight.
 - Open the separate **Per-App Refresh Modes** page to choose a mode for each
   installed launcher app. **Use default** removes its override. These are the same saved
   modes used by the popup; selecting a mode there can replace an app's choice.

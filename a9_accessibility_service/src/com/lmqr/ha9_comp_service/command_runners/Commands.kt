@@ -15,4 +15,8 @@ object Commands {
     const val SPEED_HYPER = "h"
     const val AUTO_REFRESH = "au_br"
     const val ANTI_FLICKER = "an_fl"
+    const val DPAD_UP = "dpad_up"
+    const val DPAD_DOWN = "dpad_down"
+    const val DPAD_LEFT = "dpad_left"
+    const val DPAD_RIGHT = "dpad_right"
 }

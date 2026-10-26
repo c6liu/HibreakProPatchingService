@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <sys/system_properties.h>
+#include <sys/wait.h>
 
 static const char* kTAG = "a9EinkService";
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
@@ -125,6 +126,36 @@ void applyRefreshMode(const char* value) {
     writeToEpdDisplayMode(value);
     if (__system_property_set("vendor.xrz.global_refresh_mode", value) != 0) {
         LOGE("Failed to set vendor.xrz.global_refresh_mode=%s", value);
+    }
+}
+
+static void sendDpadKey(const char* keycode) {
+    if (strcmp(keycode, "19") != 0 && strcmp(keycode, "20") != 0 &&
+        strcmp(keycode, "21") != 0 && strcmp(keycode, "22") != 0) {
+        LOGE("Invalid DPAD keycode: %s", keycode);
+        return;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("/system/bin/input", "input", "keyevent", keycode, (char *)NULL);
+        LOGE("Failed to execute input keyevent: %s", strerror(errno));
+        _exit(EXIT_FAILURE);
+    }
+    if (pid < 0) {
+        LOGE("Failed to fork input keyevent: %s", strerror(errno));
+        return;
+    }
+
+    int status;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) {
+            LOGE("Failed to wait for input keyevent: %s", strerror(errno));
+            return;
+        }
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        LOGE("input keyevent %s failed", keycode);
     }
 }
 
@@ -326,6 +357,14 @@ void processCommand(const char* command) {
         applyRefreshMode("179");
     } else if (strcmp(command, "h") == 0) {
         applyRefreshMode("183");
+    } else if (strcmp(command, "dpad_up") == 0) {
+        sendDpadKey("19");
+    } else if (strcmp(command, "dpad_down") == 0) {
+        sendDpadKey("20");
+    } else if (strcmp(command, "dpad_left") == 0) {
+        sendDpadKey("21");
+    } else if (strcmp(command, "dpad_right") == 0) {
+        sendDpadKey("22");
     } else if (strncmp(command, "stw", 3) == 0) {
         if(valid_number(command+3))
             setWhiteThreshold(command+3);
