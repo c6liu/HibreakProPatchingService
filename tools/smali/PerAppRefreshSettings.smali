@@ -15,7 +15,27 @@
 
 .method public static populate(Landroidx/preference/PreferenceFragmentCompat;)V
     .locals 12
-    const-string v0, "per_app_refresh_modes"
+    invoke-virtual {p0}, Landroidx/fragment/app/Fragment;->requireActivity()Landroidx/fragment/app/FragmentActivity;
+    move-result-object v2
+    invoke-virtual {v2}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+    move-result-object v3
+    const-string v4, "per_app_page"
+    const/4 v1, 0x0
+    invoke-virtual {v3, v4, v1}, Landroid/content/Intent;->getBooleanExtra(Ljava/lang/String;Z)Z
+    move-result v3
+    if-nez v3, :page
+    return-void
+    :page
+    const v3, @PER_APP_XML@
+    const/4 v4, 0x0
+    invoke-virtual {p0, v3, v4}, Landroidx/preference/PreferenceFragmentCompat;->setPreferencesFromResource(ILjava/lang/String;)V
+    const v3, @TOOLBAR_ID@
+    invoke-virtual {v2, v3}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-result-object v3
+    check-cast v3, Landroidx/appcompat/widget/Toolbar;
+    const-string v4, "Per-App Refresh Modes"
+    invoke-virtual {v3, v4}, Landroidx/appcompat/widget/Toolbar;->setTitle(Ljava/lang/CharSequence;)V
+    const-string v0, "per_app_apps"
     invoke-virtual {p0, v0}, Landroidx/preference/PreferenceFragmentCompat;->findPreference(Ljava/lang/CharSequence;)Landroidx/preference/Preference;
     move-result-object v0
     check-cast v0, Landroidx/preference/PreferenceCategory;
@@ -25,16 +45,16 @@
     move-result-object v2
     invoke-virtual {v2}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
     move-result-object v3
-    const-string v4, "refresh_setting"
-    invoke-virtual {p0, v4}, Landroidx/preference/PreferenceFragmentCompat;->findPreference(Ljava/lang/CharSequence;)Landroidx/preference/Preference;
+    invoke-virtual {v2}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
     move-result-object v4
-    check-cast v4, Landroidx/preference/ListPreference;
-    invoke-virtual {v4}, Landroidx/preference/ListPreference;->getEntries()[Ljava/lang/CharSequence;
+    const v5, @REFRESH_OPTIONS@
+    invoke-virtual {v4, v5}, Landroid/content/res/Resources;->getTextArray(I)[Ljava/lang/CharSequence;
     move-result-object v5
     const-string v6, "Use default"
     invoke-static {v6, v5}, Lcom/lmqr/ha9_comp_service/PerAppRefreshSettings;->prepend(Ljava/lang/String;[Ljava/lang/CharSequence;)[Ljava/lang/CharSequence;
     move-result-object v5
-    invoke-virtual {v4}, Landroidx/preference/ListPreference;->getEntryValues()[Ljava/lang/CharSequence;
+    const v6, @REFRESH_VALUES@
+    invoke-virtual {v4, v6}, Landroid/content/res/Resources;->getTextArray(I)[Ljava/lang/CharSequence;
     move-result-object v6
     const-string v7, "-1"
     invoke-static {v7, v6}, Lcom/lmqr/ha9_comp_service/PerAppRefreshSettings;->prepend(Ljava/lang/String;[Ljava/lang/CharSequence;)[Ljava/lang/CharSequence;

@@ -118,22 +118,13 @@
             app:summary="Show the Always-On Display as dark content on a white background"
             app:title="Invert colours on Always-On Display" />
 
-        <ListPreference
-            app:key="override_max_brightness"
-            app:title="Override Max Brightness"
-            app:enabled="false"
-            app:summary="Legacy control, unsupported on HiBreak Pro. Use the cold and warm frontlight sliders in the pop-up."
-            app:entries="@array/max_brightness_tiers"
-            app:entryValues="@array/max_brightness_tiers_values"
-            app:defaultValue="2000"
-            app:dialogTitle="Choose Max Brightness" />
-
     </PreferenceCategory>
 
 
     <PreferenceCategory app:order="3" app:title="Refresh Mode Settings">
         <SwitchPreferenceCompat
             app:key="allow_custom_broadcast"
+            app:summary="Allow automation apps to select refresh modes via EINK_REFRESH_SPEED broadcasts while the service is running"
             app:title="Allow Control via Broadcasts" />
 
         <SwitchPreferenceCompat
@@ -157,12 +148,12 @@
             app:defaultValue="2" />
     </PreferenceCategory>
 
-    <PreferenceCategory
+    <com.lmqr.ha9_comp_service.PerAppRefreshPagePreference
         app:key="per_app_refresh_modes"
         app:order="4"
         app:title="Per-App Refresh Modes"
-        app:dependency="disable_perapprefresh"
-        app:initialExpandedChildrenCount="0" />
+        app:summary="Choose each app's refresh mode or reset all apps to the default"
+        app:dependency="disable_perapprefresh" />
 
     <PreferenceCategory app:order="5" app:title="Color Scheme"
         app:summary="Changes Android system and supported app colours, not the E-Ink refresh mode. Colours appear as shades of grey on this screen.">

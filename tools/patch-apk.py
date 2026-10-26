@@ -35,6 +35,11 @@ def add_public(root, kind, name):
 public = ET.parse(B / "res/values/public.xml")
 button_id = add_public(public.getroot(), "id", "button5")
 toolbar_id = add_public(public.getroot(), "id", "settings_toolbar")
+per_app_xml_id = add_public(public.getroot(), "xml", "per_app_preferences")
+refresh_array_ids = {
+    name: public.getroot().find(f"public[@type='array'][@name='{name}']").get("id")
+    for name in ("refresh_options", "refresh_values")
+}
 add_public(public.getroot(), "style", "Theme.Ha9_comp_service.Settings")
 for name in ("regal", "fast", "hd", "extreme", "hyper"):
     add_public(public.getroot(), "string", name)
@@ -111,6 +116,8 @@ def manifest(root):
 xml(B / "AndroidManifest.xml", manifest)
 prefs = B / "res/xml/root_preferences.xml"
 prefs.write_text((REPO / "res/xml/root_preferences.xml").read_text())
+(B / "res/xml/per_app_preferences.xml").write_text(
+    (REPO / "res/xml/per_app_preferences.xml").read_text())
 
 enum = S / "RefreshMode.smali"
 replace(enum, ".field public static final enum SPEED:",
@@ -371,9 +378,16 @@ with (B / "smali/androidx/preference/ListPreference.smali").open("a") as output:
     return-void
 .end method
 """)
-for name in ("PerAppRefreshPreference", "PerAppRefreshSettings"):
-    (S / f"{name}.smali").write_text(
-        (Path(__file__).resolve().parent / f"smali/{name}.smali").read_text())
+for name in ("PerAppRefreshPreference", "PerAppRefreshSettings",
+             "PerAppRefreshPagePreference", "ResetAppRefreshPreference"):
+    text = (Path(__file__).resolve().parent / f"smali/{name}.smali").read_text()
+    for token, value in {
+        "@PER_APP_XML@": hex(per_app_xml_id), "@TOOLBAR_ID@": hex(toolbar_id),
+        "@REFRESH_OPTIONS@": refresh_array_ids["refresh_options"],
+        "@REFRESH_VALUES@": refresh_array_ids["refresh_values"],
+    }.items():
+        text = text.replace(token, value)
+    (S / f"{name}.smali").write_text(text)
 fragment = S / "SettingsActivity$SettingsFragment.smali"
 text = fragment.read_text()
 start = text.index(".method public onCreatePreferences")

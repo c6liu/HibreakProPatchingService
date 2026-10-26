@@ -275,7 +275,7 @@ and decompiled framework trees are not included in this repository.
   unsupported. The separate AOD inversion switch remains available.
 - Max-brightness override only writes `sys.linevibrator_touch`; it does not
   change HiBreak frontlight values or the 0–254 popup slider limits. This
-  unsupported legacy preference is disabled. Color Scheme instead writes
+  unsupported legacy preference is removed. Color Scheme instead writes
   Android's `theme_customization_overlay_packages` secure setting to select
   a system palette/style; it is not an e-ink display mode.
 - Settings now uses a no-action-bar theme plus an in-layout Toolbar and window

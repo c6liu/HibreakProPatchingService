@@ -18,7 +18,11 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
-        findViewById<Toolbar>(R.id.settings_toolbar).setNavigationOnClickListener {
+        val toolbar = findViewById<Toolbar>(R.id.settings_toolbar)
+        if (intent.getBooleanExtra("per_app_page", false)) {
+            toolbar.title = "Per-App Refresh Modes"
+        }
+        toolbar.setNavigationOnClickListener {
             finish()
         }
         if (savedInstanceState == null) {
@@ -33,7 +37,9 @@ class SettingsActivity : AppCompatActivity() {
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
-            val apps = requireNotNull(findPreference<PreferenceCategory>("per_app_refresh_modes"))
+            if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) return
+            setPreferencesFromResource(R.xml.per_app_preferences, null)
+            val apps = requireNotNull(findPreference<PreferenceCategory>("per_app_apps"))
             apps.isOrderingAsAdded = false
             val context = apps.context
             val pm = context.packageManager

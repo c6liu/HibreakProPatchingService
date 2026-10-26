@@ -40,10 +40,20 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertFalse(any(key.startswith("static_lockscreen") for key in keyed))
         self.assertNotIn("disable_show_per_app_aod_settings", keyed)
         self.assertIn("aod_invert", keyed)
-        self.assertEqual(keyed["override_max_brightness"].get(APP + "enabled"), "false")
+        self.assertNotIn("override_max_brightness", keyed)
+        self.assertIn("allow_custom_broadcast", keyed)
+        self.assertEqual(keyed["per_app_refresh_modes"].tag,
+                         "com.lmqr.ha9_comp_service.PerAppRefreshPagePreference")
         self.assertEqual(keyed["per_app_refresh_modes"].get(APP + "dependency"),
                          "disable_perapprefresh")
         self.assertNotIn(APP + "dependency", keyed["refresh_setting"].attrib)
+
+    def test_per_app_page_has_reset_and_no_expansion(self):
+        root = ET.parse(SOURCE.with_name("per_app_preferences.xml")).getroot()
+        self.assertEqual([node.get(APP + "key") for node in root],
+                         ["reset_app_refresh_modes", "per_app_apps"])
+        self.assertFalse(any(APP + "initialExpandedChildrenCount" in node.attrib
+                             for node in root.iter()))
 
 
 class PatchedApkSettingsTests(unittest.TestCase):
@@ -93,6 +103,23 @@ class PatchedApkSettingsTests(unittest.TestCase):
         helper = (smali / "PerAppRefreshSettings.smali").read_text()
         self.assertIn('const-string v9, "package:"', helper)
         self.assertIn("->queryIntentActivities", helper)
+        self.assertIn('const-string v4, "per_app_page"', helper)
+        self.assertIn("->setPreferencesFromResource", helper)
+        self.assertNotIn("@PER_APP_XML@", helper)
+        page = (smali / "PerAppRefreshPagePreference.smali").read_text()
+        self.assertIn("->startActivity", page)
+        reset = (smali / "ResetAppRefreshPreference.smali").read_text()
+        self.assertIn("->setNegativeButton", reset)
+        self.assertIn("->setPositiveButton", reset)
+        self.assertIn('const-string v3, "package:None"', reset)
+        self.assertIn("->remove(Ljava/lang/String;)", reset)
+        self.assertNotIn("->clear()", reset)
+        receiver = (smali / "A9AccessibilityService$receiverEink$1.smali").read_text()
+        self.assertIn('"allow_custom_broadcast"', receiver)
+        self.assertIn('"EINK_REFRESH_SPEED_HYPER"', receiver)
+        self.assertIn("->changeMode", receiver)
+        self.assertEqual(ET.parse(self.decoded / "res/xml/per_app_preferences.xml")
+                         .getroot()[0].get(APP + "key"), "reset_app_refresh_modes")
         self.run_command("java", "-jar", self.apktool, "b", self.decoded,
                          "-o", self.work / "settings.apk")
         self.assertTrue((self.work / "settings.apk").is_file())

@@ -76,20 +76,30 @@ on edge-to-edge Android versions.
 
 - Button mappings are shown **top button first, then bottom button**. Existing
   mappings are unchanged.
-- Expand **Per-App Refresh Modes > Advanced** to choose a mode for each installed
-  launcher app. **Use default** removes its override. These are the same saved
+- Open the separate **Per-App Refresh Modes** page to choose a mode for each
+  installed launcher app. **Use default** removes its override. These are the same saved
   modes used by the popup; selecting a mode there can replace an app's choice.
   Modes apply when switching to the app, while the accessibility service is
   enabled. **Disable Per-App Refresh Mode** temporarily uses a shared mode
   without deleting the saved per-app choices.
+- **Reset all to default** on that page asks for confirmation, then removes all
+  saved per-app overrides, including those for uninstalled apps. It preserves
+  Default Refresh Mode, the shared mode and all other settings.
 - **Default Refresh Mode** remains editable with per-app modes enabled and is
   used for apps without an override.
 - **Color Scheme** changes Android's system palette and compatible apps' dynamic
   colours, not the panel waveform or refresh mode. On the monochrome HiBreak,
   colours appear as greys. `SPRITZ` is the muted/near-monochrome style.
-- **Override Max Brightness** is disabled on HiBreak: its legacy command only
+- **Override Max Brightness** is removed on HiBreak: its legacy command only
   sets `sys.linevibrator_touch`, not the frontlight driver or slider limits.
   Use the popup's independent cold/warm frontlight sliders (0–254).
+- **Allow Control via Broadcasts** enables the registered refresh-mode receiver
+  while the accessibility service is running. Automation can send
+  `EINK_REFRESH_SPEED_SMOOTH` (HD), `EINK_REFRESH_SPEED_CLEAR` (Regal),
+  `EINK_REFRESH_SPEED_BALANCED` (Fast), `EINK_REFRESH_SPEED_FAST` (Extreme), or
+  `EINK_REFRESH_SPEED_HYPER`. The old action names are kept for compatibility.
+  The separate `EINK_FORCE_CLEAR` native bitmap-clear action is unsupported on
+  HiBreak; use the app's Clear Screen action instead.
 
 ## Always-On Display inversion
 
