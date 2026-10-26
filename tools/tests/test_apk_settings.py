@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import uuid
 import xml.etree.ElementTree as ET
 
 
@@ -69,6 +70,17 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertNotIn("toggle_night_light", [item.text for item in values])
         self.assertNotIn("toggle_backlight", [item.text for item in values])
 
+    def test_video_refresh_toggle_defaults_off_and_is_explicit(self):
+        layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()
+        toggle = next(node for node in layout.iter()
+                      if node.get("{http://schemas.android.com/apk/res/android}id")
+                      == "@+id/video_optimized_refresh")
+        self.assertEqual(toggle.get("{http://schemas.android.com/apk/res/android}text"),
+                         "Video refresh (experimental)")
+        refresh_source = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                          "CameraLiveRefresh.kt").read_text()
+        self.assertIn('"video_optimized_refresh", false', refresh_source)
+
 
 class PatchedApkSettingsTests(unittest.TestCase):
     @classmethod
@@ -84,6 +96,33 @@ class PatchedApkSettingsTests(unittest.TestCase):
         cls.decoded = cls.work / "app"
         cls.run_command("java", "-jar", cls.apktool, "d", base, "-o", cls.decoded)
         cls.run_command("python3", ROOT / "tools/patch-apk.py", cls.decoded)
+        probe = cls.decoded / "smali/hibreak/tests/DpadActionProbe.smali"
+        probe.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / "tools/tests/smali/DpadActionProbe.smali", probe)
+        public = ET.parse(cls.decoded / "res/values/public.xml").getroot()
+        popup_probe = (ROOT / "tools/tests/smali/PopupProbe.smali").read_text()
+        for token, kind, name in (
+                ("@THEME@", "style", "Theme.Ha9_comp_service"),
+                ("@LAYOUT@", "layout", "floating_menu_layout")):
+            resource_id = public.find(f"public[@type='{kind}'][@name='{name}']").get("id")
+            popup_probe = popup_probe.replace(token, resource_id)
+        probe.with_name("PopupProbe.smali").write_text(popup_probe)
+        shutil.copyfile(ROOT / "tools/tests/smali/RuntimeInstrumentation.smali",
+                        probe.with_name("RuntimeInstrumentation.smali"))
+        if os.environ.get("HIBREAK_ADB_TESTS") == "1":
+            android = "{http://schemas.android.com/apk/res/android}"
+            cls.test_package = f"hibreak.tests.regression.p{uuid.uuid4().hex}"
+            manifest = ET.Element("manifest", {"package": cls.test_package})
+            ET.SubElement(manifest, "application", {
+                android + "theme": "@style/Theme.Ha9_comp_service",
+                android + "testOnly": "true",
+            })
+            ET.SubElement(manifest, "instrumentation", {
+                android + "name": "hibreak.tests.RuntimeInstrumentation",
+                android + "targetPackage": cls.test_package,
+            })
+            ET.ElementTree(manifest).write(cls.decoded / "AndroidManifest.xml",
+                                           encoding="utf-8", xml_declaration=True)
 
     @staticmethod
     def run_command(*args):
@@ -105,6 +144,7 @@ class PatchedApkSettingsTests(unittest.TestCase):
                    "smali/com/lmqr/ha9_comp_service/A9AccessibilityService.smali").read_text()
         self.assertNotIn('const-string v9, "disable_show_per_app_aod_settings"', service)
         self.assertIn("getStaticAodLinearLayout()", service)
+        self.assertIn("cameraLiveRefresh:Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;", service)
 
     def test_dynamic_preferences_are_wired_and_assemble(self):
         smali = self.decoded / "smali/com/lmqr/ha9_comp_service"
@@ -147,6 +187,10 @@ class PatchedApkSettingsTests(unittest.TestCase):
             self.assertIn(f'"dpad_{direction}"', action_manager)
         self.assertNotIn("ToggleNightLightAction", action_manager)
         self.assertNotIn("ToggleBacklightAction", action_manager)
+        self.assertIn("move-object v12, p1", action_manager)
+        self.assertEqual(action_manager.count(
+            "invoke-direct {v0, v12, p2}, "
+            "Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>"), 4)
         self.assertFalse((self.decoded / "smali/SystemSettingsManager.smali").exists())
         self.assertFalse((smali / "button_mapper/ToggleNightLightAction.smali").exists())
         self.assertFalse((smali / "button_mapper/ToggleBacklightAction.smali").exists())
@@ -157,6 +201,58 @@ class PatchedApkSettingsTests(unittest.TestCase):
                               ("left", "21"), ("right", "22")):
             self.assertIn(f'command, "dpad_{command}"', daemon)
             self.assertIn(f'sendDpadKey("{code}")', daemon)
+        accessor = (smali / "FloatingMenuViewAccessor.smali").read_text()
+        self.assertIn("getVideoOptimizedRefresh()Landroid/widget/Switch;", accessor)
+        toggle_setup = (smali / "VideoRefreshSwitchSetup.smali").read_text()
+        self.assertIn('"video_optimized_refresh"', toggle_setup)
+        self.assertIn("const/4 v2, 0x0", toggle_setup)
+        self.assertIn("setOnCheckedChangeListener", toggle_setup)
+        listener = (smali / "VideoRefreshSwitchListener.smali").read_text()
+        self.assertIn("setVideoOptimizedRefresh(Z)V", listener)
+        camera_refresh = (smali / "CameraLiveRefresh.smali").read_text()
+        self.assertIn("setScreenOn(Z)V", camera_refresh)
+        self.assertIn("setVideoOptimized(Z)V", camera_refresh)
+        self.assertIn("->removeCallbacks", camera_refresh)
+        key_event = (smali / "A9AccessibilityService.smali").read_text()
+        self.assertIn(":forward_other_key", key_event)
+        self.assertIn("getScanCode()I", key_event)
+        self.assertIn(":check_top_button_key", key_event)
+        self.assertIn("VideoRefreshSwitchSetup;->setup", key_event)
+        service_method = key_event.split(
+            ".method public final setVideoOptimizedRefresh(Z)V", 1)[1]
+        self.assertIn('"video_optimized_refresh"', service_method)
+        self.assertIn("CameraLiveRefresh;->setVideoOptimized(Z)V", service_method)
+        screen_receiver = (smali / "A9AccessibilityService$receiver$1.smali").read_text()
+        self.assertIn("invoke-virtual {p1, p2}, "
+                      "Lcom/lmqr/ha9_comp_service/A9AccessibilityService;"
+                      "->setLiveRefreshScreenOn(Z)V", screen_receiver)
+        self.assertIn("invoke-virtual {p1, v4}, "
+                      "Lcom/lmqr/ha9_comp_service/A9AccessibilityService;"
+                      "->setLiveRefreshScreenOn(Z)V", screen_receiver)
+        self.assertNotIn("->cameraLiveRefresh:", screen_receiver)
+        layout = ET.parse(self.decoded / "res/layout/floating_menu_layout.xml").getroot()
+        toggle = next(node for node in layout.iter()
+                      if node.get("{http://schemas.android.com/apk/res/android}id")
+                      == "@id/video_optimized_refresh")
+        self.assertEqual(toggle.tag, "Switch")
+        self.assertEqual(toggle.get("{http://schemas.android.com/apk/res/android}text"),
+                         "Video refresh (experimental)")
         self.run_command("java", "-jar", self.apktool, "b", self.decoded,
                          "-o", self.work / "settings.apk")
         self.assertTrue((self.work / "settings.apk").is_file())
+        if os.environ.get("HIBREAK_ADB_TESTS") == "1":
+            signer = Path(os.environ.get("APK_SIGNER_JAR", ROOT / "local/uber-apk-signer.jar"))
+            self.run_command("java", "-jar", signer, "-a", self.work / "settings.apk",
+                             "-o", self.work / "signed")
+            try:
+                self.run_command("adb", "install", "-t",
+                                 self.work / "signed/settings-aligned-debugSigned.apk")
+                result = subprocess.run(
+                    ["adb", "shell", "am", "instrument", "-w",
+                     self.test_package + "/hibreak.tests.RuntimeInstrumentation"],
+                    capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("PASS: DPAD dispatch, popup inflation and switch setup, "
+                              "screen off/on receiver", result.stdout)
+            finally:
+                self.run_command("adb", "uninstall", self.test_package)

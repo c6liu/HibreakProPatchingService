@@ -79,7 +79,8 @@ tools/build-daemon.sh build/a9_eink_server
 ```
 
 The APK gains five modes, the in-layout toolbar, the AOD inversion switch,
-screen-on DPAD button actions, and per-app refresh selectors on a separate page
+screen-on DPAD button actions, an opt-in video-refresh popup toggle, and per-app
+refresh selectors on a separate page
 for installed launcher apps, with a confirmed reset-all action. Button
 settings appear top-first. Unsupported legacy static-lockscreen controls are
 removed/hidden, as are the LCD-only Night Light and Backlight button actions.
@@ -151,14 +152,33 @@ adb reboot fastboot
 tools/flash-system.sh build/HiBreakPro.img a --flash
 ```
 
+For a **first migration from official stock firmware** that requires a factory
+reset, preview the destructive action first:
+
+```bash
+tools/flash-system.sh build/HiBreakPro.img a --wipe-data
+```
+
+After checking the preview, add `--flash` to execute it:
+
+```bash
+tools/flash-system.sh build/HiBreakPro.img a --wipe-data --flash
+```
+
+The helper flashes the selected system slot first, then runs `fastboot -w`
+before rebooting. This erases shared userdata—including installed apps,
+settings, and personal files—and affects both slots. The option is never
+implicit; omit `--wipe-data` when updating the same GSI to preserve data.
+Back up anything important before using it. A failed system flash does not run
+the wipe; if the wipe itself fails, the helper stops without rebooting.
+
 > **Press Power right after the Bigme logo flashes** on every restart or
 > power-up, otherwise the phone can go back to powered-off. Not fixed.
 
 The flashing helper checks that the phone is in fastbootd on slot A, checks the ext4 image, flashes
-only `system_a`, and reboots only after a successful flash. It does not switch
-slots or wipe data. Do not run `fastboot -w` when updating the patched version
-of the same GSI. A first migration from stock/another ROM may need a separately
-planned factory reset; the two slots share userdata.
+only the requested system slot, and reboots only after a successful flash. It
+does not switch slots. The optional wipe sequence above is only for a planned
+fresh migration; the two slots share userdata.
 
 The helper limits sparse transfers to 64 MiB (`fastboot -S 64M`) instead of
 using the device's larger default. If flashing fails with `reap_urb` /
@@ -234,5 +254,14 @@ and format rejection, and flashing safeguards. Settings resource tests also
 check category order and dependencies. When the tested base APK and apktool
 are present in `local/` (or `APKTOOL_JAR` is set), APK tests decode, patch and
 assemble the settings UI; otherwise those APK tests are skipped.
+To additionally check all four DPAD action dispatches, popup inflation and
+video-switch setup, and screen-off/on receiver execution on a connected Android
+device, run `HIBREAK_ADB_TESTS=1 python3 -m unittest tools.tests.test_apk_settings`.
+This opt-in check needs the APK signer too. It installs a disposable,
+uniquely named instrumentation package using the patched classes and resources,
+with a mock command runner and preferences. It does not replace the A9 app,
+change its saved settings, inject keys, or change the screen or frontlight;
+the temporary package is uninstalled afterward. It checks popup initialization,
+not accessibility-overlay attachment or physical display behavior.
 Device scripts require Android
 and the existing phh policy; host tests cannot verify physical display behavior.

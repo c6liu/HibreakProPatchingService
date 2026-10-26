@@ -103,6 +103,27 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Nothing was executed", result.stdout)
         self.assertIn("fastboot -S 64M flash system_a", result.stdout)
+        self.assertNotIn("fastboot -w", result.stdout)
+
+    def test_flash_wipe_data_is_opt_in_and_visible_in_preview(self):
+        result = subprocess.run(
+            ["bash", ROOT / "tools/flash-system.sh", self.base, "a", "--wipe-data"],
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = result.stdout.splitlines()
+        flash_command = next(command for command in commands
+                             if command.startswith("fastboot -S 64M flash system_a "))
+        self.assertLess(commands.index(flash_command),
+                        commands.index("fastboot -w"))
+        self.assertLess(commands.index("fastboot -w"),
+                        commands.index("fastboot reboot"))
+        self.assertIn("erases shared userdata", result.stdout)
+        self.assertIn("Nothing was executed", result.stdout)
+        duplicate = subprocess.run(
+            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+             "--wipe-data", "--wipe-data"],
+            capture_output=True, text=True)
+        self.assertNotEqual(duplicate.returncode, 0)
 
     def test_flash_refuses_wrong_device_mode_or_slot(self):
         fake_bin = self.work / "bin"
@@ -138,26 +159,38 @@ case "$*" in
     "getvar is-userspace") echo "is-userspace: yes" >&2 ;;
     "getvar current-slot") echo "current-slot: a" >&2 ;;
     "-S 64M flash system_a "*) exit "$FAKE_FLASH_STATUS" ;;
+    "-w") exit "$FAKE_WIPE_STATUS" ;;
     "reboot") exit 0 ;;
     *) exit 99 ;;
 esac
 """)
         fastboot.chmod(0o755)
         command_log = self.work / "commands"
-        for status in (0, 1):
-            with self.subTest(flash_status=status):
+        for status, wipe_status, wipe_requested in (
+                (0, 0, False), (1, 0, False), (0, 0, True), (0, 1, True)):
+            with self.subTest(flash_status=status, wipe_status=wipe_status,
+                              wipe_requested=wipe_requested):
                 command_log.write_text("")
                 env = dict(os.environ, PATH=f"{fake_bin}:{os.environ['PATH']}",
-                           COMMAND_LOG=str(command_log), FAKE_FLASH_STATUS=str(status))
+                           COMMAND_LOG=str(command_log), FAKE_FLASH_STATUS=str(status),
+                           FAKE_WIPE_STATUS=str(wipe_status))
+                args = ["bash", ROOT / "tools/flash-system.sh", self.base, "a"]
+                if wipe_requested:
+                    args.append("--wipe-data")
+                args.append("--flash")
                 result = subprocess.run(
-                    ["bash", ROOT / "tools/flash-system.sh", self.base, "a", "--flash"],
+                    args,
                     capture_output=True, text=True, env=env)
-                self.assertEqual(result.returncode, status, result.stderr)
+                expected_status = status or (wipe_status if wipe_requested else 0)
+                self.assertEqual(result.returncode, expected_status, result.stderr)
                 commands = command_log.read_text().splitlines()
                 self.assertIn(f"-S 64M flash system_a {self.base}", commands)
-                self.assertEqual("reboot" in commands, status == 0)
+                self.assertEqual("-w" in commands, wipe_requested and status == 0)
+                self.assertEqual("reboot" in commands, expected_status == 0)
                 if status:
                     self.assertIn("Do not reboot", result.stderr)
+                if wipe_requested and wipe_status:
+                    self.assertIn("userdata wipe failed", result.stderr)
 
 
 class BootWakeTests(unittest.TestCase):

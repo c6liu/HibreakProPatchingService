@@ -34,6 +34,7 @@ def add_public(root, kind, name):
 
 public = ET.parse(B / "res/values/public.xml")
 button_id = add_public(public.getroot(), "id", "button5")
+video_refresh_id = add_public(public.getroot(), "id", "video_optimized_refresh")
 toolbar_id = add_public(public.getroot(), "id", "settings_toolbar")
 per_app_xml_id = add_public(public.getroot(), "xml", "per_app_preferences")
 refresh_array_ids = {
@@ -115,6 +116,15 @@ def menu(root):
                             ("light_warm_seekbar_container", "baseline_moon_24")):
         image = root.find(f".//*[@{A}id='@id/{container}']/ImageView")
         image.set(A + "src", f"@drawable/{icon}")
+    anti_shake = root.find(f".//*[@{A}id='@id/anti_shake']")
+    assert anti_shake is not None
+    row = next(node for node in root.iter() if anti_shake in list(node))
+    controls = next(node for node in root.iter() if row in list(node))
+    source = ET.parse(REPO / "res/layout/floating_menu_layout.xml").getroot()
+    toggle = source.find(f".//*[@{A}id='@+id/video_optimized_refresh']")
+    assert toggle is not None
+    toggle.set(A + "id", "@id/video_optimized_refresh")
+    controls.insert(list(controls).index(row) + 1, toggle)
 
 
 xml(B / "res/layout/floating_menu_layout.xml", menu)
@@ -427,8 +437,34 @@ text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerApp
 fragment.write_text(text)
 print("Patched settings order, unsupported controls, and per-app refresh selectors.")
 
+accessor = S / "FloatingMenuViewAccessor.smali"
+replace(accessor, ".field private final autoRefresh:Landroid/widget/Switch;",
+        ".field private final autoRefresh:Landroid/widget/Switch;\n\n"
+        ".field private final videoOptimizedRefresh:Landroid/widget/Switch;")
+replace(accessor, '''    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->antiShake:Landroid/widget/Switch;
+''', f'''    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->antiShake:Landroid/widget/Switch;
+
+    const v0, {hex(video_refresh_id)}
+    invoke-virtual {{p1, v0}}, Landroid/view/View;->findViewById(I)Landroid/view/View;
+    move-result-object v0
+    check-cast v0, Landroid/widget/Switch;
+    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->videoOptimizedRefresh:Landroid/widget/Switch;
+''')
+with accessor.open("a") as output:
+    output.write("""
+.method public final getVideoOptimizedRefresh()Landroid/widget/Switch;
+    .locals 0
+    iget-object p0, p0, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->videoOptimizedRefresh:Landroid/widget/Switch;
+    return-object p0
+.end method
+""")
+
 action_manager = S / "button_mapper/ButtonActionManager.smali"
 replace(action_manager, "    .locals 11", "    .locals 13")
+# The upstream constructor reuses p1 for action objects after creating Clear Screen.
+replace(action_manager, '''    const-string v0, "commandRunner"''', '''    move-object v12, p1
+
+    const-string v0, "commandRunner"''')
 replace(action_manager, '''    .line 17
     new-instance p1, Lcom/lmqr/ha9_comp_service/button_mapper/ToggleNightLightAction;
 
@@ -467,7 +503,7 @@ replace(action_manager, '''    .line 17
 
     const-string p2, "dpad_up"
 
-    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-direct {v0, v12, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
 
     invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
 
@@ -475,19 +511,19 @@ replace(action_manager, '''    .line 17
 
     new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
     const-string p2, "dpad_down"
-    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-direct {v0, v12, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
     invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
     move-result-object v9
 
     new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
     const-string p2, "dpad_left"
-    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-direct {v0, v12, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
     invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
     move-result-object v10
 
     new-instance v0, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;
     const-string p2, "dpad_right"
-    invoke-direct {v0, p1, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
+    invoke-direct {v0, v12, p2}, Lcom/lmqr/ha9_comp_service/button_mapper/DpadButtonAction;-><init>(Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;Ljava/lang/String;)V
     invoke-static {p2, v0}, Lkotlin/TuplesKt;->to(Ljava/lang/Object;Ljava/lang/Object;)Lkotlin/Pair;
     move-result-object v11
 
@@ -505,3 +541,63 @@ for obsolete in (
         S / "button_mapper/ToggleNightLightAction.smali",
         S / "button_mapper/ToggleBacklightAction.smali"):
     obsolete.unlink()
+
+service = S / "A9AccessibilityService.smali"
+replace(service, '''    invoke-virtual {v6, v9, v10}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->setupSwitches(Landroid/widget/CompoundButton;Landroid/widget/CompoundButton;)V''', '''    invoke-virtual {v6, v9, v10}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->setupSwitches(Landroid/widget/CompoundButton;Landroid/widget/CompoundButton;)V
+    invoke-virtual {v8}, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->getVideoOptimizedRefresh()Landroid/widget/Switch;
+    move-result-object v9
+    invoke-static {p0, v9}, Lcom/lmqr/ha9_comp_service/VideoRefreshSwitchSetup;->setup(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Landroid/widget/Switch;)V''')
+replace(service, '''    invoke-super {p0, p1}, Landroid/accessibilityservice/AccessibilityService;->onKeyEvent(Landroid/view/KeyEvent;)Z''', '''    invoke-virtual {p1}, Landroid/view/KeyEvent;->getScanCode()I
+    move-result v0
+    const/16 v1, 0x3b
+    if-ne v0, v1, :check_top_button_key
+    const/4 p0, 0x1
+    return p0
+    :check_top_button_key
+    const/16 v1, 0x3c
+    if-ne v0, v1, :forward_other_key
+    const/4 p0, 0x1
+    return p0
+    :forward_other_key
+    invoke-super {p0, p1}, Landroid/accessibilityservice/AccessibilityService;->onKeyEvent(Landroid/view/KeyEvent;)Z''')
+with service.open("a") as output:
+    output.write("""
+.method public final setVideoOptimizedRefresh(Z)V
+    .locals 3
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->sharedPreferences:Landroid/content/SharedPreferences;
+    const-string v1, "sharedPreferences"
+    if-nez v0, :prefs_ready
+    invoke-static {v1}, Lkotlin/jvm/internal/Intrinsics;->throwUninitializedPropertyAccessException(Ljava/lang/String;)V
+    const/4 v0, 0x0
+    :prefs_ready
+    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
+    move-result-object v1
+    const-string v2, "video_optimized_refresh"
+    invoke-interface {v1, v2, p1}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
+    invoke-interface {v1}, Landroid/content/SharedPreferences$Editor;->apply()V
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->cameraLiveRefresh:Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;
+    if-eqz v0, :video_refresh_done
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->setVideoOptimized(Z)V
+    :video_refresh_done
+    return-void
+.end method
+
+.method public final setLiveRefreshScreenOn(Z)V
+    .locals 1
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->cameraLiveRefresh:Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;
+    if-eqz v0, :screen_refresh_done
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->setScreenOn(Z)V
+    :screen_refresh_done
+    return-void
+.end method
+""")
+
+receiver = S / "A9AccessibilityService$receiver$1.smali"
+replace(receiver, '''    invoke-static {p1, p2}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V''', '''    invoke-static {p1, p2}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V
+    invoke-virtual {p1, p2}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->setLiveRefreshScreenOn(Z)V''')
+replace(receiver, '''    invoke-static {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V''', '''    invoke-static {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V
+    invoke-virtual {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->setLiveRefreshScreenOn(Z)V''')
+
+for name in ("CameraLiveRefresh", "VideoRefreshSwitchSetup", "VideoRefreshSwitchListener"):
+    (S / f"{name}.smali").write_text(
+        (Path(__file__).resolve().parent / f"smali/{name}.smali").read_text())

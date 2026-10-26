@@ -191,6 +191,13 @@
 
         </LinearLayout>
 
+        <Switch
+            android:id="@+id/video_optimized_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Video refresh (experimental)"
+            android:thumbTint="@color/black" />
+
     </LinearLayout>
 
 </LinearLayout>

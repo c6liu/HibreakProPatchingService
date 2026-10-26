@@ -24,6 +24,7 @@ class FloatingMenuViewAccessor(val root: View) {
     
     val autoRefresh: Switch = root.findViewById(R.id.auto_refresh)
     val antiShake: Switch = root.findViewById(R.id.anti_shake)
+    val videoOptimizedRefresh: Switch = root.findViewById(R.id.video_optimized_refresh)
     
     val settingsIcon: View = root.findViewById(R.id.settings_icon)
     val lightSeekbar: SeekBar = root.findViewById(R.id.light_seekbar)

@@ -46,6 +46,7 @@ class A9AccessibilityService : AccessibilityService(),
     private lateinit var buttonActionManager: ButtonActionManager
     private lateinit var brightnessManager: BrightnessManager
     private lateinit var displaySettingsManager: DisplaySettingsManager
+    private var cameraLiveRefresh: CameraLiveRefresh? = null
 
     private var isScreenOn = true
 
@@ -54,6 +55,7 @@ class A9AccessibilityService : AccessibilityService(),
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenOn = false
+                    cameraLiveRefresh?.setScreenOn(false)
                     menuBinding.close()
                     if (sharedPreferences.getBoolean("refresh_on_lock", false))
                         handler.postDelayed({
@@ -63,6 +65,7 @@ class A9AccessibilityService : AccessibilityService(),
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenOn = true
+                    cameraLiveRefresh?.setScreenOn(true)
                     if (sharedPreferences.getBoolean("refresh_on_lock", false))
                         refreshModeManager.applyMode()
                     brightnessManager.applyBrightness()
@@ -193,12 +196,14 @@ class A9AccessibilityService : AccessibilityService(),
                     requestOverlayPermission()
             else
                 hardwareGestureDetector.onKeyEvent(event.action, event.eventTime)
+            return true
         }
         if(event.scanCode == 60){
             if (!Settings.canDrawOverlays(baseContext))
                     requestOverlayPermission()
             else
                 hardwareGestureDetectorTop.onKeyEvent(event.action, event.eventTime)
+            return true
         }
 
         return super.onKeyEvent(event)
@@ -301,6 +306,14 @@ class A9AccessibilityService : AccessibilityService(),
                     }
 
                     displaySettingsManager.setupSwitches(autoRefresh, antiShake)
+                    videoOptimizedRefresh.isChecked =
+                        sharedPreferences.getBoolean("video_optimized_refresh", false)
+                    videoOptimizedRefresh.setOnCheckedChangeListener { _, enabled ->
+                        sharedPreferences.edit()
+                            .putBoolean("video_optimized_refresh", enabled)
+                            .apply()
+                        cameraLiveRefresh?.setVideoOptimized(enabled)
+                    }
 
 
                     settingsIcon.setOnClickListener {
@@ -326,6 +339,8 @@ class A9AccessibilityService : AccessibilityService(),
     }
 
     override fun onDestroy() {
+        cameraLiveRefresh?.stop()
+        cameraLiveRefresh = null
         commandRunner.onDestroy()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
         unregisterReceiver(receiver)
@@ -336,6 +351,11 @@ class A9AccessibilityService : AccessibilityService(),
         super.onServiceConnected()
         Log.d("A9Service", "Service connected - applying all settings")
         updateAodInvert(sharedPreferences)
+        cameraLiveRefresh?.stop()
+        cameraLiveRefresh = CameraLiveRefresh(this).also {
+            it.setScreenOn(isScreenOn)
+            it.start()
+        }
         
         handler.postDelayed({
             refreshModeManager.applyMode()

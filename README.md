@@ -35,13 +35,14 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 | [build-apk.sh](tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-daemon.sh](tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [patch-gsi.sh](tools/patch-gsi.sh) | Install display/ADB/AOD scripts, APK, daemon, and permissions into an ext4 GSI |
-| [flash-system.sh](tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot |
+| [flash-system.sh](tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
 | [collect-diagnostics.sh](tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
 
-No tool downloads dependencies, wipes data, patches vendor, or flashes
-automatically. Large inputs, generated images, logs, and local tools belong
-in git-ignored `local/` and `build/`. AOSP build modules remain available
-as an alternative to the prebuilt-APK route.
+No tool downloads dependencies, patches vendor, or flashes automatically.
+Data is preserved unless `flash-system.sh` is run with both `--wipe-data` and
+`--flash`; that option erases shared userdata. Large inputs, generated images,
+logs, and local tools belong in git-ignored `local/` and `build/`. AOSP build
+modules remain available as an alternative to the prebuilt-APK route.
 
 ## Default button mappings
 
@@ -80,6 +81,11 @@ on edge-to-edge Android versions.
   be assigned to screen-on single, double or long presses; screen-off actions
   remain restricted to media, Clear Screen and Nothing. Whether a DPAD key
   scrolls or changes focus depends on the foreground app.
+- The popup's **Video refresh (experimental)** switch is off by default. Turn
+  it on only while playing video to keep a tiny overlay changing every 50 ms,
+  prompting the e-ink compositor to commit frames. It pauses when the screen is
+  off and when switched off. Continuous refresh may increase battery use and
+  ghosting; effectiveness depends on the player and display path.
 - **Toggle Night Light** and **Toggle Backlight** have been removed from the
   button actions. They changed Android LCD color-temperature / screen-brightness
   settings, not the HiBreak e-ink display or its cold/warm frontlight.
