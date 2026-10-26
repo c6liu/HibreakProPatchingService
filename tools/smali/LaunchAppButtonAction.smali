@@ -21,7 +21,7 @@
 .end method
 
 .method public execute(Landroid/content/Context;)V
-    .locals 5
+    .locals 7
     invoke-static {p1}, Landroidx/preference/PreferenceManager;->getDefaultSharedPreferences(Landroid/content/Context;)Landroid/content/SharedPreferences;
     move-result-object v0
     iget-object v1, p0, Lcom/lmqr/ha9_comp_service/button_mapper/LaunchAppButtonAction;->packagePreferenceKey:Ljava/lang/String;
@@ -46,6 +46,20 @@
     const v0, 0x10200000
     invoke-virtual {v2, v0}, Landroid/content/Intent;->addFlags(I)Landroid/content/Intent;
     :try_start
+    const-string v0, "power"
+    invoke-virtual {p1, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/os/PowerManager;
+    invoke-virtual {v0}, Landroid/os/PowerManager;->isInteractive()Z
+    move-result v3
+    if-nez v3, :start_activity
+    const v3, 0x1000000a
+    const-string v4, "A9:LaunchApp"
+    invoke-virtual {v0, v3, v4}, Landroid/os/PowerManager;->newWakeLock(ILjava/lang/String;)Landroid/os/PowerManager$WakeLock;
+    move-result-object v0
+    const-wide/16 v5, 0xbb8
+    invoke-virtual {v0, v5, v6}, Landroid/os/PowerManager$WakeLock;->acquire(J)V
+    :start_activity
     invoke-virtual {p1, v2}, Landroid/content/Context;->startActivity(Landroid/content/Intent;)V
     :try_end
     return-void

@@ -37,6 +37,7 @@ button_id = add_public(public.getroot(), "id", "button5")
 video_refresh_id = add_public(public.getroot(), "id", "video_optimized_refresh")
 toolbar_id = add_public(public.getroot(), "id", "settings_toolbar")
 per_app_xml_id = add_public(public.getroot(), "xml", "per_app_preferences")
+app_launch_layout_id = add_public(public.getroot(), "layout", "preference_app_launch")
 refresh_array_ids = {
     name: public.getroot().find(f"public[@type='array'][@name='{name}']").get("id")
     for name in ("refresh_options", "refresh_values")
@@ -49,6 +50,9 @@ public.write(B / "res/values/public.xml", encoding="utf-8", xml_declaration=True
 manifest_path = B / "AndroidManifest.xml"
 manifest_tree = ET.parse(manifest_path)
 manifest_root = manifest_tree.getroot()
+for permission_name in ("android.permission.WAKE_LOCK", "android.permission.TURN_SCREEN_ON"):
+    if manifest_root.find(f"uses-permission[@{A}name='{permission_name}']") is None:
+        manifest_root.insert(0, ET.Element("uses-permission", {A + "name": permission_name}))
 queries = manifest_root.find("queries")
 if queries is None:
     queries = ET.Element("queries")
@@ -421,6 +425,29 @@ replace(manager, 'const-string v1, "3"', 'const-string v1, "2"')
 
 # R8 removed unused setters in the tested APK. Restore only the APIs used by the new UI.
 preference = B / "smali/androidx/preference/Preference.smali"
+replace(preference, '.super Ljava/lang/Object;',
+        '.super Ljava/lang/Object;\n\n'
+        '.field private mOnChangeListener:Landroidx/preference/Preference$OnPreferenceChangeListener;')
+replace(preference, """.method public callChangeListener(Ljava/lang/Object;)Z
+    .locals 0
+
+    .line 0
+    const/4 p0, 0x1
+
+    return p0
+.end method""", """.method public callChangeListener(Ljava/lang/Object;)Z
+    .locals 1
+    iget-object v0, p0, Landroidx/preference/Preference;->mOnChangeListener:Landroidx/preference/Preference$OnPreferenceChangeListener;
+    if-eqz v0, :accept
+    invoke-interface {v0, p0, p1}, Landroidx/preference/Preference$OnPreferenceChangeListener;->onPreferenceChange(Landroidx/preference/Preference;Ljava/lang/Object;)Z
+    move-result v0
+    return v0
+    :accept
+    const/4 v0, 0x1
+    return v0
+.end method""")
+(preference.parent / "Preference$OnPreferenceChangeListener.smali").write_text(
+    (Path(__file__).resolve().parent / "smali/PreferenceChangeListener.smali").read_text())
 with preference.open("a") as output:
     for name, field, kind in (("setKey", "mKey", "Ljava/lang/String;"),
                               ("setDefaultValue", "mDefaultValue", "Ljava/lang/Object;")):
@@ -460,7 +487,12 @@ text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerApp
 """ + text[end:]
 fragment.write_text(text)
 (S / "AppLaunchSettings.smali").write_text(
-    (Path(__file__).resolve().parent / "smali/AppLaunchSettings.smali").read_text())
+    (Path(__file__).resolve().parent / "smali/AppLaunchSettings.smali").read_text()
+    .replace("@APP_LAUNCH_LAYOUT@", hex(app_launch_layout_id)))
+(B / "res/layout/preference_app_launch.xml").write_text(
+    (REPO / "res/layout/preference_app_launch.xml").read_text())
+(S / "AppLaunchPreferenceBinding.smali").write_text(
+    (Path(__file__).resolve().parent / "smali/AppLaunchPreferenceBinding.smali").read_text())
 launch_action = (Path(__file__).resolve().parent / "smali/LaunchAppButtonAction.smali")
 (S / "button_mapper/LaunchAppButtonAction.smali").write_text(launch_action.read_text())
 launch_action_map = (Path(__file__).resolve().parent / "smali/AppLaunchActionMap.smali")
@@ -478,6 +510,22 @@ with dialog_preference.open("a") as output:
 preference = B / "smali/androidx/preference/Preference.smali"
 with preference.open("a") as output:
     output.write("""
+.method public setOnPreferenceChangeListener(Landroidx/preference/Preference$OnPreferenceChangeListener;)V
+    .locals 0
+    iput-object p1, p0, Landroidx/preference/Preference;->mOnChangeListener:Landroidx/preference/Preference$OnPreferenceChangeListener;
+    return-void
+.end method
+
+.method public final setVisible(Z)V
+    .locals 1
+    iget-boolean v0, p0, Landroidx/preference/Preference;->mVisible:Z
+    if-eq v0, p1, :visible_done
+    iput-boolean p1, p0, Landroidx/preference/Preference;->mVisible:Z
+    invoke-virtual {p0}, Landroidx/preference/Preference;->notifyHierarchyChanged()V
+    :visible_done
+    return-void
+.end method
+
 .method public setEnabled(Z)V
     .locals 1
     iget-boolean v0, p0, Landroidx/preference/Preference;->mEnabled:Z

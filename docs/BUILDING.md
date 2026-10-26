@@ -126,7 +126,7 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
 
 ## 3. Patch the GSI (offline)
 
-For first-boot debugging with a black screen, embed **your own ADB public key**:
+For personal debugging builds, you can embed **your own ADB public key**:
 
 ```bash
 adb start-server
@@ -139,7 +139,9 @@ tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
 Never supply `adbkey` (the private key), only `adbkey.pub`. The key is validated
 and installed as `/adb_keys`, labelled `adb_keys_file`. That host is authorized
 for the image, so **do not distribute a personal-key image to other users**.
-ADB authentication remains enabled. Omitting the last argument preserves the
+Embedding a key does not enable USB debugging. Enable it in Developer options
+on the phone; fresh installs default to ADB off. ADB authentication remains
+enabled. Omitting the last argument preserves the
 GSI's existing key setup; authorize the computer on-screen when prompted.
 
 For a public-release candidate, use `--release` and do not pass an ADB key:
@@ -150,29 +152,36 @@ tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
   --release
 ```
 
-Release mode changes `persist.sys.usb.config` from `adb` to `mtp`, enforces MTP
-USB configuration at early boot and boot, omits the helper that enables USB
-debugging, and removes the project's `debug.hibreak.*` diagnostic property
-hooks. It does not inject a host ADB key. The base image's ADB-key path is
+All builds set the image's default `persist.sys.usb.config` to `mtp`, without
+forcing USB configuration at boot or changing Android's saved USB debugging
+setting. On an update without a data wipe, ADB stays enabled or disabled as
+previously selected, and existing computer authorizations remain in userdata.
+Fresh installs default to ADB off; enable USB debugging in Developer options
+when needed. A factory reset erases saved settings and authorizations.
+The old helper that forced USB debugging on is removed, including when updating
+an already-patched image.
+
+Release mode additionally removes the project's `debug.hibreak.*` diagnostic
+property hooks. It does not inject a host ADB key. The base image's ADB-key path is
 otherwise preserved; Android's `ro.secure=1` and `ro.debuggable=0` settings
 remain unchanged. Display-related SurfaceFlinger properties and the internal
 `debug.tracing.screen_state` AOD triggers are retained because the device
 display/AOD setup uses them; release mode does not strip those required
 behavioral settings.
 
-`--release` only strips the project's USB-debugging and diagnostic hooks; it
+`--release` only strips the project's diagnostic hooks; it
 does **not** sign the whole ROM image, establish verified boot/OTA trust, or
 resolve upstream ROM redistribution requirements.
 
 The patcher:
 
 1. Copies the input, expands ext4, and unshares ext4 `shared_blocks`.
-2. Adds root/phhsu display, USB-debugging and AOD services.
+2. Adds root/phhsu display and AOD services, preserving saved USB debugging state.
 3. Installs the APK, daemon and privileged-permission allowlist.
 4. Sets and checks file modes, ownership, SELinux labels and round-trip bytes.
 5. Minimizes the filesystem, checks it with `e2fsck`, and prints SHA-256.
-6. In `--release` mode, verifies the patch input properties and omits the
-   project's USB-debugging and diagnostic-trigger files/hooks.
+6. Verifies that no project boot hook overrides the saved ADB state; in
+   `--release` mode, also omits the project's diagnostic-trigger hooks.
 
 It can replace this workflow's files in an already-patched image, but a clean
 original GSI is preferred. It refuses a conflicting AOSP daemon init file.

@@ -100,9 +100,10 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertIn("getLaunchIntentForPackage", action)
         self.assertIn("FLAG_ACTIVITY_NEW_TASK", action)
         self.assertIn("ActivityNotFoundException", action)
-        self.assertIn("Top button, single press", settings)
-        self.assertIn("Bottom button, single press", settings)
-        self.assertIn("single press (screen off)", settings)
+        self.assertIn("actionPreference.parent", settings)
+        self.assertIn("actionPreference.order + 1", settings)
+        self.assertIn("appPreference.isVisible = newValue == launchActionValue", settings)
+        self.assertIn("ListPreference.SimpleSummaryProvider.getInstance()", settings)
 
     def test_video_refresh_toggle_defaults_off_and_is_explicit(self):
         layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()
@@ -114,6 +115,16 @@ class SettingsResourceTests(unittest.TestCase):
         refresh_source = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
                           "CameraLiveRefresh.kt").read_text()
         self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
+
+    def test_app_picker_layout_has_visual_hierarchy(self):
+        layout = ET.parse(
+            ROOT / "a9_accessibility_service/res/layout/preference_app_launch.xml"
+        ).getroot()
+        self.assertEqual(layout.get(ANDROID + "paddingStart"), "40dp")
+        self.assertEqual(layout.get(ANDROID + "minHeight"), "48dp")
+        title = layout.find(f".//*[@{ANDROID}id='@android:id/title']")
+        self.assertEqual(title.get(ANDROID + "textSize"), "14sp")
+        self.assertEqual(title.get(ANDROID + "textColor"), "?android:attr/textColorSecondary")
 
 
 class PatchedApkSettingsTests(unittest.TestCase):
@@ -147,10 +158,16 @@ class PatchedApkSettingsTests(unittest.TestCase):
                         probe.with_name("PerAppControlsProbe.smali"))
         shutil.copyfile(ROOT / "tools/tests/smali/SettingsActivityProbe.smali",
                         probe.with_name("SettingsActivityProbe.smali"))
+        shutil.copyfile(ROOT / "tools/tests/smali/ScreenOffLaunchProbe.smali",
+                        probe.with_name("ScreenOffLaunchProbe.smali"))
         if os.environ.get("HIBREAK_ADB_TESTS") == "1":
             android = "{http://schemas.android.com/apk/res/android}"
             cls.test_package = f"hibreak.tests.regression.p{uuid.uuid4().hex}"
             manifest = ET.Element("manifest", {"package": cls.test_package})
+            for permission in ("WAKE_LOCK", "TURN_SCREEN_ON"):
+                ET.SubElement(manifest, "uses-permission", {
+                    android + "name": "android.permission." + permission,
+                })
             queries = ET.parse(cls.decoded / "AndroidManifest.xml").getroot().find("queries")
             if queries is not None:
                 manifest.append(queries)
@@ -158,10 +175,13 @@ class PatchedApkSettingsTests(unittest.TestCase):
                 android + "theme": "@style/Theme.Ha9_comp_service",
                 android + "testOnly": "true",
             })
-            ET.SubElement(application, "activity", {
+            activity = ET.SubElement(application, "activity", {
                 android + "name": "hibreak.tests.SettingsActivityProbe",
-                android + "exported": "false",
+                android + "exported": "true",
             })
+            launcher = ET.SubElement(activity, "intent-filter")
+            ET.SubElement(launcher, "action", {android + "name": "android.intent.action.MAIN"})
+            ET.SubElement(launcher, "category", {android + "name": "android.intent.category.LAUNCHER"})
             ET.SubElement(manifest, "instrumentation", {
                 android + "name": "hibreak.tests.RuntimeInstrumentation",
                 android + "targetPackage": cls.test_package,
@@ -256,9 +276,9 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn("setOnCheckedChangeListener", controls)
         launch_settings = (smali / "AppLaunchSettings.smali").read_text()
         self.assertIn("queryIntentActivities", launch_settings)
-        self.assertIn('"Apps to launch with side keys"', launch_settings)
+        self.assertNotIn('"Apps to launch with side keys"', launch_settings)
         self.assertIn('"Launch App"', launch_settings)
-        for preference_class in ("PreferenceCategory", "ListPreference"):
+        for preference_class in ("ListPreference",):
             self.assertNotIn(
                 f"Landroidx/preference/{preference_class};-><init>(Landroid/content/Context;)V",
                 launch_settings,
@@ -275,11 +295,31 @@ class PatchedApkSettingsTests(unittest.TestCase):
                 self.decoded / f"smali/androidx/preference/{preference_class}.smali"
             ).read_text()
             self.assertIn(f".method public {method}", preference_source)
+        preference_source = (
+            self.decoded / "smali/androidx/preference/Preference.smali"
+        ).read_text()
+        self.assertIn(".method public final setVisible(Z)V", preference_source)
+        self.assertIn(
+            "->onPreferenceChange(Landroidx/preference/Preference;Ljava/lang/Object;)Z",
+            preference_source,
+        )
+        binding = (smali / "AppLaunchPreferenceBinding.smali").read_text()
+        self.assertIn("->setVisible(Z)V", binding)
+        self.assertIn('"Choose an app to launch"', binding)
+        self.assertIn("->getParent()", launch_settings)
+        self.assertIn("->setOrder(I)V", launch_settings)
         launch_action = (smali / "button_mapper/LaunchAppButtonAction.smali").read_text()
         self.assertIn("->getLaunchIntentForPackage", launch_action)
         self.assertIn("->startActivity", launch_action)
         self.assertIn(":activity_not_found", launch_action)
         self.assertIn(":security_exception", launch_action)
+        self.assertIn("PowerManager;->isInteractive()", launch_action)
+        self.assertIn("PowerManager$WakeLock;->acquire(J)V", launch_action)
+        self.assertEqual(
+            (self.decoded / "res/layout/preference_app_launch.xml").read_text(),
+            (ROOT / "a9_accessibility_service/res/layout/preference_app_launch.xml").read_text(),
+        )
+        self.assertNotIn("@APP_LAUNCH_LAYOUT@", launch_settings)
         action_manager = (smali / "button_mapper/ButtonActionManager.smali").read_text()
         action_map = (smali / "button_mapper/AppLaunchActionMap.smali").read_text()
         self.assertIn("AppLaunchActionMap;->addToMap", action_manager)
@@ -355,6 +395,18 @@ class PatchedApkSettingsTests(unittest.TestCase):
                 self.assertIn("PASS: DPAD dispatch, popup inflation and switch setup, "
                               "screen off/on receiver, settings startup and 12 app-launch pickers",
                               result.stdout)
+                self.run_command("adb", "shell", "appops", "set", self.test_package,
+                                 "TURN_SCREEN_ON", "allow")
+                try:
+                    self.run_command("adb", "shell", "input", "keyevent", "223")
+                    result = subprocess.run(
+                        ["adb", "shell", "am", "instrument", "-w", "-e", "wake_test", "1",
+                         self.test_package + "/hibreak.tests.RuntimeInstrumentation"],
+                        capture_output=True, text=True, timeout=30)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("PASS: screen-off app launch wakes display", result.stdout)
+                finally:
+                    self.run_command("adb", "shell", "input", "keyevent", "224")
             finally:
                 if installed:
                     self.run_command("adb", "uninstall", self.test_package)

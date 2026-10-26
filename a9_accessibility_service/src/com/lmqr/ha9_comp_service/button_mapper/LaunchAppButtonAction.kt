@@ -3,6 +3,7 @@ package com.lmqr.ha9_comp_service.button_mapper
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.util.Log
 import android.widget.Toast
 import androidx.preference.PreferenceManager
@@ -27,6 +28,16 @@ class LaunchAppButtonAction(private val packagePreferenceKey: String) : ButtonAc
 
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         try {
+            val powerManager = context.getSystemService(PowerManager::class.java)
+            if (!powerManager.isInteractive) {
+                // Arbitrary target apps do not opt into Activity.setTurnScreenOn().
+                @Suppress("DEPRECATION")
+                val wakeLock = powerManager.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "A9:LaunchApp",
+                )
+                wakeLock.acquire(3000)
+            }
             context.startActivity(launchIntent)
         } catch (e: ActivityNotFoundException) {
             Log.e(TAG, "Unable to launch $packageName", e)

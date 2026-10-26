@@ -5,7 +5,7 @@ This guide installs a patched Evolution X 11.11 (Android 16) GSI on the
 It has been tested on one device. It is not for the HiBreak Pro Color or
 other firmware. For details and evidence see [Findings](docs/FINDINGS.md).
 
-The image already includes the display fixes, ADB from first boot, the E-Ink
+The image already includes the display fixes, the E-Ink
 app and daemon, and the AOD fix. You do **not** need root, Magisk, Phh Treble
 settings, a screen-mirroring app or manual SurfaceFlinger commands.
 
@@ -111,12 +111,19 @@ fastboot reboot
 4. Optional, in E-Ink Settings:
    - Set separate single/double/long-press actions for the top and bottom
      buttons, including screen-off actions. Choose **Launch App** for a gesture,
-     then select its target under **Apps to launch with side keys**. Targets are
-     independent per gesture. A screen-off launch does not bypass the lock screen.
+     then select its target in **App to launch** directly below that action.
+     The app picker is visible only for Launch App; switching actions preserves
+     its saved target. The picker is indented with a smaller label. Each action
+     displays its current assignment, and Nothing is the final action choice.
+     Targets are independent per gesture. A screen-off launch wakes the display
+     but does not bypass the lock screen; unlock normally to access the app.
    - Turn **Invert colours on Always-On Display** on or off.
    - **Disable Per-App Refresh Mode** to use one mode everywhere.
 
-ADB works from the first boot. Accept the authorization prompt on the phone.
+USB debugging defaults off on a fresh install. Enable it in Developer options
+when needed and accept the computer authorization prompt on the phone.
+Image updates without a data wipe preserve the saved USB debugging choice
+and computer authorizations.
 
 ## Updating to a newer build
 

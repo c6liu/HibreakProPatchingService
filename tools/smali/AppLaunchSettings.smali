@@ -7,8 +7,12 @@
     add-int/lit8 v1, v0, 0x1
     new-array v1, v1, [Ljava/lang/CharSequence;
     const/4 v2, 0x0
+    add-int/lit8 v0, v0, -0x1
     invoke-static {p1, v2, v1, v2, v0}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
     aput-object p0, v1, v0
+    aget-object v3, p1, v0
+    add-int/lit8 v0, v0, 0x1
+    aput-object v3, v1, v0
     return-object v1
 .end method
 
@@ -80,44 +84,6 @@
     .end packed-switch
 .end method
 
-.method private static actionLabel(Ljava/lang/String;)Ljava/lang/String;
-    .locals 4
-    const-string v0, "Bottom button, "
-    const-string v1, "top_"
-    invoke-virtual {p0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :button_label_ready
-    const-string v0, "Top button, "
-    :button_label_ready
-    const-string v1, "single_press"
-    invoke-virtual {p0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-nez v1, :single_press
-    const-string v1, "double_press"
-    invoke-virtual {p0, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
-    move-result v1
-    if-nez v1, :double_press
-    const-string v1, "long press"
-    goto :join_label
-    :single_press
-    const-string v1, "single press"
-    goto :join_label
-    :double_press
-    const-string v1, "double press"
-    :join_label
-    invoke-virtual {v0, v1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
-    const-string v1, "_screen_off"
-    invoke-virtual {p0, v1}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
-    move-result v1
-    if-eqz v1, :label_done
-    const-string v1, " (screen off)"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
-    :label_done
-    return-object v0
-.end method
-
 .method private static launcherApps(Landroid/content/Context;)[[Ljava/lang/CharSequence;
     .locals 12
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
@@ -180,11 +146,17 @@
     return-object v0
 .end method
 
-.method private static addTarget(Landroidx/preference/PreferenceFragmentCompat;Landroidx/preference/PreferenceCategory;[Ljava/lang/CharSequence;[Ljava/lang/CharSequence;Ljava/lang/String;)V
+.method private static addTarget(Landroidx/preference/PreferenceFragmentCompat;I[Ljava/lang/CharSequence;[Ljava/lang/CharSequence;Ljava/lang/String;)V
     .locals 10
     invoke-virtual {p0, p4}, Landroidx/preference/PreferenceFragmentCompat;->findPreference(Ljava/lang/CharSequence;)Landroidx/preference/Preference;
     move-result-object v0
     check-cast v0, Landroidx/preference/ListPreference;
+    rem-int/lit8 v1, p1, 0x6
+    mul-int/lit8 v1, v1, 0x2
+    invoke-virtual {v0, v1}, Landroidx/preference/Preference;->setOrder(I)V
+    invoke-static {}, Landroidx/preference/ListPreference$SimpleSummaryProvider;->getInstance()Landroidx/preference/ListPreference$SimpleSummaryProvider;
+    move-result-object v1
+    invoke-virtual {v0, v1}, Landroidx/preference/Preference;->setSummaryProvider(Landroidx/preference/Preference$SummaryProvider;)V
     invoke-virtual {v0}, Landroidx/preference/ListPreference;->getEntries()[Ljava/lang/CharSequence;
     move-result-object v1
     const-string v2, "Launch App"
@@ -200,19 +172,21 @@
     move-result-object v1
     invoke-virtual {v0, v1}, Landroidx/preference/ListPreference;->setEntryValues([Ljava/lang/CharSequence;)V
     new-instance v3, Landroidx/preference/ListPreference;
-    invoke-virtual {p1}, Landroidx/preference/Preference;->getContext()Landroid/content/Context;
+    invoke-virtual {v0}, Landroidx/preference/Preference;->getContext()Landroid/content/Context;
     move-result-object v4
     const/4 v5, 0x0
     invoke-direct {v3, v4, v5}, Landroidx/preference/ListPreference;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+    const v4, @APP_LAUNCH_LAYOUT@
+    invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setLayoutResource(I)V
     const-string v4, "launch_app_package_"
     invoke-virtual {v4, p4}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v4
     invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setKey(Ljava/lang/String;)V
-    invoke-static {p4}, Lcom/lmqr/ha9_comp_service/AppLaunchSettings;->actionLabel(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v4
-    const-string v5, "App to launch for "
-    invoke-virtual {v5, v4}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v4
+    invoke-virtual {v0}, Landroidx/preference/Preference;->getOrder()I
+    move-result v4
+    add-int/lit8 v4, v4, 0x1
+    invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setOrder(I)V
+    const-string v4, "App to launch"
     invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setTitle(Ljava/lang/CharSequence;)V
     const-string v4, "Choose an app to launch"
     invoke-virtual {v3, v4}, Landroidx/preference/DialogPreference;->setDialogTitle(Ljava/lang/CharSequence;)V
@@ -226,10 +200,16 @@
     move-result v4
     xor-int/lit8 v4, v4, 0x1
     invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setEnabled(Z)V
-    invoke-static {}, Landroidx/preference/ListPreference$SimpleSummaryProvider;->getInstance()Landroidx/preference/ListPreference$SimpleSummaryProvider;
-    move-result-object v4
+    new-instance v4, Lcom/lmqr/ha9_comp_service/AppLaunchPreferenceBinding;
+    invoke-direct {v4, v3, v2}, Lcom/lmqr/ha9_comp_service/AppLaunchPreferenceBinding;-><init>(Landroidx/preference/ListPreference;Ljava/lang/String;)V
     invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setSummaryProvider(Landroidx/preference/Preference$SummaryProvider;)V
-    invoke-virtual {p1, v3}, Landroidx/preference/PreferenceGroup;->addPreference(Landroidx/preference/Preference;)Z
+    invoke-virtual {v0}, Landroidx/preference/Preference;->getParent()Landroidx/preference/PreferenceGroup;
+    move-result-object v5
+    invoke-virtual {v5, v3}, Landroidx/preference/PreferenceGroup;->addPreference(Landroidx/preference/Preference;)Z
+    invoke-virtual {v0}, Landroidx/preference/ListPreference;->getValue()Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v4, v0, v5}, Lcom/lmqr/ha9_comp_service/AppLaunchPreferenceBinding;->onPreferenceChange(Landroidx/preference/Preference;Ljava/lang/Object;)Z
+    invoke-virtual {v0, v4}, Landroidx/preference/Preference;->setOnPreferenceChangeListener(Landroidx/preference/Preference$OnPreferenceChangeListener;)V
     return-void
 .end method
 
@@ -252,23 +232,13 @@
     aget-object v2, v1, v2
     const/4 v3, 0x1
     aget-object v3, v1, v3
-    invoke-virtual {p0}, Landroidx/preference/PreferenceFragmentCompat;->getPreferenceScreen()Landroidx/preference/PreferenceScreen;
-    move-result-object v4
-    new-instance v5, Landroidx/preference/PreferenceCategory;
-    const/4 v6, 0x0
-    invoke-direct {v5, v0, v6}, Landroidx/preference/PreferenceCategory;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
-    const-string v6, "Apps to launch with side keys"
-    invoke-virtual {v5, v6}, Landroidx/preference/Preference;->setTitle(Ljava/lang/CharSequence;)V
-    const/4 v6, 0x1
-    invoke-virtual {v5, v6}, Landroidx/preference/PreferenceGroup;->setOrderingAsAdded(Z)V
-    invoke-virtual {v4, v5}, Landroidx/preference/PreferenceGroup;->addPreference(Landroidx/preference/Preference;)Z
     const/4 v6, 0x0
     :preference_loop
     const/16 v7, 0xc
     if-ge v6, v7, :done
     invoke-static {v6}, Lcom/lmqr/ha9_comp_service/AppLaunchSettings;->actionKey(I)Ljava/lang/String;
     move-result-object v7
-    invoke-static {p0, v5, v2, v3, v7}, Lcom/lmqr/ha9_comp_service/AppLaunchSettings;->addTarget(Landroidx/preference/PreferenceFragmentCompat;Landroidx/preference/PreferenceCategory;[Ljava/lang/CharSequence;[Ljava/lang/CharSequence;Ljava/lang/String;)V
+    invoke-static {p0, v6, v2, v3, v7}, Lcom/lmqr/ha9_comp_service/AppLaunchSettings;->addTarget(Landroidx/preference/PreferenceFragmentCompat;I[Ljava/lang/CharSequence;[Ljava/lang/CharSequence;Ljava/lang/String;)V
     add-int/lit8 v6, v6, 0x1
     goto :preference_loop
     :done

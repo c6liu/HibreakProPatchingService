@@ -78,12 +78,32 @@ class ToolTests(unittest.TestCase):
         self.assertFalse(self.out.exists())
 
     def test_can_update_previously_patched_image(self):
+        old_helper = self.work / "old-adb-helper"
+        old_helper.write_text("settings put global adb_enabled 1\n")
+        self.debug(f'write "{old_helper}" system/bin/hibreak-enable-adb.sh', write=True)
         result = self.patch()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Inode:", self.debug(
+            "stat system/bin/hibreak-enable-adb.sh", image=self.out).stdout.decode())
         self.base = self.out
         self.out = self.work / "updated image.img"
         result = self.patch()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_all_builds_preserve_saved_adb_state(self):
+        for release in (False, True):
+            with self.subTest(release=release):
+                self.out = self.work / f"preserve-adb-{release}.img"
+                result = self.patch(*(["--release"] if release else []))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                display = self.read_image_text("system/etc/init/hibreak-display.rc")
+                self.assertNotIn("setprop persist.sys.usb.config", display)
+                self.assertNotIn("setprop sys.usb.config", display)
+                self.assertNotIn("hibreak_enable_adb", display)
+                self.assertIn("persist.sys.usb.config=mtp\n",
+                              self.read_image_text("system/build.prop"))
+                self.assertNotIn("Inode:", self.debug(
+                    "stat system/bin/hibreak-enable-adb.sh", image=self.out).stdout.decode())
 
     def test_sparse_or_non_ext4_rejected(self):
         self.base.write_bytes(b"not an ext4 filesystem")
@@ -105,13 +125,13 @@ class ToolTests(unittest.TestCase):
         self.debug(f'dump adb_keys "{dumped}"', image=self.out)
         self.assertEqual(dumped.read_bytes(), key.read_bytes())
 
-    def test_release_mode_disables_adb_and_diagnostic_hooks(self):
+    def test_release_mode_preserves_adb_and_disables_diagnostic_hooks(self):
         result = self.patch("--release")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         display = self.read_image_text("system/etc/init/hibreak-display.rc")
         eink = self.read_image_text("system/etc/init/a9_eink_gsi.rc")
-        self.assertIn("setprop persist.sys.usb.config mtp", display)
-        self.assertIn("setprop sys.usb.config mtp", display)
+        self.assertNotIn("setprop persist.sys.usb.config", display)
+        self.assertNotIn("setprop sys.usb.config", display)
         self.assertNotIn("mtp,adb", display)
         self.assertNotIn("hibreak_enable_adb", display)
         self.assertNotIn("debug.hibreak", display)

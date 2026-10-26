@@ -14,17 +14,6 @@ service hibreak_disable_hwc /system/bin/hibreak-disable-hwc.sh
     group root graphics
     seclabel u:r:phhsu_daemon:s0
 
-on boot
-    setprop persist.sys.usb.config mtp,adb
-    setprop sys.usb.config mtp,adb
-
-service hibreak_enable_adb /system/bin/hibreak-enable-adb.sh
-    oneshot
-    disabled
-    user root
-    group root
-    seclabel u:r:phhsu_daemon:s0
-
 service hibreak_wake_cycle /system/bin/hibreak-wake-cycle.sh
     oneshot
     disabled
@@ -68,7 +57,6 @@ on property:sys.boot_completed=1 && property:debug.tracing.screen_state=2
     start hibreak_aod_wake
 
 on property:sys.boot_completed=1
-    start hibreak_enable_adb
     start hibreak_disable_hwc
     start hibreak_wake_cycle
     start hibreak_aod_setup
