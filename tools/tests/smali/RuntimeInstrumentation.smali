@@ -6,6 +6,7 @@
 
 .field private settingsActivity:Landroid/app/Activity;
 .field private wakeTest:Z
+.field private physicalTest:Z
 .field private launchMonitor:Landroid/app/Instrumentation$ActivityMonitor;
 
 .method public constructor <init>()V
@@ -24,6 +25,13 @@
     const/4 v0, 0x1
     iput-boolean v0, p0, Lhibreak/tests/RuntimeInstrumentation;->wakeTest:Z
     :start
+    const-string v0, "physical_test"
+    invoke-virtual {p1, v0}, Landroid/os/Bundle;->getString(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :begin
+    const/4 v0, 0x1
+    iput-boolean v0, p0, Lhibreak/tests/RuntimeInstrumentation;->physicalTest:Z
+    :begin
     invoke-virtual {p0}, Landroid/app/Instrumentation;->start()V
     return-void
 .end method
@@ -56,15 +64,28 @@
     if-eqz v0, :report
     iget-object v0, p0, Lhibreak/tests/RuntimeInstrumentation;->failure:Ljava/lang/Throwable;
     if-nez v0, :report
+    iget-boolean v0, p0, Lhibreak/tests/RuntimeInstrumentation;->physicalTest:Z
+    if-nez v0, :wait_physical
+    invoke-static {p0}, Lhibreak/tests/ScreenOffLaunchProbe;->sendKey(Landroid/app/Instrumentation;)V
+    :wait_physical
     iget-object v0, p0, Lhibreak/tests/RuntimeInstrumentation;->launchMonitor:Landroid/app/Instrumentation$ActivityMonitor;
     const-wide/16 v1, 0x1388
+    iget-boolean v3, p0, Lhibreak/tests/RuntimeInstrumentation;->physicalTest:Z
+    if-eqz v3, :wait_launch
+    const-wide/32 v1, 0xea60
+    :wait_launch
     invoke-virtual {p0, v0, v1, v2}, Landroid/app/Instrumentation;->waitForMonitorWithTimeout(Landroid/app/Instrumentation$ActivityMonitor;J)Landroid/app/Activity;
     move-result-object v0
-    if-nez v0, :report
+    if-nez v0, :wake_started
     new-instance v0, Ljava/lang/AssertionError;
     const-string v1, "Screen-off app launch did not start the target activity"
     invoke-direct {v0, v1}, Ljava/lang/AssertionError;-><init>(Ljava/lang/Object;)V
     iput-object v0, p0, Lhibreak/tests/RuntimeInstrumentation;->failure:Ljava/lang/Throwable;
+    goto :report
+    :wake_started
+    invoke-virtual {p0}, Landroid/app/Instrumentation;->getTargetContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-static {v0}, Lhibreak/tests/ScreenOffLaunchProbe;->close(Landroid/content/Context;)V
     :report
     new-instance v0, Landroid/os/Bundle;
     invoke-direct {v0}, Landroid/os/Bundle;-><init>()V

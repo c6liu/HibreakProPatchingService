@@ -1,6 +1,6 @@
 cc_binary {
     name: "a9_eink_server",
-    srcs: ["eink_daemon.c"],
+    srcs: ["eink_daemon.c", "side_keys.c"],
     cflags: [
         "-Wall",
         "-Wextra",

@@ -43,7 +43,6 @@ object AppLaunchSettings {
             val appPreference = ListPreference(context).apply {
                 key = "launch_app_package_$actionKey"
                 title = "App to launch"
-                layoutResource = R.layout.preference_app_launch
                 order = actionPreference.order + 1
                 dialogTitle = "Choose an app to launch"
                 entries = if (apps.isEmpty()) {

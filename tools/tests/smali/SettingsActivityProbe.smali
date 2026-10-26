@@ -93,6 +93,11 @@
 
 .method private static checkBinding(Landroidx/preference/ListPreference;Landroidx/preference/ListPreference;Ljava/lang/String;)V
     .locals 9
+    invoke-virtual {p0}, Landroidx/preference/Preference;->getLayoutResource()I
+    move-result v0
+    invoke-virtual {p1}, Landroidx/preference/Preference;->getLayoutResource()I
+    move-result v1
+    if-ne v0, v1, :fail
     invoke-virtual {p0}, Landroidx/preference/ListPreference;->getValue()Ljava/lang/String;
     move-result-object v0
     invoke-virtual {p1}, Landroidx/preference/ListPreference;->getValue()Ljava/lang/String;

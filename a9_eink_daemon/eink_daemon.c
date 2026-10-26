@@ -22,6 +22,21 @@ static const char* kTAG = "a9EinkService";
 #define SOCKET_NAME "0a9_eink_socket"
 #define BUFFER_SIZE 512
 
+void startSideKeyMonitor(void);
+
+static void waitForCommand(pid_t pid) {
+    int status;
+    pid_t result;
+    do {
+        result = waitpid(pid, &status, 0);
+    } while (result < 0 && errno == EINTR);
+    if (result < 0) {
+        LOGE("Failed to wait for command: %s", strerror(errno));
+    } else if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        LOGE("Command failed (status=%d)", status);
+    }
+}
+
 static const char* theme_styles[] = {
         "TONAL_SPOT",
         "VIBRANT",
@@ -77,7 +92,7 @@ void execute_settings_command(const char* json_str) {
     } else if (pid < 0) {
         LOGE("fork failed: %s", strerror(errno));
     } else {
-        wait(NULL);
+        waitForCommand(pid);
     }
 }
 
@@ -292,7 +307,7 @@ void writeLockscreenProp(const char* value) {
     } else if (pid < 0) {
         LOGE("fork failed: %s", strerror(errno));
     } else {
-        wait(NULL);
+        waitForCommand(pid);
     }
 }
 
@@ -309,7 +324,7 @@ void writeMaxBrightnessProp(const char* value) {
     } else if (pid < 0) {
         LOGE("fork failed: %s", strerror(errno));
     } else {
-        wait(NULL);
+        waitForCommand(pid);
     }
 }
 
@@ -326,7 +341,7 @@ void writeWakeOnVolumeProp(const char* value) {
     } else if (pid < 0) {
         LOGE("fork failed: %s", strerror(errno));
     } else {
-        wait(NULL);
+        waitForCommand(pid);
     }
 }
 
@@ -476,6 +491,7 @@ _Noreturn void setupServer() {
 
 int main(void) {
     signal(SIGHUP, SIG_IGN);
+    startSideKeyMonitor();
     const char* paths[] = {
         "/sys/kernel/debug/eink_debug/global_mode",
         "/sys/kernel/debug/eink_debug/clean_a2",

@@ -12,6 +12,6 @@ for tool in aarch64-linux-android30-clang llvm-strip; do
 done
 [ ! -e "$1" ] || { echo "Refusing to overwrite: $1" >&2; exit 1; }
 "$BIN/aarch64-linux-android30-clang" -O2 -Wall -Wextra -Werror \
-    "$ROOT/a9_eink_daemon/eink_daemon.c" -llog -o "$1"
+    "$ROOT/a9_eink_daemon/eink_daemon.c" "$ROOT/a9_eink_daemon/side_keys.c" -llog -o "$1"
 "$BIN/llvm-strip" "$1"
 sha256sum "$1"

@@ -1,16 +1,30 @@
 <resources>
-    <!-- Base application theme. -->
     <style name="Theme.Ha9_comp_service" parent="Theme.AppCompat.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
         <item name="colorPrimary">@color/purple_200</item>
         <item name="colorPrimaryVariant">@color/purple_700</item>
         <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color. -->
         <item name="colorSecondary">@color/teal_200</item>
         <item name="colorSecondaryVariant">@color/teal_200</item>
         <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+    </style>
+    <style name="Theme.Ha9_comp_service.Settings" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">#FFFFFFFF</item>
+        <item name="colorOnPrimary">#FF000000</item>
+        <item name="colorSecondary">#FFFFFFFF</item>
+        <item name="colorOnSecondary">#FF000000</item>
+        <item name="colorSurface">#FF000000</item>
+        <item name="colorOnSurface">#FFFFFFFF</item>
+        <item name="colorSurfaceVariant">#FF202020</item>
+        <item name="colorOnSurfaceVariant">#FFE0E0E0</item>
+        <item name="colorOutline">#FFBDBDBD</item>
+        <item name="android:colorAccent">#FFFFFFFF</item>
+        <item name="colorControlActivated">#FFFFFFFF</item>
+        <item name="android:statusBarColor">#FF000000</item>
+        <item name="android:navigationBarColor">#FF000000</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>

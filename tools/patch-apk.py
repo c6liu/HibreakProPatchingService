@@ -37,7 +37,6 @@ button_id = add_public(public.getroot(), "id", "button5")
 video_refresh_id = add_public(public.getroot(), "id", "video_optimized_refresh")
 toolbar_id = add_public(public.getroot(), "id", "settings_toolbar")
 per_app_xml_id = add_public(public.getroot(), "xml", "per_app_preferences")
-app_launch_layout_id = add_public(public.getroot(), "layout", "preference_app_launch")
 refresh_array_ids = {
     name: public.getroot().find(f"public[@type='array'][@name='{name}']").get("id")
     for name in ("refresh_options", "refresh_values")
@@ -159,13 +158,55 @@ xml(B / "res/layout/floating_menu_layout.xml", menu)
 
 def styles(root):
     style = ET.SubElement(root, "style", name="Theme.Ha9_comp_service.Settings",
-                          parent="@style/Theme.Ha9_comp_service")
+                          parent="@style/Theme.Material3.DayNight.NoActionBar")
     ET.SubElement(style, "item", name="windowActionBar").text = "false"
     ET.SubElement(style, "item", name="windowNoTitle").text = "true"
     ET.SubElement(style, "item", name="android:windowLightStatusBar").text = "?attr/isLightTheme"
+    for name, value in (
+            ("colorPrimary", "#FF000000"),
+            ("colorOnPrimary", "#FFFFFFFF"),
+            ("colorSecondary", "#FF000000"),
+            ("colorOnSecondary", "#FFFFFFFF"),
+            ("colorSurface", "#FFFFFFFF"),
+            ("colorOnSurface", "#FF000000"),
+            ("colorSurfaceVariant", "#FFF2F2F2"),
+            ("colorOnSurfaceVariant", "#FF222222"),
+            ("colorOutline", "#FF5F5F5F"),
+            ("android:colorAccent", "#FF000000"),
+            ("colorControlActivated", "#FF000000"),
+            ("android:statusBarColor", "#FFFFFFFF"),
+            ("android:navigationBarColor", "#FFFFFFFF"),
+            ("android:windowLightNavigationBar", "true")):
+        ET.SubElement(style, "item", name=name).text = value
 
 
 xml(B / "res/values/styles.xml", styles)
+
+def night_styles(root):
+    style = ET.SubElement(root, "style", name="Theme.Ha9_comp_service.Settings",
+                          parent="@style/Theme.Material3.DayNight.NoActionBar")
+    for name, value in (
+            ("windowActionBar", "false"),
+            ("windowNoTitle", "true"),
+            ("android:windowLightStatusBar", "false"),
+            ("colorPrimary", "#FFFFFFFF"),
+            ("colorOnPrimary", "#FF000000"),
+            ("colorSecondary", "#FFFFFFFF"),
+            ("colorOnSecondary", "#FF000000"),
+            ("colorSurface", "#FF000000"),
+            ("colorOnSurface", "#FFFFFFFF"),
+            ("colorSurfaceVariant", "#FF202020"),
+            ("colorOnSurfaceVariant", "#FFE0E0E0"),
+            ("colorOutline", "#FFBDBDBD"),
+            ("android:colorAccent", "#FFFFFFFF"),
+            ("colorControlActivated", "#FFFFFFFF"),
+            ("android:statusBarColor", "#FF000000"),
+            ("android:navigationBarColor", "#FF000000"),
+            ("android:windowLightNavigationBar", "false")):
+        ET.SubElement(style, "item", name=name).text = value
+
+
+xml(B / "res/values-night/styles.xml", night_styles)
 
 
 def manifest(root):
@@ -487,10 +528,7 @@ text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerApp
 """ + text[end:]
 fragment.write_text(text)
 (S / "AppLaunchSettings.smali").write_text(
-    (Path(__file__).resolve().parent / "smali/AppLaunchSettings.smali").read_text()
-    .replace("@APP_LAUNCH_LAYOUT@", hex(app_launch_layout_id)))
-(B / "res/layout/preference_app_launch.xml").write_text(
-    (REPO / "res/layout/preference_app_launch.xml").read_text())
+    (Path(__file__).resolve().parent / "smali/AppLaunchSettings.smali").read_text())
 (S / "AppLaunchPreferenceBinding.smali").write_text(
     (Path(__file__).resolve().parent / "smali/AppLaunchPreferenceBinding.smali").read_text())
 launch_action = (Path(__file__).resolve().parent / "smali/LaunchAppButtonAction.smali")
@@ -655,25 +693,81 @@ for obsolete in (
     obsolete.unlink()
 
 service = S / "A9AccessibilityService.smali"
+(S / "ScreenOffKeyReceiver.smali").write_text(
+    (Path(__file__).resolve().parent / "smali/ScreenOffKeyReceiver.smali").read_text())
+replace(service, ".field private isScreenOn:Z",
+        ".field private isScreenOn:Z\n"
+        ".field private screenOffKeyReceiver:Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;")
+replace(service, '''    invoke-virtual {p0, v1, v0, v2}, Landroid/accessibilityservice/AccessibilityService;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;I)Landroid/content/Intent;
+
+    return-void''', '''    invoke-virtual {p0, v1, v0, v2}, Landroid/accessibilityservice/AccessibilityService;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;I)Landroid/content/Intent;
+    new-instance v0, Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;
+    invoke-direct {v0, p0}, Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;-><init>(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;)V
+    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->screenOffKeyReceiver:Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;
+    return-void''')
+replace(service, '''    invoke-super {p0}, Landroid/accessibilityservice/AccessibilityService;->onDestroy()V''',
+        '''    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->screenOffKeyReceiver:Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;
+    invoke-virtual {v0}, Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;->close()V
+    invoke-super {p0}, Landroid/accessibilityservice/AccessibilityService;->onDestroy()V''')
+for suffix, scan_code in (("", "0x3b"), ("Top", "0x3c")):
+    listener = S / f"A9AccessibilityService$hardwareGestureDetector{suffix}$1.smali"
+    replace(listener,
+            "    invoke-static {v0}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;"
+            "->access$isScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;)Z",
+            f"    const/16 v1, {scan_code}\n"
+            "    invoke-virtual {v0, v1}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;"
+            "->isSideKeyScreenOn(I)Z", count=3)
 replace(service, '''    invoke-virtual {v6, v9, v10}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->setupSwitches(Landroid/widget/CompoundButton;Landroid/widget/CompoundButton;)V''', '''    invoke-virtual {v6, v9, v10}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->setupSwitches(Landroid/widget/CompoundButton;Landroid/widget/CompoundButton;)V
     invoke-virtual {v8}, Lcom/lmqr/ha9_comp_service/FloatingMenuViewAccessor;->getVideoOptimizedRefresh()Landroid/widget/Switch;
     move-result-object v9
     invoke-static {p0, v9}, Lcom/lmqr/ha9_comp_service/VideoRefreshSwitchSetup;->setup(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Landroid/widget/Switch;)V''')
-replace(service, '''    invoke-super {p0, p1}, Landroid/accessibilityservice/AccessibilityService;->onKeyEvent(Landroid/view/KeyEvent;)Z''', '''    invoke-virtual {p1}, Landroid/view/KeyEvent;->getScanCode()I
+key_method = re.search(
+    r"\.method protected onKeyEvent\(Landroid/view/KeyEvent;\)Z.*?\.end method",
+    service.read_text(), re.S)
+assert key_method is not None
+replace(service, key_method.group(), '''.method protected onKeyEvent(Landroid/view/KeyEvent;)Z
+    .locals 1
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->screenOffKeyReceiver:Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;->onKeyEvent(Landroid/view/KeyEvent;)Z
     move-result v0
-    const/16 v1, 0x3b
-    if-ne v0, v1, :check_top_button_key
-    const/4 p0, 0x1
-    return p0
-    :check_top_button_key
-    const/16 v1, 0x3c
-    if-ne v0, v1, :forward_other_key
-    const/4 p0, 0x1
-    return p0
+    if-eqz v0, :forward_other_key
+    return v0
     :forward_other_key
-    invoke-super {p0, p1}, Landroid/accessibilityservice/AccessibilityService;->onKeyEvent(Landroid/view/KeyEvent;)Z''')
+    invoke-super {p0, p1}, Landroid/accessibilityservice/AccessibilityService;->onKeyEvent(Landroid/view/KeyEvent;)Z
+    move-result v0
+    return v0
+.end method''')
 with service.open("a") as output:
     output.write("""
+.method public final dispatchSideKey(IIJ)V
+    .locals 2
+    invoke-virtual {p0}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+    move-result-object v0
+    invoke-static {v0}, Landroid/provider/Settings;->canDrawOverlays(Landroid/content/Context;)Z
+    move-result v0
+    if-nez v0, :dispatch
+    invoke-direct {p0}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->requestOverlayPermission()V
+    return-void
+    :dispatch
+    const/16 v0, 0x3b
+    if-ne p1, v0, :top
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->hardwareGestureDetector:Lcom/lmqr/ha9_comp_service/HardwareGestureDetector;
+    goto :send
+    :top
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->hardwareGestureDetectorTop:Lcom/lmqr/ha9_comp_service/HardwareGestureDetector;
+    :send
+    invoke-virtual {v0, p2, p3, p4}, Lcom/lmqr/ha9_comp_service/HardwareGestureDetector;->onKeyEvent(IJ)V
+    return-void
+.end method
+
+.method public final isSideKeyScreenOn(I)Z
+    .locals 1
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->screenOffKeyReceiver:Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/ScreenOffKeyReceiver;->isScreenOn(I)Z
+    move-result v0
+    return v0
+.end method
+
 .method public final setVideoOptimizedRefresh(Z)V
     .locals 1
     iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->cameraLiveRefresh:Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;

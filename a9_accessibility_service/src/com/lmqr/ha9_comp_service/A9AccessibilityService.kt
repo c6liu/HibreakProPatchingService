@@ -44,6 +44,7 @@ class A9AccessibilityService : AccessibilityService(),
     private lateinit var refreshModeManager: RefreshModeManager
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var buttonActionManager: ButtonActionManager
+    private lateinit var screenOffKeyReceiver: ScreenOffKeyReceiver
     private lateinit var brightnessManager: BrightnessManager
     private lateinit var displaySettingsManager: DisplaySettingsManager
     private var cameraLiveRefresh: CameraLiveRefresh? = null
@@ -135,6 +136,7 @@ class A9AccessibilityService : AccessibilityService(),
         filterEink.addAction("EINK_REFRESH_SPEED_FAST")
         filterEink.addAction("EINK_REFRESH_SPEED_HYPER")
         registerReceiver(receiverEink, filterEink, RECEIVER_EXPORTED)
+        screenOffKeyReceiver = ScreenOffKeyReceiver(this)
     }
 
     override fun onInterrupt() {
@@ -144,21 +146,21 @@ class A9AccessibilityService : AccessibilityService(),
     private val hardwareGestureDetector = HardwareGestureDetector(
         object: HardwareGestureDetector.OnGestureListener{
             override fun onSinglePress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(59))
                     buttonActionManager.executeSinglePress(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeSinglePressScreenOff(this@A9AccessibilityService)
             }
 
             override fun onDoublePress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(59))
                     buttonActionManager.executeDoublePress(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeDoublePressScreenOff(this@A9AccessibilityService)
             }
 
             override fun onLongPress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(59))
                     buttonActionManager.executeLongPress(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeLongPressScreenOff(this@A9AccessibilityService)
@@ -169,21 +171,21 @@ class A9AccessibilityService : AccessibilityService(),
     private val hardwareGestureDetectorTop = HardwareGestureDetector(
         object: HardwareGestureDetector.OnGestureListener{
             override fun onSinglePress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(60))
                     buttonActionManager.executeSinglePressTop(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeSinglePressScreenOffTop(this@A9AccessibilityService)
             }
 
             override fun onDoublePress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(60))
                     buttonActionManager.executeDoublePressTop(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeDoublePressScreenOffTop(this@A9AccessibilityService)
             }
 
             override fun onLongPress() {
-                if(isScreenOn)
+                if(screenOffKeyReceiver.isScreenOn(60))
                     buttonActionManager.executeLongPressTop(this@A9AccessibilityService)
                 else
                     buttonActionManager.executeLongPressScreenOffTop(this@A9AccessibilityService)
@@ -192,24 +194,20 @@ class A9AccessibilityService : AccessibilityService(),
     )
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if(event.scanCode == 59){
-            if (!Settings.canDrawOverlays(baseContext))
-                    requestOverlayPermission()
-            else
-                hardwareGestureDetector.onKeyEvent(event.action, event.eventTime)
-            return true
-        }
-        if(event.scanCode == 60){
-            if (!Settings.canDrawOverlays(baseContext))
-                    requestOverlayPermission()
-            else
-                hardwareGestureDetectorTop.onKeyEvent(event.action, event.eventTime)
-            return true
-        }
-
+        if (screenOffKeyReceiver.onKeyEvent(event)) return true
         return super.onKeyEvent(event)
     }
 
+    fun dispatchSideKey(scanCode: Int, action: Int, eventTime: Long) {
+        if (!Settings.canDrawOverlays(baseContext)) {
+            requestOverlayPermission()
+            return
+        }
+        val detector = if (scanCode == 59) hardwareGestureDetector else hardwareGestureDetectorTop
+        detector.onKeyEvent(action, eventTime)
+    }
+
+    fun isSideKeyScreenOn(scanCode: Int): Boolean = screenOffKeyReceiver.isScreenOn(scanCode)
 
     private fun requestOverlayPermission() {
         val intent = Intent(
@@ -333,6 +331,7 @@ class A9AccessibilityService : AccessibilityService(),
     }
 
     override fun onDestroy() {
+        screenOffKeyReceiver.close()
         cameraLiveRefresh?.stop()
         cameraLiveRefresh = null
         commandRunner.onDestroy()

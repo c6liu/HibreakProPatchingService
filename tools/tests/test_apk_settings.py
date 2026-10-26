@@ -15,6 +15,27 @@ SOURCE = ROOT / "a9_accessibility_service/res/xml/root_preferences.xml"
 
 
 class SettingsResourceTests(unittest.TestCase):
+    def test_settings_theme_uses_monochrome_material3(self):
+        themes = ET.parse(ROOT / "a9_accessibility_service/res/values/themes.xml").getroot()
+        settings = themes.find("style[@name='Theme.Ha9_comp_service.Settings']")
+        self.assertEqual(settings.get("parent"), "Theme.Material3.DayNight.NoActionBar")
+        items = {item.get("name"): item.text for item in settings.findall("item")}
+        self.assertEqual(items["colorSurface"], "#FFFFFFFF")
+        self.assertEqual(items["colorOnSurface"], "#FF000000")
+        self.assertEqual(items["colorControlActivated"], "#FF000000")
+
+        night = ET.parse(ROOT / "a9_accessibility_service/res/values-night/themes.xml").getroot()
+        night_settings = night.find("style[@name='Theme.Ha9_comp_service.Settings']")
+        night_items = {item.get("name"): item.text for item in night_settings.findall("item")}
+        self.assertEqual(night_items["colorSurface"], "#FF000000")
+        self.assertEqual(night_items["colorOnSurface"], "#FFFFFFFF")
+
+        toolbar = ET.parse(
+            ROOT / "a9_accessibility_service/res/layout/settings_activity.xml"
+        ).getroot().find("androidx.appcompat.widget.Toolbar")
+        self.assertEqual(toolbar.get(ANDROID + "background"), "?attr/colorSurface")
+        self.assertEqual(toolbar.get(ANDROID + "theme"), "@style/ThemeOverlay.Material3.Light")
+
     def test_category_order_and_button_mappings(self):
         root = ET.parse(SOURCE).getroot()
         categories = sorted(root, key=lambda node: int(node.get(APP + "order")))
@@ -116,15 +137,10 @@ class SettingsResourceTests(unittest.TestCase):
                           "CameraLiveRefresh.kt").read_text()
         self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
 
-    def test_app_picker_layout_has_visual_hierarchy(self):
-        layout = ET.parse(
-            ROOT / "a9_accessibility_service/res/layout/preference_app_launch.xml"
-        ).getroot()
-        self.assertEqual(layout.get(ANDROID + "paddingStart"), "40dp")
-        self.assertEqual(layout.get(ANDROID + "minHeight"), "48dp")
-        title = layout.find(f".//*[@{ANDROID}id='@android:id/title']")
-        self.assertEqual(title.get(ANDROID + "textSize"), "14sp")
-        self.assertEqual(title.get(ANDROID + "textColor"), "?android:attr/textColorSecondary")
+    def test_app_picker_uses_standard_preference_layout(self):
+        settings = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                    "AppLaunchSettings.kt").read_text()
+        self.assertNotIn("layoutResource", settings)
 
 
 class PatchedApkSettingsTests(unittest.TestCase):
@@ -164,7 +180,7 @@ class PatchedApkSettingsTests(unittest.TestCase):
             android = "{http://schemas.android.com/apk/res/android}"
             cls.test_package = f"hibreak.tests.regression.p{uuid.uuid4().hex}"
             manifest = ET.Element("manifest", {"package": cls.test_package})
-            for permission in ("WAKE_LOCK", "TURN_SCREEN_ON"):
+            for permission in ("WAKE_LOCK", "TURN_SCREEN_ON", "SYSTEM_ALERT_WINDOW"):
                 ET.SubElement(manifest, "uses-permission", {
                     android + "name": "android.permission." + permission,
                 })
@@ -172,7 +188,7 @@ class PatchedApkSettingsTests(unittest.TestCase):
             if queries is not None:
                 manifest.append(queries)
             application = ET.SubElement(manifest, "application", {
-                android + "theme": "@style/Theme.Ha9_comp_service",
+                android + "theme": "@style/Theme.Ha9_comp_service.Settings",
                 android + "testOnly": "true",
             })
             activity = ET.SubElement(application, "activity", {
@@ -205,6 +221,14 @@ class PatchedApkSettingsTests(unittest.TestCase):
             if key:
                 self.assertEqual(actual[key], node.attrib)
         self.assertIn("camera_live_refresh", actual)
+        styles = ET.parse(self.decoded / "res/values/styles.xml").getroot()
+        settings = styles.find("style[@name='Theme.Ha9_comp_service.Settings']")
+        self.assertEqual(settings.get("parent"), "@style/Theme.Material3.DayNight.NoActionBar")
+        night_styles = ET.parse(
+            self.decoded / "res/values-night/styles.xml"
+        ).getroot()
+        night_settings = night_styles.find("style[@name='Theme.Ha9_comp_service.Settings']")
+        self.assertIsNotNone(night_settings)
         service = (self.decoded /
                    "smali/com/lmqr/ha9_comp_service/A9AccessibilityService.smali").read_text()
         self.assertNotIn('const-string v9, "disable_show_per_app_aod_settings"', service)
@@ -315,11 +339,7 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn(":security_exception", launch_action)
         self.assertIn("PowerManager;->isInteractive()", launch_action)
         self.assertIn("PowerManager$WakeLock;->acquire(J)V", launch_action)
-        self.assertEqual(
-            (self.decoded / "res/layout/preference_app_launch.xml").read_text(),
-            (ROOT / "a9_accessibility_service/res/layout/preference_app_launch.xml").read_text(),
-        )
-        self.assertNotIn("@APP_LAUNCH_LAYOUT@", launch_settings)
+        self.assertNotIn("->setLayoutResource", launch_settings)
         action_manager = (smali / "button_mapper/ButtonActionManager.smali").read_text()
         action_map = (smali / "button_mapper/AppLaunchActionMap.smali").read_text()
         self.assertIn("AppLaunchActionMap;->addToMap", action_manager)
@@ -354,8 +374,17 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn("->removeCallbacks", camera_refresh)
         key_event = (smali / "A9AccessibilityService.smali").read_text()
         self.assertIn(":forward_other_key", key_event)
-        self.assertIn("getScanCode()I", key_event)
-        self.assertIn(":check_top_button_key", key_event)
+        self.assertIn("ScreenOffKeyReceiver;->onKeyEvent", key_event)
+        self.assertIn("ScreenOffKeyReceiver;->close()", key_event)
+        key_bridge = (smali / "ScreenOffKeyReceiver.smali").read_text()
+        self.assertIn("getScanCode()I", key_bridge)
+        self.assertIn('"android.permission.INJECT_EVENTS"', key_bridge)
+        self.assertIn("PowerManager;->isInteractive()", key_bridge)
+        self.assertIn("->dispatchSideKey(IIJ)V", key_bridge)
+        for suffix in ("", "Top"):
+            listener = (smali / f"A9AccessibilityService$hardwareGestureDetector{suffix}$1.smali").read_text()
+            self.assertEqual(listener.count("->isSideKeyScreenOn(I)Z"), 3)
+            self.assertNotIn("->access$isScreenOn$p", listener)
         self.assertIn("VideoRefreshSwitchSetup;->setup", key_event)
         service_method = key_event.split(
             ".method public final setVideoOptimizedRefresh(Z)V", 1)[1]
@@ -396,16 +425,47 @@ class PatchedApkSettingsTests(unittest.TestCase):
                               "screen off/on receiver, settings startup and 12 app-launch pickers",
                               result.stdout)
                 self.run_command("adb", "shell", "appops", "set", self.test_package,
-                                 "TURN_SCREEN_ON", "allow")
+                                 "SYSTEM_ALERT_WINDOW", "allow")
+                monitor = None
+                monitor_pid = None
+                device_monitor = "/data/local/tmp/" + self.test_package
                 try:
+                    physical = os.environ.get("HIBREAK_PHYSICAL_KEY_TESTS") == "1"
+                    if physical:
+                        ndk = Path(os.environ["ANDROID_NDK_HOME"])
+                        compiler = (ndk / "toolchains/llvm/prebuilt/linux-x86_64/bin/"
+                                    "aarch64-linux-android30-clang")
+                        binary = self.work / "side-key-monitor"
+                        self.run_command(
+                            compiler, "-O2", "-Wall", "-Wextra", "-Werror",
+                            f'-DSIDE_KEY_PACKAGE="{self.test_package}"',
+                            ROOT / "tools/tests/native/SideKeyMonitorProbe.c",
+                            ROOT / "a9_eink_daemon/side_keys.c", "-llog", "-o", binary)
+                        self.run_command("adb", "push", binary, device_monitor)
+                        self.run_command("adb", "shell", "chmod", "700", device_monitor)
+                        monitor = subprocess.Popen(
+                            ["adb", "shell", "echo $$; exec " + device_monitor],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                        monitor_pid = monitor.stdout.readline().strip()
+                        self.assertTrue(monitor_pid.isdigit(), monitor_pid)
                     self.run_command("adb", "shell", "input", "keyevent", "223")
+                    arguments = ["-e", "physical_test", "1"] if physical else []
+                    if physical:
+                        print("Press the TOP side key ONCE with the display asleep now.",
+                              flush=True)
                     result = subprocess.run(
                         ["adb", "shell", "am", "instrument", "-w", "-e", "wake_test", "1",
+                         *arguments,
                          self.test_package + "/hibreak.tests.RuntimeInstrumentation"],
-                        capture_output=True, text=True, timeout=30)
+                        capture_output=True, text=True, timeout=75 if physical else 30)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertIn("PASS: screen-off app launch wakes display", result.stdout)
                 finally:
+                    if monitor_pid is not None and monitor_pid.isdigit():
+                        self.run_command("adb", "shell", "kill", monitor_pid)
+                    if monitor is not None:
+                        monitor.communicate(timeout=10)
+                        self.run_command("adb", "shell", "rm", device_monitor)
                     self.run_command("adb", "shell", "input", "keyevent", "224")
             finally:
                 if installed:

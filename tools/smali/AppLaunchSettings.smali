@@ -176,8 +176,6 @@
     move-result-object v4
     const/4 v5, 0x0
     invoke-direct {v3, v4, v5}, Landroidx/preference/ListPreference;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
-    const v4, @APP_LAUNCH_LAYOUT@
-    invoke-virtual {v3, v4}, Landroidx/preference/Preference;->setLayoutResource(I)V
     const-string v4, "launch_app_package_"
     invoke-virtual {v4, p4}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v4
