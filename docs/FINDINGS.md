@@ -270,7 +270,14 @@ and decompiled framework trees are not included in this repository.
 - Threshold/contrast code still points at Qualcomm `epd_*` paths. These
   controls are not supported on the tested MediaTek device.
 - Legacy static-lockscreen/sys.linevibrator preferences are not equivalent
-  to Android SystemUI AOD and are not guaranteed to work.
+  to Android SystemUI AOD. The icon/opacity/background/colour settings are
+  removed and their popup controls are hidden: native bitmap commit is
+  unsupported. The separate AOD inversion switch remains available.
+- Max-brightness override only writes `sys.linevibrator_touch`; it does not
+  change HiBreak frontlight values or the 0–254 popup slider limits. This
+  unsupported legacy preference is disabled. Color Scheme instead writes
+  Android's `theme_customization_overlay_packages` secure setting to select
+  a system palette/style; it is not an e-ink display mode.
 - Settings now uses a no-action-bar theme plus an in-layout Toolbar and window
   insets. The prebuilt APK is R8-shrunk: `setSupportActionBar` was missing,
   causing a `NoSuchMethodError`. XML toolbar title/navigation plus a click

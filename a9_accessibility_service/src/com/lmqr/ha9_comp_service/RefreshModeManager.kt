@@ -29,9 +29,8 @@ class RefreshModeManager(
     }
     private var currentClassifier = ""
 
-    private fun defaultRefreshMode() = (sharedPreferences.getString("refresh_setting", "3")
-        ?.let { Integer.parseInt(it) }
-        ?: RefreshMode.SPEED) as Int
+    private fun defaultRefreshMode() =
+        requireNotNull(sharedPreferences.getString("refresh_setting", "2")).toInt()
     fun onAppChange(packageName: String) = packageName.run {
         if (this != currentClassifier) {
             currentClassifier = this

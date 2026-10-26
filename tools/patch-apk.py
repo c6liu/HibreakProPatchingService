@@ -110,7 +110,7 @@ def manifest(root):
 
 xml(B / "AndroidManifest.xml", manifest)
 prefs = B / "res/xml/root_preferences.xml"
-replace(prefs, "Set Refresh Mode to Clear on Lock", "Set Refresh Mode to Regal on Lock")
+prefs.write_text((REPO / "res/xml/root_preferences.xml").read_text())
 
 enum = S / "RefreshMode.smali"
 replace(enum, ".field public static final enum SPEED:",
@@ -244,12 +244,6 @@ replace(S / "SettingsActivity.smali",
 """)
 print("Patched all five modes, popup selection, broadcasts, preferences, and toolbar.")
 
-prefs_text = prefs.read_text()
-anchor = '<SwitchPreferenceCompat app:key="disable_show_per_app_aod_settings" app:title="Disable static AOD settings in Pop-up" />'
-assert prefs_text.count(anchor) == 1
-prefs.write_text(prefs_text.replace(anchor, anchor + '''
-        <SwitchPreferenceCompat app:defaultValue="true" app:key="aod_invert" app:summary="Show the Always-On Display as dark content on a white background" app:title="Invert colours on Always-On Display" />'''))
-
 method = """.method private final updateAodInvert(Landroid/content/SharedPreferences;)V
     .locals 3
     const-string v0, "aod_invert"
@@ -333,9 +327,59 @@ replace(service, '''    :not_aod_invert
     return-void
     :not_camera_live_refresh
     if-eqz p2, :cond_6''')
-aod_pref = '<SwitchPreferenceCompat app:defaultValue="true" app:key="aod_invert"'
-prefs_text = prefs.read_text()
-assert prefs_text.count(aod_pref) == 1
-prefs.write_text(prefs_text.replace(aod_pref, '''<SwitchPreferenceCompat app:defaultValue="true" app:key="camera_live_refresh" app:summary="Keep the camera preview updating on the E-Ink screen while a camera is open" app:title="Keep camera preview live" />
-        ''' + aod_pref))
+def camera_preference(root):
+    app = "{http://schemas.android.com/apk/res-auto}"
+    category = root.find("PreferenceCategory[@%stitle='EInk Service Settings']" % app)
+    category.insert(0, ET.Element("SwitchPreferenceCompat", {
+        app + "defaultValue": "true", app + "key": "camera_live_refresh",
+        app + "summary": "Keep the camera preview updating on the E-Ink screen while a camera is open",
+        app + "title": "Keep camera preview live",
+    }))
+
+
+xml(prefs, camera_preference)
 print("Patched camera preview keep-alive.")
+
+# Keep the legacy view IDs for the prebuilt accessor, but never show unsupported AOD controls.
+replace(service, '''    const-string v9, "disable_show_per_app_aod_settings"
+
+    invoke-interface {v6, v9, v3}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z
+
+    move-result v6''', '''    const/4 v6, 0x1''')
+
+manager = S / "RefreshModeManager.smali"
+replace(manager, 'const-string v1, "3"', 'const-string v1, "2"')
+
+# R8 removed unused setters in the tested APK. Restore only the APIs used by the new UI.
+preference = B / "smali/androidx/preference/Preference.smali"
+with preference.open("a") as output:
+    for name, field, kind in (("setKey", "mKey", "Ljava/lang/String;"),
+                              ("setDefaultValue", "mDefaultValue", "Ljava/lang/Object;")):
+        output.write(f"""
+.method public {name}({kind})V
+    .locals 0
+    iput-object p1, p0, Landroidx/preference/Preference;->{field}:{kind}
+    return-void
+.end method
+""")
+with (B / "smali/androidx/preference/ListPreference.smali").open("a") as output:
+    for name, field in (("setEntries", "mEntries"), ("setEntryValues", "mEntryValues")):
+        output.write(f"""
+.method public {name}([Ljava/lang/CharSequence;)V
+    .locals 0
+    iput-object p1, p0, Landroidx/preference/ListPreference;->{field}:[Ljava/lang/CharSequence;
+    return-void
+.end method
+""")
+for name in ("PerAppRefreshPreference", "PerAppRefreshSettings"):
+    (S / f"{name}.smali").write_text(
+        (Path(__file__).resolve().parent / f"smali/{name}.smali").read_text())
+fragment = S / "SettingsActivity$SettingsFragment.smali"
+text = fragment.read_text()
+start = text.index(".method public onCreatePreferences")
+end = text.index("    return-void", start)
+text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerAppRefreshSettings;->populate(Landroidx/preference/PreferenceFragmentCompat;)V
+
+""" + text[end:]
+fragment.write_text(text)
+print("Patched settings order, unsupported controls, and per-app refresh selectors.")

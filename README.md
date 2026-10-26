@@ -72,6 +72,25 @@ The settings activity uses an in-layout toolbar above the preference list
 and fits system-window insets, so the title cannot cover the first settings
 on edge-to-edge Android versions.
 
+### Settings
+
+- Button mappings are shown **top button first, then bottom button**. Existing
+  mappings are unchanged.
+- Expand **Per-App Refresh Modes > Advanced** to choose a mode for each installed
+  launcher app. **Use default** removes its override. These are the same saved
+  modes used by the popup; selecting a mode there can replace an app's choice.
+  Modes apply when switching to the app, while the accessibility service is
+  enabled. **Disable Per-App Refresh Mode** temporarily uses a shared mode
+  without deleting the saved per-app choices.
+- **Default Refresh Mode** remains editable with per-app modes enabled and is
+  used for apps without an override.
+- **Color Scheme** changes Android's system palette and compatible apps' dynamic
+  colours, not the panel waveform or refresh mode. On the monochrome HiBreak,
+  colours appear as greys. `SPRITZ` is the muted/near-monochrome style.
+- **Override Max Brightness** is disabled on HiBreak: its legacy command only
+  sets `sys.linevibrator_touch`, not the frontlight driver or slider limits.
+  Use the popup's independent cold/warm frontlight sliders (0–254).
+
 ## Always-On Display inversion
 
 **EInk Service Settings → Invert colours on Always-On Display** (on by
@@ -79,6 +98,13 @@ default) controls whether the GSI's `hibreak-aod.sh` inverts colours while
 dozing. The app sends `aoi1`/`aoi0` to the daemon, which sets
 `persist.sys.hibreak.aod_invert` to `true`/`false`; the setting is re-sent
 whenever the accessibility service connects.
+
+The legacy static-lockscreen icon, opacity, background and colour controls,
+including the popup opacity row, are removed/hidden on HiBreak. They use
+`sys.linevibrator_type` and an unsupported bitmap path, not Android SystemUI AOD.
+Seeing an image briefly during boot does not establish that those controls work.
+Configure the actual AOD in Android's lockscreen settings; inversion remains a
+separate supported workaround.
 
 ## Licensing
 

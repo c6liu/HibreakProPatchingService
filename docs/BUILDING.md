@@ -78,7 +78,10 @@ tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink.apk
 tools/build-daemon.sh build/a9_eink_server
 ```
 
-The APK gains five modes, the in-layout toolbar, and the AOD inversion switch.
+The APK gains five modes, the in-layout toolbar, the AOD inversion switch, and
+per-app refresh selectors for installed launcher apps. Button settings appear
+top-first. Unsupported legacy static-lockscreen controls are removed/hidden;
+the legacy max-brightness override is disabled with an explanation.
 It has `sharedUserId` removed so it can run without the GSI's platform signing
 key. The AOSP module keeps its platform-signed integration configuration.
 
@@ -224,5 +227,9 @@ for script in tools/*.sh tools/display/*.sh; do bash -n "$script"; done
 
 Tests use disposable ext4 images in `build/`, not a phone. They cover payloads,
 metadata, source preservation, paths with spaces, ADB key handling, overwrite
-and format rejection, and flashing safeguards. Device scripts require Android
+and format rejection, and flashing safeguards. Settings resource tests also
+check category order and dependencies. When the tested base APK and apktool
+are present in `local/` (or `APKTOOL_JAR` is set), APK tests decode, patch and
+assemble the settings UI; otherwise those APK tests are skipped.
+Device scripts require Android
 and the existing phh policy; host tests cannot verify physical display behavior.
