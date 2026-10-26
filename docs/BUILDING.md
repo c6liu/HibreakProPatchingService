@@ -86,15 +86,40 @@ settings appear top-first. Unsupported legacy static-lockscreen controls are
 removed/hidden, as are the LCD-only Night Light and Backlight button actions.
 The legacy max-brightness override is removed. Build the daemon from the
 matching source so it can dispatch the new DPAD commands.
+The popup's Auto Refresh, Anti-Shake, and Video Refresh controls are saved
+per app, independently of the per-app refresh-mode enable/disable setting.
+For apps without overrides, the existing global Auto Refresh/Anti-Shake values
+remain defaults; Video Refresh defaults off and the old global video flag is
+ignored. Changing apps applies the new app's controls and updates popup switches
+without saving the previous app's values into the new app. Controls remain
+disabled until an active app is detected. The per-app page's reset action resets
+refresh modes only, not these controls. The camera-preview keep-alive remains
+independent of the per-app Video Refresh choice.
 It has `sharedUserId` removed so it can run without the GSI's platform signing
 key. The AOSP module keeps its platform-signed integration configuration.
 
-The offline builder uses uber-apk-signer's debug signing configuration, matching
-the development images made during this investigation. This is for personal
-testing, **not a production signing strategy**. Keep a stable, privately managed
-release key for distributed releases, adapt the signing step accordingly, and
-never commit private keys. Changing the certificate between images can reset
-the app's settings. The signing tool verifies its output.
+By default the offline builder uses uber-apk-signer's debug signing
+configuration, for personal testing only. To sign with a stable release key,
+set the keystore path, alias, and expected SHA-256 certificate fingerprint.
+The signer prompts for passwords; the build script does not accept passwords
+as command-line arguments or save them:
+
+```bash
+export APK_RELEASE_KEYSTORE="/private/path/to/your-release-key.jks"
+export APK_RELEASE_KEY_ALIAS="your-key-alias"
+export APK_RELEASE_CERT_SHA256="<your-certificate-sha256-fingerprint-without-colons>"
+tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink-signed.apk
+unset APK_RELEASE_KEYSTORE APK_RELEASE_KEY_ALIAS APK_RELEASE_CERT_SHA256
+```
+
+Replace the placeholders with your own private keystore path, alias, and
+certificate fingerprint. The builder requires all three settings together,
+asks the signer to verify the expected certificate, and verifies the resulting
+APK. Keep the keystore backed up and privately managed; never commit it or its
+passwords. Use this same key for every future A9 build. Changing the
+certificate may cause Android to reject an update or reset the app's data.
+Moving an already-flashed debug-signed system app to the release certificate
+requires a fresh migration plan; test on a disposable device before publishing.
 
 All builders refuse to overwrite existing outputs. Choose new filenames when
 rebuilding. A failed image build can leave an incomplete output; do not flash it.
@@ -117,6 +142,28 @@ for the image, so **do not distribute a personal-key image to other users**.
 ADB authentication remains enabled. Omitting the last argument preserves the
 GSI's existing key setup; authorize the computer on-screen when prompted.
 
+For a public-release candidate, use `--release` and do not pass an ADB key:
+
+```bash
+tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
+  build/HiBreakPro-release.img build/HiBreakEink.apk build/a9_eink_server \
+  --release
+```
+
+Release mode changes `persist.sys.usb.config` from `adb` to `mtp`, enforces MTP
+USB configuration at early boot and boot, omits the helper that enables USB
+debugging, and removes the project's `debug.hibreak.*` diagnostic property
+hooks. It does not inject a host ADB key. The base image's ADB-key path is
+otherwise preserved; Android's `ro.secure=1` and `ro.debuggable=0` settings
+remain unchanged. Display-related SurfaceFlinger properties and the internal
+`debug.tracing.screen_state` AOD triggers are retained because the device
+display/AOD setup uses them; release mode does not strip those required
+behavioral settings.
+
+`--release` only strips the project's USB-debugging and diagnostic hooks; it
+does **not** sign the whole ROM image, establish verified boot/OTA trust, or
+resolve upstream ROM redistribution requirements.
+
 The patcher:
 
 1. Copies the input, expands ext4, and unshares ext4 `shared_blocks`.
@@ -124,6 +171,8 @@ The patcher:
 3. Installs the APK, daemon and privileged-permission allowlist.
 4. Sets and checks file modes, ownership, SELinux labels and round-trip bytes.
 5. Minimizes the filesystem, checks it with `e2fsck`, and prints SHA-256.
+6. In `--release` mode, verifies the patch input properties and omits the
+   project's USB-debugging and diagnostic-trigger files/hooks.
 
 It can replace this workflow's files in an already-patched image, but a clean
 original GSI is preferred. It refuses a conflicting AOSP daemon init file.
@@ -263,5 +312,8 @@ with a mock command runner and preferences. It does not replace the A9 app,
 change its saved settings, inject keys, or change the screen or frontlight;
 the temporary package is uninstalled afterward. It checks popup initialization,
 not accessibility-overlay attachment or physical display behavior.
+The runtime check also verifies Additional Controls migration defaults,
+per-app isolation and persistence, switch rebinding without unintended writes,
+and applying the app's Video Refresh state to the live-refresh manager.
 Device scripts require Android
 and the existing phh policy; host tests cannot verify physical display behavior.

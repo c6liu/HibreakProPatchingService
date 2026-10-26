@@ -25,7 +25,7 @@
     return-object v0
 .end method
 
-.method private static setField(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Object;)V
+.method public static setField(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Object;)V
     .locals 1
     invoke-virtual {p1, p2}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object p1
@@ -80,6 +80,12 @@
     const-class v8, Landroid/content/ContextWrapper;
     const-string v9, "mBase"
     invoke-static {v7, v8, v9, v6}, Lhibreak/tests/PopupProbe;->setField(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Object;)V
+    new-instance v10, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-direct {v10, v3, v5}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;-><init>(Landroid/content/SharedPreferences;Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;)V
+    invoke-virtual {v10, v7}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->attach(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;)V
+    const-class v8, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;
+    const-string v9, "displaySettingsManager"
+    invoke-static {v7, v8, v9, v10}, Lhibreak/tests/PopupProbe;->setField(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Object;)V
     invoke-static {v7, v1}, Lcom/lmqr/ha9_comp_service/VideoRefreshSwitchSetup;->setup(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Landroid/widget/Switch;)V
     const-class v8, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;
     const-string v9, "sharedPreferences"
@@ -110,5 +116,6 @@
     sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
     const-string v1, "PASS: popup inflated, video switch initialized, screen off/on receiver executed"
     invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-static {p0, v5}, Lhibreak/tests/PerAppControlsProbe;->run(Landroid/content/Context;Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;)V
     return-void
 .end method

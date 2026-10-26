@@ -79,7 +79,7 @@ class SettingsResourceTests(unittest.TestCase):
                          "Video refresh (experimental)")
         refresh_source = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
                           "CameraLiveRefresh.kt").read_text()
-        self.assertIn('"video_optimized_refresh", false', refresh_source)
+        self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
 
 
 class PatchedApkSettingsTests(unittest.TestCase):
@@ -109,6 +109,8 @@ class PatchedApkSettingsTests(unittest.TestCase):
         probe.with_name("PopupProbe.smali").write_text(popup_probe)
         shutil.copyfile(ROOT / "tools/tests/smali/RuntimeInstrumentation.smali",
                         probe.with_name("RuntimeInstrumentation.smali"))
+        shutil.copyfile(ROOT / "tools/tests/smali/PerAppControlsProbe.smali",
+                        probe.with_name("PerAppControlsProbe.smali"))
         if os.environ.get("HIBREAK_ADB_TESTS") == "1":
             android = "{http://schemas.android.com/apk/res/android}"
             cls.test_package = f"hibreak.tests.regression.p{uuid.uuid4().hex}"
@@ -204,11 +206,13 @@ class PatchedApkSettingsTests(unittest.TestCase):
         accessor = (smali / "FloatingMenuViewAccessor.smali").read_text()
         self.assertIn("getVideoOptimizedRefresh()Landroid/widget/Switch;", accessor)
         toggle_setup = (smali / "VideoRefreshSwitchSetup.smali").read_text()
-        self.assertIn('"video_optimized_refresh"', toggle_setup)
-        self.assertIn("const/4 v2, 0x0", toggle_setup)
-        self.assertIn("setOnCheckedChangeListener", toggle_setup)
-        listener = (smali / "VideoRefreshSwitchListener.smali").read_text()
-        self.assertIn("setVideoOptimizedRefresh(Z)V", listener)
+        self.assertIn("setupVideoRefreshSwitch", toggle_setup)
+        controls = (smali / "DisplaySettingsManager.smali").read_text()
+        self.assertIn('"display:"', controls)
+        self.assertNotIn("disable_perapprefresh", controls)
+        self.assertIn("setOnCheckedChangeListener", controls)
+        app_event = (smali / "A9AccessibilityService$onAccessibilityEvent$1.smali").read_text()
+        self.assertIn("->onDisplayAppChange", app_event)
         camera_refresh = (smali / "CameraLiveRefresh.smali").read_text()
         self.assertIn("setScreenOn(Z)V", camera_refresh)
         self.assertIn("setVideoOptimized(Z)V", camera_refresh)
@@ -220,7 +224,6 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn("VideoRefreshSwitchSetup;->setup", key_event)
         service_method = key_event.split(
             ".method public final setVideoOptimizedRefresh(Z)V", 1)[1]
-        self.assertIn('"video_optimized_refresh"', service_method)
         self.assertIn("CameraLiveRefresh;->setVideoOptimized(Z)V", service_method)
         screen_receiver = (smali / "A9AccessibilityService$receiver$1.smali").read_text()
         self.assertIn("invoke-virtual {p1, p2}, "
@@ -244,9 +247,11 @@ class PatchedApkSettingsTests(unittest.TestCase):
             signer = Path(os.environ.get("APK_SIGNER_JAR", ROOT / "local/uber-apk-signer.jar"))
             self.run_command("java", "-jar", signer, "-a", self.work / "settings.apk",
                              "-o", self.work / "signed")
+            installed = False
             try:
                 self.run_command("adb", "install", "-t",
                                  self.work / "signed/settings-aligned-debugSigned.apk")
+                installed = True
                 result = subprocess.run(
                     ["adb", "shell", "am", "instrument", "-w",
                      self.test_package + "/hibreak.tests.RuntimeInstrumentation"],
@@ -255,4 +260,5 @@ class PatchedApkSettingsTests(unittest.TestCase):
                 self.assertIn("PASS: DPAD dispatch, popup inflation and switch setup, "
                               "screen off/on receiver", result.stdout)
             finally:
-                self.run_command("adb", "uninstall", self.test_package)
+                if installed:
+                    self.run_command("adb", "uninstall", self.test_package)

@@ -2,11 +2,29 @@
 # Offline patching only; never mounts an image or connects to a device.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
-    echo "Usage: $0 <raw-ext4-gsi.img> <output.img> <standalone.apk> <daemon> [adbkey.pub]" >&2
+if [ "$#" -lt 4 ] || [ "$#" -gt 6 ]; then
+    echo "Usage: $0 <raw-ext4-gsi.img> <output.img> <standalone.apk> <daemon> [adbkey.pub] [--release]" >&2
     exit 1
 fi
-SRC="$1"; OUT="$2"; APK="$3"; DAEMON="$4"; KEY="${5:-}"
+SRC="$1"; OUT="$2"; APK="$3"; DAEMON="$4"; KEY=""; RELEASE=false
+shift 4
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --release)
+            [ "$RELEASE" = false ] || { echo "Duplicate option: --release" >&2; exit 1; }
+            RELEASE=true
+            ;;
+        *)
+            [ -z "$KEY" ] || { echo "Unexpected argument: $1" >&2; exit 1; }
+            KEY="$1"
+            ;;
+    esac
+    shift
+done
+if [ "$RELEASE" = true ] && [ -n "$KEY" ]; then
+    echo "--release cannot be combined with an ADB public key" >&2
+    exit 1
+fi
 for tool in debugfs e2fsck resize2fs dumpe2fs truncate cmp sha256sum python3; do
     command -v "$tool" >/dev/null || { echo "Missing dependency: $tool" >&2; exit 1; }
 done
@@ -77,6 +95,87 @@ put() {
     grep -q 'User:     0   Group:     0' "$TMP/stat"
     grep -q "$(tr -d '\0' < "$context")" "$TMP/stat"
 }
+DISPLAY_RC="$ROOT/tools/display/hibreak-display.rc"
+EINK_RC="$ROOT/a9_eink_daemon/etc/init/a9_eink_gsi.rc"
+if [ "$RELEASE" = true ]; then
+    debugfs -R "dump system/build.prop \"$TMP/build.prop\"" "$OUT" >/dev/null
+    python3 - "$TMP/build.prop" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+lines = path.read_text().splitlines(keepends=True)
+indices = [i for i, line in enumerate(lines)
+           if line.startswith("persist.sys.usb.config=")]
+if len(indices) != 1:
+    raise SystemExit("Expected exactly one persist.sys.usb.config in system/build.prop")
+lines[indices[0]] = "persist.sys.usb.config=mtp\n"
+path.write_text("".join(lines))
+PY
+    python3 - "$DISPLAY_RC" "$EINK_RC" "$TMP" <<'PY'
+import pathlib
+import sys
+
+display_path, eink_path, output_dir = map(pathlib.Path, sys.argv[1:])
+
+def remove_exact(text, block, name):
+    if text.count(block) != 1:
+        raise SystemExit(f"Expected exactly one {name} block")
+    return text.replace(block, "")
+
+display = display_path.read_text()
+display = remove_exact(display, """on boot
+    setprop persist.sys.usb.config mtp,adb
+    setprop sys.usb.config mtp,adb
+
+""", "USB ADB property")
+display = remove_exact(display, """service hibreak_enable_adb /system/bin/hibreak-enable-adb.sh
+    oneshot
+    disabled
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+""", "USB ADB service")
+display = remove_exact(display, "    start hibreak_enable_adb\n", "USB ADB startup")
+display = remove_exact(display, """on property:debug.hibreak.disable_hwc=1
+    setprop debug.hibreak.disable_hwc 0
+    start hibreak_disable_hwc
+
+""", "HWC diagnostic override")
+display = remove_exact(display, """# Manual recovery without root: adb shell setprop debug.hibreak.restart_sf 1
+on property:debug.hibreak.restart_sf=1
+    setprop debug.hibreak.restart_sf 0
+    restart surfaceflinger
+""", "SurfaceFlinger diagnostic override")
+display = display.replace(
+    "on early-boot\n",
+    "on early-boot\n    setprop persist.sys.usb.config mtp\n",
+    1,
+)
+display += "\non boot\n    setprop sys.usb.config mtp\n"
+(output_dir / "hibreak-display-release.rc").write_text(display)
+
+eink = eink_path.read_text()
+eink = remove_exact(eink, """
+# Diagnostic override: adb shell setprop debug.hibreak.refresh_mode <value>.
+on property:debug.hibreak.refresh_mode=*
+    setprop vendor.xrz.global_refresh_mode ${debug.hibreak.refresh_mode}
+    write /sys/kernel/debug/eink_debug/global_mode ${debug.hibreak.refresh_mode}
+
+on property:debug.hibreak.eink_restart=1
+    setprop debug.hibreak.eink_restart 0
+    restart a9_eink_server
+""", "e-ink diagnostic overrides")
+(output_dir / "a9_eink_gsi-release.rc").write_text(eink)
+PY
+    DISPLAY_RC="$TMP/hibreak-display-release.rc"
+    EINK_RC="$TMP/a9_eink_gsi-release.rc"
+    if exists system/bin/hibreak-enable-adb.sh; then
+        debugfs -w -R 'rm system/bin/hibreak-enable-adb.sh' "$OUT"
+    fi
+    put "$TMP/build.prop" system/build.prop 0100644
+fi
 if ! exists system/priv-app/HiBreakEink; then
     debugfs -w -R 'mkdir system/priv-app/HiBreakEink' "$OUT"
 fi
@@ -90,13 +189,39 @@ if exists system/etc/init/a9_eink_daemon.rc; then
 fi
 put "$APK" system/priv-app/HiBreakEink/HiBreakEink.apk 0100644
 put "$DAEMON" system/bin/a9_eink_server 0100755
-put "$ROOT/a9_eink_daemon/etc/init/a9_eink_gsi.rc" system/etc/init/a9_eink_gsi.rc 0100644
+put "$EINK_RC" system/etc/init/a9_eink_gsi.rc 0100644
 put "$ROOT/a9_accessibility_service/privapp-permissions-accessibility.xml" \
     system/etc/permissions/privapp-permissions-hibreak-eink.xml 0100644
-put "$ROOT/tools/display/hibreak-display.rc" system/etc/init/hibreak-display.rc 0100644
-for name in hibreak-disable-hwc hibreak-enable-adb hibreak-wake-cycle hibreak-aod; do
+put "$DISPLAY_RC" system/etc/init/hibreak-display.rc 0100644
+for name in hibreak-disable-hwc hibreak-wake-cycle hibreak-aod; do
     put "$ROOT/tools/display/$name.sh" "system/bin/$name.sh" 0100755
 done
+if [ "$RELEASE" = false ]; then
+    put "$ROOT/tools/display/hibreak-enable-adb.sh" \
+        system/bin/hibreak-enable-adb.sh 0100755
+else
+    echo "Release mode: USB ADB and diagnostic property hooks are disabled."
+    if ! debugfs -R 'cat system/build.prop' "$OUT" 2>/dev/null |
+        grep -qx 'persist.sys.usb.config=mtp'; then
+        echo "Release image does not force MTP-only USB configuration" >&2
+        exit 1
+    fi
+    for path in system/etc/init/hibreak-display.rc system/etc/init/a9_eink_gsi.rc; do
+        if debugfs -R "cat $path" "$OUT" 2>/dev/null | grep -q 'debug\.hibreak'; then
+            echo "Release image retains a diagnostic hook in $path" >&2
+            exit 1
+        fi
+    done
+    if debugfs -R 'cat system/etc/init/hibreak-display.rc' "$OUT" 2>/dev/null |
+        grep -Eq 'mtp,adb|hibreak_enable_adb'; then
+        echo "Release image still enables USB ADB" >&2
+        exit 1
+    fi
+    if exists system/bin/hibreak-enable-adb.sh; then
+        echo "Release image still contains the USB ADB enable script" >&2
+        exit 1
+    fi
+fi
 if [ -n "$KEY" ]; then put "$KEY" adb_keys 0100644 "$TMP/adb-context"; fi
 fsck_fix
 resize2fs -M "$OUT"

@@ -120,6 +120,7 @@ class A9AccessibilityService : AccessibilityService(),
         buttonActionManager = ButtonActionManager(commandRunner, refreshModeManager)
         brightnessManager = BrightnessManager(sharedPreferences, commandRunner)
         displaySettingsManager = DisplaySettingsManager(sharedPreferences, commandRunner)
+        displaySettingsManager.attach(this)
 
         val filterScreen = IntentFilter()
         filterScreen.addAction(Intent.ACTION_SCREEN_ON)
@@ -306,14 +307,7 @@ class A9AccessibilityService : AccessibilityService(),
                     }
 
                     displaySettingsManager.setupSwitches(autoRefresh, antiShake)
-                    videoOptimizedRefresh.isChecked =
-                        sharedPreferences.getBoolean("video_optimized_refresh", false)
-                    videoOptimizedRefresh.setOnCheckedChangeListener { _, enabled ->
-                        sharedPreferences.edit()
-                            .putBoolean("video_optimized_refresh", enabled)
-                            .apply()
-                        cameraLiveRefresh?.setVideoOptimized(enabled)
-                    }
+                    displaySettingsManager.setupVideo(videoOptimizedRefresh)
 
 
                     settingsIcon.setOnClickListener {
@@ -356,6 +350,7 @@ class A9AccessibilityService : AccessibilityService(),
             it.setScreenOn(isScreenOn)
             it.start()
         }
+        displaySettingsManager.applySettings()
         
         handler.postDelayed({
             refreshModeManager.applyMode()
@@ -384,10 +379,15 @@ class A9AccessibilityService : AccessibilityService(),
             try {
                 packageManager.getActivityInfo(componentName, 0)
                 refreshModeManager.onAppChange(pkgName)
+                displaySettingsManager.onAppChange(pkgName)
                 menuBinding.updateButtons(refreshModeManager.currentMode)
             } catch (_: PackageManager.NameNotFoundException) {
             }
         }
+    }
+
+    fun setVideoOptimizedRefresh(enabled: Boolean) {
+        cameraLiveRefresh?.setVideoOptimized(enabled)
     }
 
     private fun updateColorScheme(sharedPreferences: SharedPreferences) = sharedPreferences.run {

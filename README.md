@@ -34,7 +34,7 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 |--------|---------|
 | [build-apk.sh](tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-daemon.sh](tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
-| [patch-gsi.sh](tools/patch-gsi.sh) | Install display/ADB/AOD scripts, APK, daemon, and permissions into an ext4 GSI |
+| [patch-gsi.sh](tools/patch-gsi.sh) | Patch display/AOD support; optional authenticated ADB for testing or `--release` mode without USB ADB |
 | [flash-system.sh](tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
 | [collect-diagnostics.sh](tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
 
@@ -81,10 +81,20 @@ on edge-to-edge Android versions.
   be assigned to screen-on single, double or long presses; screen-off actions
   remain restricted to media, Clear Screen and Nothing. Whether a DPAD key
   scrolls or changes focus depends on the foreground app.
-- The popup's **Video refresh (experimental)** switch is off by default. Turn
-  it on only while playing video to keep a tiny overlay changing every 50 ms,
+- The popup's **Auto Refresh**, **Anti-Shake**, and
+  **Video refresh (experimental)** switches are saved separately for each app
+  and applied automatically when switching apps. Open the popup while the
+  intended app is active to change its controls. This is independent of
+  **Disable Per-App Refresh Mode**, which only affects the five-mode selector.
+  Apps without saved choices inherit the previous global Auto Refresh and
+  Anti-Shake settings; Video Refresh defaults off, even if it was globally on
+  before this update. The switches are disabled until an active app is detected.
+- Enable **Video refresh (experimental)** for your video apps to keep a tiny
+  overlay changing every 50 ms while those apps are active,
   prompting the e-ink compositor to commit frames. It pauses when the screen is
-  off and when switched off. Continuous refresh may increase battery use and
+  off, when switching to an app without Video Refresh enabled, and when switched
+  off. The separate camera-preview keep-alive still works independently.
+  Continuous refresh may increase battery use and
   ghosting; effectiveness depends on the player and display path.
 - **Toggle Night Light** and **Toggle Backlight** have been removed from the
   button actions. They changed Android LCD color-temperature / screen-brightness
@@ -96,7 +106,8 @@ on edge-to-edge Android versions.
   enabled. **Disable Per-App Refresh Mode** temporarily uses a shared mode
   without deleting the saved per-app choices.
 - **Reset all to default** on that page asks for confirmation, then removes all
-  saved per-app overrides, including those for uninstalled apps. It preserves
+  saved per-app refresh-mode overrides, including those for uninstalled apps.
+  It does not reset the three Additional Controls. It preserves
   Default Refresh Mode, the shared mode and all other settings.
 - **Default Refresh Mode** remains editable with per-app modes enabled and is
   used for apps without an override.

@@ -21,8 +21,6 @@ class CameraLiveRefresh(private val context: Context) : CameraManager.Availabili
     private var videoOptimized = false
 
     fun start() {
-        videoOptimized = PreferenceManager.getDefaultSharedPreferences(context)
-            .getBoolean("video_optimized_refresh", false)
         try {
             cameraManager().registerAvailabilityCallback(this, handler)
         } catch (e: RuntimeException) {

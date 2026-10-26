@@ -31,6 +31,9 @@ class ToolTests(unittest.TestCase):
         rc = self.work / "vndk.rc"
         rc.write_text("service phh /system/bin/true\n    seclabel u:r:phhsu_daemon:s0\n")
         self.debug(f'write "{rc}" system/etc/init/vndk.rc', write=True)
+        build_prop = self.work / "build.prop"
+        build_prop.write_text("ro.debuggable=0\nro.secure=1\npersist.sys.usb.config=adb\n")
+        self.debug(f'write "{build_prop}" system/build.prop', write=True)
         self.apk = self.work / "test apk"
         self.apk.write_bytes(b"test-apk-payload")
         self.daemon = self.work / "test daemon"
@@ -44,6 +47,11 @@ class ToolTests(unittest.TestCase):
     def patch(self, *extra):
         return subprocess.run(["bash", PATCHER, self.base, self.out, self.apk, self.daemon,
                                *extra], capture_output=True, text=True)
+
+    def read_image_text(self, path):
+        result = subprocess.run(["debugfs", "-R", f"cat {path}", self.out],
+                                check=True, capture_output=True, text=True)
+        return result.stdout
 
     def test_image_roundtrip_and_refuse_overwrite(self):
         original = self.base.read_bytes()
@@ -96,6 +104,37 @@ class ToolTests(unittest.TestCase):
         dumped = self.work / "key-check"
         self.debug(f'dump adb_keys "{dumped}"', image=self.out)
         self.assertEqual(dumped.read_bytes(), key.read_bytes())
+
+    def test_release_mode_disables_adb_and_diagnostic_hooks(self):
+        result = self.patch("--release")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        display = self.read_image_text("system/etc/init/hibreak-display.rc")
+        eink = self.read_image_text("system/etc/init/a9_eink_gsi.rc")
+        self.assertIn("setprop persist.sys.usb.config mtp", display)
+        self.assertIn("setprop sys.usb.config mtp", display)
+        self.assertNotIn("mtp,adb", display)
+        self.assertNotIn("hibreak_enable_adb", display)
+        self.assertNotIn("debug.hibreak", display)
+        self.assertIn("service hibreak_aod_doze", display)
+        self.assertIn("service hibreak_wake_cycle", display)
+        self.assertNotIn("debug.hibreak", eink)
+        self.assertIn("service a9_eink_server", eink)
+        build_prop = self.read_image_text("system/build.prop")
+        self.assertIn("persist.sys.usb.config=mtp", build_prop)
+        self.assertNotIn("persist.sys.usb.config=adb", build_prop)
+        adb_script_stat = self.debug("stat system/bin/hibreak-enable-adb.sh",
+                                     image=self.out).stdout.decode()
+        self.assertNotIn("Inode:", adb_script_stat)
+        self.assertNotIn(
+            "system/bin/hibreak-enable-adb.sh",
+            self.debug("ls system/bin", image=self.out).stdout.decode(),
+        )
+        rejected = subprocess.run(
+            ["bash", PATCHER, self.base, self.work / "release-with-key.img",
+             self.apk, self.daemon, self.work / "host-key.pub", "--release"],
+            capture_output=True, text=True)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("cannot be combined", rejected.stderr)
 
     def test_flash_defaults_to_dry_run(self):
         result = subprocess.run(["bash", ROOT / "tools/flash-system.sh", self.base, "a"],

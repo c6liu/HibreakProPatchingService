@@ -350,6 +350,8 @@ replace(service, '''    const-wide/16 v2, 0x3e8
     invoke-direct {{v0, p0}}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;-><init>(Landroid/content/Context;)V
     iput-object v0, p0, {live}
     invoke-virtual {{v0}}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->start()V
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->displaySettingsManager:Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-virtual {{v0}}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->applySettings()V
 
     return-void''')
 replace(service, '''    .line 380
@@ -563,22 +565,25 @@ replace(service, '''    invoke-super {p0, p1}, Landroid/accessibilityservice/Acc
 with service.open("a") as output:
     output.write("""
 .method public final setVideoOptimizedRefresh(Z)V
-    .locals 3
-    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->sharedPreferences:Landroid/content/SharedPreferences;
-    const-string v1, "sharedPreferences"
-    if-nez v0, :prefs_ready
-    invoke-static {v1}, Lkotlin/jvm/internal/Intrinsics;->throwUninitializedPropertyAccessException(Ljava/lang/String;)V
-    const/4 v0, 0x0
-    :prefs_ready
-    invoke-interface {v0}, Landroid/content/SharedPreferences;->edit()Landroid/content/SharedPreferences$Editor;
-    move-result-object v1
-    const-string v2, "video_optimized_refresh"
-    invoke-interface {v1, v2, p1}, Landroid/content/SharedPreferences$Editor;->putBoolean(Ljava/lang/String;Z)Landroid/content/SharedPreferences$Editor;
-    invoke-interface {v1}, Landroid/content/SharedPreferences$Editor;->apply()V
+    .locals 1
     iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->cameraLiveRefresh:Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;
     if-eqz v0, :video_refresh_done
     invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->setVideoOptimized(Z)V
     :video_refresh_done
+    return-void
+.end method
+
+.method public final setupVideoRefreshSwitch(Landroid/widget/CompoundButton;)V
+    .locals 1
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->displaySettingsManager:Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->setupVideo(Landroid/widget/CompoundButton;)V
+    return-void
+.end method
+
+.method public final onDisplayAppChange(Ljava/lang/String;)V
+    .locals 1
+    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->displaySettingsManager:Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-virtual {v0, p1}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->onAppChange(Ljava/lang/String;)V
     return-void
 .end method
 
@@ -598,6 +603,13 @@ replace(receiver, '''    invoke-static {p1, p2}, Lcom/lmqr/ha9_comp_service/A9Ac
 replace(receiver, '''    invoke-static {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V''', '''    invoke-static {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->access$setScreenOn$p(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;Z)V
     invoke-virtual {p1, v4}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->setLiveRefreshScreenOn(Z)V''')
 
-for name in ("CameraLiveRefresh", "VideoRefreshSwitchSetup", "VideoRefreshSwitchListener"):
+replace(service, '''    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->displaySettingsManager:Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;''', '''    iput-object v0, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->displaySettingsManager:Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-virtual {v0, p0}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->attach(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;)V''')
+app_event = S / "A9AccessibilityService$onAccessibilityEvent$1.smali"
+replace(app_event, '''    invoke-virtual {p2, p1}, Lcom/lmqr/ha9_comp_service/RefreshModeManager;->onAppChange(Ljava/lang/String;)V''', '''    invoke-virtual {p2, p1}, Lcom/lmqr/ha9_comp_service/RefreshModeManager;->onAppChange(Ljava/lang/String;)V
+    iget-object p2, p0, Lcom/lmqr/ha9_comp_service/A9AccessibilityService$onAccessibilityEvent$1;->this$0:Lcom/lmqr/ha9_comp_service/A9AccessibilityService;
+    invoke-virtual {p2, p1}, Lcom/lmqr/ha9_comp_service/A9AccessibilityService;->onDisplayAppChange(Ljava/lang/String;)V''')
+
+for name in ("CameraLiveRefresh", "VideoRefreshSwitchSetup", "DisplaySettingsManager"):
     (S / f"{name}.smali").write_text(
         (Path(__file__).resolve().parent / f"smali/{name}.smali").read_text())

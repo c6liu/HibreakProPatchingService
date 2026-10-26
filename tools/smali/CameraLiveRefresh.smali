@@ -49,14 +49,6 @@
 
 .method public final start()V
     .locals 3
-    iget-object v0, p0, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->service:Landroid/content/Context;
-    invoke-static {v0}, Landroidx/preference/PreferenceManager;->getDefaultSharedPreferences(Landroid/content/Context;)Landroid/content/SharedPreferences;
-    move-result-object v0
-    const-string v1, "video_optimized_refresh"
-    const/4 v2, 0x0
-    invoke-interface {v0, v1, v2}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z
-    move-result v1
-    iput-boolean v1, p0, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->videoOptimized:Z
     :try_start
     invoke-direct {p0}, Lcom/lmqr/ha9_comp_service/CameraLiveRefresh;->cameraManager()Landroid/hardware/camera2/CameraManager;
     move-result-object v0
