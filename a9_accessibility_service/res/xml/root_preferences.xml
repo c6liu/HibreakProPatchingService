@@ -116,6 +116,12 @@
             app:key="disable_show_per_app_aod_settings"
             app:title="Disable static AOD settings in Pop-up" />
 
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="aod_invert"
+            app:summary="Show the Always-On Display as dark content on a white background"
+            app:title="Invert colours on Always-On Display" />
+
         <ListPreference
             app:key="static_lockscreen_type"
             app:title="Set Static Lockscreen Icon"
@@ -169,7 +175,7 @@
 
         <SwitchPreferenceCompat
             app:key="refresh_on_lock"
-            app:title="Set Refresh Mode to Clear on Lock" />
+            app:title="Set Refresh Mode to Regal on Lock" />
 
         <SwitchPreferenceCompat
             app:key="disable_perapprefresh"

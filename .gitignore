@@ -19,3 +19,8 @@ app/external_scripts/root_service/obj
 __pycache__
 TMP
 .vscode
+/local/
+*.img
+*.img.xz
+*.apk
+*.idsig

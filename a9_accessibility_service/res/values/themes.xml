@@ -14,6 +14,12 @@
         <!-- Customize your theme here. -->
     </style>
 
+    <style name="Theme.Ha9_comp_service.Settings" parent="Theme.Ha9_comp_service">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+    </style>
+
     <style name="MenuButtonStyle" parent="Widget.AppCompat.Button.Borderless">
         <item name="android:textSize">12sp</item>
         <item name="android:background">@drawable/drawable_border_normal</item>

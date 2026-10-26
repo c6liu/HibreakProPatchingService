@@ -12,6 +12,7 @@
 #include <sys/xattr.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/system_properties.h>
 
 static const char* kTAG = "a9EinkService";
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
@@ -91,20 +92,12 @@ void applyThemeCustomization(int theme_style_index, const char* hex_color) {
 
 
 void epdForceClear() {
+    LOGE("Native force-clear is not implemented on HiBreak Pro; use the app's Clear Screen action");
 }
 
 
 void epdCommitBitmap() {
-    const char* filePath = "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/epd_commit_bitmap";
-    int fd = open(filePath, O_WRONLY);
-    if (fd == -1) {
-        LOGE("Error writing to %s: %s\n", filePath, strerror(errno));
-        return;
-    }
-    if (write(fd, "1", 1) == -1) {
-        LOGE("Error writing to %s: %s\n", filePath, strerror(errno));
-    }
-    close(fd);
+    LOGE("Qualcomm bitmap commit is not supported on HiBreak Pro");
 }
 
 void writeToEpdDisplayMode(const char* value) {
@@ -119,10 +112,20 @@ void writeToEpdDisplayMode(const char* value) {
         LOGE("Error writing to %s: %s\n", filePath, strerror(errno));
         return;
     }
-    if (write(fd, value, strlen(value)) == -1) {
+    if (write(fd, value, strlen(value)) != (ssize_t)strlen(value)) {
         LOGE("Error writing to %s: %s\n", filePath, strerror(errno));
+    } else {
+        LOGI("Applied refresh mode %s to %s", value, filePath);
     }
     close(fd);
+}
+
+// Bigme's stock HWC reads its global e-ink mode from this property (decimal EinkRefreshMode value).
+void applyRefreshMode(const char* value) {
+    writeToEpdDisplayMode(value);
+    if (__system_property_set("vendor.xrz.global_refresh_mode", value) != 0) {
+        LOGE("Failed to set vendor.xrz.global_refresh_mode=%s", value);
+    }
 }
 
 void setColdBacklight(const char* brightness) {
@@ -296,19 +299,33 @@ void writeWakeOnVolumeProp(const char* value) {
     }
 }
 
+// Read by /system/bin/hibreak-aod.sh when the device enters doze.
+void setAodInvert(const char* value) {
+    if (strcmp(value, "0") != 0 && strcmp(value, "1") != 0) {
+        LOGE("Invalid AOD inversion value: %s (expected 0 or 1)", value);
+        return;
+    }
+    const char* enabled = strcmp(value, "0") == 0 ? "false" : "true";
+    if (__system_property_set("persist.sys.hibreak.aod_invert", enabled) != 0) {
+        LOGE("Failed to set persist.sys.hibreak.aod_invert=%s", enabled);
+    }
+}
+
 void processCommand(const char* command) {
     if (strcmp(command, "cm") == 0) {
         epdCommitBitmap();
     } else if (strcmp(command, "r") == 0) {
         epdForceClear();
     } else if (strcmp(command, "c") == 0) {
-        writeToEpdDisplayMode("180");
+        applyRefreshMode("180");
     } else if (strcmp(command, "b") == 0) {
-        writeToEpdDisplayMode("178");
+        applyRefreshMode("178");
     } else if (strcmp(command, "s") == 0) {
-        writeToEpdDisplayMode("177");
+        applyRefreshMode("177");
     } else if (strcmp(command, "p") == 0) {
-        writeToEpdDisplayMode("179");
+        applyRefreshMode("179");
+    } else if (strcmp(command, "h") == 0) {
+        applyRefreshMode("183");
     } else if (strncmp(command, "stw", 3) == 0) {
         if(valid_number(command+3))
             setWhiteThreshold(command+3);
@@ -327,6 +344,8 @@ void processCommand(const char* command) {
     } else if (strncmp(command, "wov", 3) == 0) {
         if(valid_number(command+3))
             writeWakeOnVolumeProp(command+3);
+    } else if (strncmp(command, "aoi", 3) == 0) {
+        setAodInvert(command+3);
     } else if (strncmp(command, "theme", 5) == 0) {
         int theme_style_index;
         char hex_color[7];
@@ -418,6 +437,21 @@ _Noreturn void setupServer() {
 
 int main(void) {
     signal(SIGHUP, SIG_IGN);
+    const char* paths[] = {
+        "/sys/kernel/debug/eink_debug/global_mode",
+        "/sys/kernel/debug/eink_debug/clean_a2",
+        "/sys/kernel/debug/eink_debug/anti_flicker",
+        "/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light",
+        "/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_warm_light",
+    };
+    for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+        struct stat info;
+        if (stat(paths[i], &info) == 0) {
+            LOGI("Hardware node available: %s", paths[i]);
+        } else {
+            LOGE("Hardware node unavailable: %s: %s", paths[i], strerror(errno));
+        }
+    }
     setupServer();
     return 0;
 }

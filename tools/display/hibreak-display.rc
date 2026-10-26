@@ -1,0 +1,87 @@
+# HiBreak Pro e-ink display fixes for TrebleDroid-based GSIs.
+# Set the SurfaceFlinger backpressure props before `class_start core` (on boot),
+# so SF reads them at init() and no SF restart is needed.
+on early-boot
+    setprop persist.sys.phh.enable_sf_gl_backpressure false
+    setprop persist.sys.phh.enable_sf_hwc_backpressure false
+    setprop debug.sf.enable_gl_backpressure false
+    setprop debug.sf.enable_hwc_backpressure false
+
+service hibreak_disable_hwc /system/bin/hibreak-disable-hwc.sh
+    oneshot
+    disabled
+    user root
+    group root graphics
+    seclabel u:r:phhsu_daemon:s0
+
+on boot
+    setprop persist.sys.usb.config mtp,adb
+    setprop sys.usb.config mtp,adb
+
+service hibreak_enable_adb /system/bin/hibreak-enable-adb.sh
+    oneshot
+    disabled
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+service hibreak_wake_cycle /system/bin/hibreak-wake-cycle.sh
+    oneshot
+    disabled
+    user root
+    group root graphics input
+    seclabel u:r:phhsu_daemon:s0
+
+# Phh "Force allow Always-On Display" (static framework overlay reads this at boot).
+on early-boot
+    setprop persist.sys.overlay.aod true
+
+service hibreak_aod_setup /system/bin/hibreak-aod.sh setup
+    oneshot
+    disabled
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+service hibreak_aod_doze /system/bin/hibreak-aod.sh doze
+    oneshot
+    disabled
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+service hibreak_aod_wake /system/bin/hibreak-aod.sh wake
+    oneshot
+    disabled
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+# Display.STATE_*: 2=ON, 3=DOZE, 4=DOZE_SUSPEND
+on property:sys.boot_completed=1 && property:debug.tracing.screen_state=3
+    start hibreak_aod_doze
+
+on property:sys.boot_completed=1 && property:debug.tracing.screen_state=4
+    start hibreak_aod_doze
+
+on property:sys.boot_completed=1 && property:debug.tracing.screen_state=2
+    start hibreak_aod_wake
+
+on property:sys.boot_completed=1
+    start hibreak_enable_adb
+    start hibreak_disable_hwc
+    start hibreak_wake_cycle
+    start hibreak_aod_setup
+
+# Re-apply after SurfaceFlinger restarts; SF forgets the overlay setting.
+on property:init.svc.surfaceflinger=running
+    start hibreak_disable_hwc
+
+on property:debug.hibreak.disable_hwc=1
+    setprop debug.hibreak.disable_hwc 0
+    start hibreak_disable_hwc
+
+# Manual recovery without root: adb shell setprop debug.hibreak.restart_sf 1
+on property:debug.hibreak.restart_sf=1
+    setprop debug.hibreak.restart_sf 0
+    restart surfaceflinger

@@ -1,38 +1,47 @@
 # HiBreak Pro E-Ink service
 
-This repository contains Android build modules for an E-Ink accessibility
-service and its native daemon, intended for integration into a compatible GSI
-build. The Android modules and product make fragment are in this repository;
-there is no generic `patch_system_img.sh` image-patching script here.
+Android E-Ink accessibility service, native daemon, and offline GSI patching
+tools for the **Bigme HiBreak Pro (black-and-white, MT6877)**.
+The working configuration uses the **stock vendor**, not the HiBreak Pro
+Color HWC shim.
 
 ## Using an EvoX Treble GSI
 
-The HiBreak Pro guide documents direct flashing of a Treble GSI. The current
-[EvoX Treble releases](https://github.com/Doze-off/EvoX_treble/releases)
-include an Android 16 QPR2 `arm64-ab` image. See
-[Guide.md](Guide.md) for the HiBreak Pro-specific image selection and
-fastbootd steps. This is a generic GSI, not a HiBreak Pro-specific build, and
-the Android 16 EvoX release has not been verified on this device.
+**Start with the [install guide](Guide.md).** It covers backup, unlocking,
+first install, setup and updates. [Building and flashing](docs/BUILDING.md)
+has the details for building the app, daemon and patched image.
 
-The [HiBreak Pro XDA thread](https://xdaforums.com/t/bigme-hibreak-pro-dimensity-900-mt6877-e-ink-phone.4723924/)
-has community notes about mtkclient backups and a stock recovery package.
-That package is identified as firmware 1.9.6 from 2025-04-03; only use its
-partition images if they match the stock build on your device. See
-[Guide.md](Guide.md) for details and recovery cautions.
+> **Press Power after every restart.** Every time the phone restarts or powers
+> up, press Power once right after the Bigme logo flashes, otherwise it can go
+> back to powered-off. This is a known issue and is not fixed.
 
-Flashing the unmodified GSI installs EvoX, but does not by itself include this
-repository's service and daemon. To add the E-Ink app, daemon, and policy,
-these modules need to be integrated into and built with the GSI, or included
-through a separately verified patching/release process. The old A9 patcher
-mentioned by earlier versions of this README is a third-party artifact; its
-compatibility with HiBreak Pro, EvoX, or Android 16 is not established here.
-Do not assume that patcher contains the code in this repository.
+- [Findings and troubleshooting](docs/FINDINGS.md): tested hardware/software,
+  display fixes, stock mode research, AOD, boot/power evidence, limitations,
+  and failed approaches.
+- [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases):
+  tested input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`.
+- [Original HiBreak release](https://github.com/vbbot/HibreakProPatchingService/releases/tag/20250507):
+  source of the prebuilt APK used by the offline APK patcher.
 
-The daemon also contains device-specific sysfs paths. The HiBreak Pro guide
-documents refresh-mode and backlight nodes, but the daemon's Qualcomm-specific
-E-Ink commit, threshold, and contrast paths have not been verified on this
-device. See the compatibility notes in [Guide.md](Guide.md) before expecting
-all controls to work.
+The patched EvoX display and app have worked on one device with stock 3.1.6
+vendor. This is not a guarantee for other firmware, GSIs, or the Pro Color.
+Some app controls remain unsupported. Back up the exact stock firmware first.
+**Do not use the Hisense A9 system-image patcher unchanged.**
+
+### Tools
+
+| Script | Purpose |
+|--------|---------|
+| [build-apk.sh](tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
+| [build-daemon.sh](tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
+| [patch-gsi.sh](tools/patch-gsi.sh) | Install display/ADB/AOD scripts, APK, daemon, and permissions into an ext4 GSI |
+| [flash-system.sh](tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot |
+| [collect-diagnostics.sh](tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
+
+No tool downloads dependencies, wipes data, patches vendor, or flashes
+automatically. Large inputs, generated images, logs, and local tools belong
+in git-ignored `local/` and `build/`. AOSP build modules remain available
+as an alternative to the prebuilt-APK route.
 
 ## Default button mappings
 
@@ -40,6 +49,36 @@ all controls to work.
 - **Double press E-Ink button** — open E-Ink menu with per-app refresh modes
 
 These mappings can be changed in the E-Ink Settings app.
+
+## HiBreak refresh modes
+
+The popup and default-mode preference offer the same five modes:
+
+| Mode | Driver value | Daemon command | Saved preference value |
+|------|--------------|----------------|------------------------|
+| HD | 177 | `s` | 2 |
+| Regal | 180 | `c` | 0 |
+| Fast | 178 | `b` | 1 |
+| Extreme | 179 | `p` | 3 |
+| Hyper | 183 | `h` | 4 |
+
+The selector and popup use this order. Existing saved values and per-app
+choices retain their meanings; the displayed order does not change their
+stored mode values. Hyper needs the matching updated daemon. It is a mode
+exposed by the stock 3.1.6 framework, not a guaranteed increase in refresh
+speed on every GSI.
+
+The settings activity uses an in-layout toolbar above the preference list
+and fits system-window insets, so the title cannot cover the first settings
+on edge-to-edge Android versions.
+
+## Always-On Display inversion
+
+**EInk Service Settings → Invert colours on Always-On Display** (on by
+default) controls whether the GSI's `hibreak-aod.sh` inverts colours while
+dozing. The app sends `aoi1`/`aoi0` to the daemon, which sets
+`persist.sys.hibreak.aod_invert` to `true`/`false`; the setting is re-sent
+whenever the accessibility service connects.
 
 ## Licensing
 

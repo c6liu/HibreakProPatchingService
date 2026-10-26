@@ -6,9 +6,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Bundle
 import android.provider.Settings
-import android.view.MenuItem
 import android.view.accessibility.AccessibilityManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.preference.PreferenceFragmentCompat
 
 
@@ -16,25 +16,16 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
+        findViewById<Toolbar>(R.id.settings_toolbar).setNavigationOnClickListener {
+            finish()
+        }
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
                 .replace(R.id.settings, SettingsFragment())
                 .commit()
         }
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
         checkPermissions()
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            android.R.id.home -> {
-                finish()
-                true
-            }
-
-            else -> super.onOptionsItemSelected(item)
-        }
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {

@@ -1,15 +1,17 @@
 <resources>
     <string-array name="refresh_options">
-        <item>Clear</item>
-        <item>Balanced</item>
-        <item>Smooth</item>
-        <item>Speed</item>
+        <item>@string/hd</item>
+        <item>@string/regal</item>
+        <item>@string/fast</item>
+        <item>@string/extreme</item>
+        <item>@string/hyper</item>
     </string-array>
     <string-array name="refresh_values">
+        <item>2</item>
         <item>0</item>
         <item>1</item>
-        <item>2</item>
         <item>3</item>
+        <item>4</item>
     </string-array>
     <string-array name="color_type_options">
         <item>TONAL_SPOT</item>

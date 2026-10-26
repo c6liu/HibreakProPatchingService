@@ -1,0 +1,16 @@
+# For TrebleDroid GSIs which already provide the phhsu_daemon SELinux domain.
+# Use this instead of a9_eink_daemon.rc, not alongside it.
+service a9_eink_server /system/bin/a9_eink_server
+    class late_start
+    user root
+    group root
+    seclabel u:r:phhsu_daemon:s0
+
+# Diagnostic override: adb shell setprop debug.hibreak.refresh_mode <value>.
+on property:debug.hibreak.refresh_mode=*
+    setprop vendor.xrz.global_refresh_mode ${debug.hibreak.refresh_mode}
+    write /sys/kernel/debug/eink_debug/global_mode ${debug.hibreak.refresh_mode}
+
+on property:debug.hibreak.eink_restart=1
+    setprop debug.hibreak.eink_restart 0
+    restart a9_eink_server

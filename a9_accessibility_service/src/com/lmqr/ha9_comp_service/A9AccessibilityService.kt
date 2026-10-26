@@ -96,6 +96,9 @@ class A9AccessibilityService : AccessibilityService(),
                 "EINK_REFRESH_SPEED_FAST" -> {
                     refreshModeManager.changeMode(RefreshMode.SPEED)
                 }
+                "EINK_REFRESH_SPEED_HYPER" -> {
+                    refreshModeManager.changeMode(RefreshMode.HYPER)
+                }
             }
         }
     }
@@ -127,6 +130,7 @@ class A9AccessibilityService : AccessibilityService(),
         filterEink.addAction("EINK_REFRESH_SPEED_BALANCED")
         filterEink.addAction("EINK_REFRESH_SPEED_SMOOTH")
         filterEink.addAction("EINK_REFRESH_SPEED_FAST")
+        filterEink.addAction("EINK_REFRESH_SPEED_HYPER")
         registerReceiver(receiverEink, filterEink, RECEIVER_EXPORTED)
     }
 
@@ -276,21 +280,24 @@ class A9AccessibilityService : AccessibilityService(),
                             close()
                         false
                     }
-
                     button1.setOnClickListener {
-                        refreshModeManager.changeMode(RefreshMode.CLEAR)
+                        refreshModeManager.changeMode(RefreshMode.SMOOTH)
                         updateButtons(refreshModeManager.currentMode)
                     }
                     button2.setOnClickListener {
-                        refreshModeManager.changeMode(RefreshMode.BALANCED)
+                        refreshModeManager.changeMode(RefreshMode.CLEAR)
                         updateButtons(refreshModeManager.currentMode)
                     }
                     button3.setOnClickListener {
-                        refreshModeManager.changeMode(RefreshMode.SMOOTH)
+                        refreshModeManager.changeMode(RefreshMode.BALANCED)
                         updateButtons(refreshModeManager.currentMode)
                     }
                     button4.setOnClickListener {
                         refreshModeManager.changeMode(RefreshMode.SPEED)
+                        updateButtons(refreshModeManager.currentMode)
+                    }
+                    button5.setOnClickListener {
+                        refreshModeManager.changeMode(RefreshMode.HYPER)
                         updateButtons(refreshModeManager.currentMode)
                     }
 
@@ -329,6 +336,7 @@ class A9AccessibilityService : AccessibilityService(),
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d("A9Service", "Service connected - applying all settings")
+        updateAodInvert(sharedPreferences)
         
         handler.postDelayed({
             refreshModeManager.applyMode()
@@ -369,6 +377,10 @@ class A9AccessibilityService : AccessibilityService(),
         commandRunner.runCommands(arrayOf("theme $type $colorString"))
     }
 
+    private fun updateAodInvert(sharedPreferences: SharedPreferences) {
+        commandRunner.runCommands(arrayOf(Commands.AOD_INVERT(sharedPreferences.getBoolean("aod_invert", true))))
+    }
+
     private fun updateMaxBrightness(sharedPreferences: SharedPreferences) = sharedPreferences.run {
         try{
             val brightness = Integer.parseInt(getString("override_max_brightness", "2000")?:"2000")
@@ -386,6 +398,10 @@ class A9AccessibilityService : AccessibilityService(),
 
             "color_scheme_type", "color_scheme_color" -> {
                 sharedPreferences?.let { updateColorScheme(it) }
+            }
+
+            "aod_invert" -> {
+                sharedPreferences?.let { updateAodInvert(it) }
             }
 
             "close_status_bar" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
