@@ -110,7 +110,9 @@ fastboot reboot
    mode.
 4. Optional, in E-Ink Settings:
    - Set separate single/double/long-press actions for the top and bottom
-     buttons, including screen-off actions.
+     buttons, including screen-off actions. Choose **Launch App** for a gesture,
+     then select its target under **Apps to launch with side keys**. Targets are
+     independent per gesture. A screen-off launch does not bypass the lock screen.
    - Turn **Invert colours on Always-On Display** on or off.
    - **Disable Per-App Refresh Mode** to use one mode everywhere.
 

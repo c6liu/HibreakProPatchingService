@@ -37,7 +37,10 @@ class SettingsActivity : AppCompatActivity() {
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
-            if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) return
+            if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) {
+                AppLaunchSettings.populate(this)
+                return
+            }
             setPreferencesFromResource(R.xml.per_app_preferences, null)
             val apps = requireNotNull(findPreference<PreferenceCategory>("per_app_apps"))
             apps.isOrderingAsAdded = false

@@ -46,6 +46,27 @@ for name in ("regal", "fast", "hd", "extreme", "hyper"):
     add_public(public.getroot(), "string", name)
 public.write(B / "res/values/public.xml", encoding="utf-8", xml_declaration=True)
 
+manifest_path = B / "AndroidManifest.xml"
+manifest_tree = ET.parse(manifest_path)
+manifest_root = manifest_tree.getroot()
+queries = manifest_root.find("queries")
+if queries is None:
+    queries = ET.Element("queries")
+    application = manifest_root.find("application")
+    manifest_root.insert(list(manifest_root).index(application), queries)
+launcher_action = f"action[@{A}name='android.intent.action.MAIN']"
+launcher_category = f"category[@{A}name='android.intent.category.LAUNCHER']"
+launcher_query = next((query for query in queries.findall("intent")
+                       if query.find(launcher_action) is not None
+                       and query.find(launcher_category) is not None), None)
+if launcher_query is None:
+    launcher_query = ET.SubElement(queries, "intent")
+if launcher_query.find(launcher_action) is None:
+    ET.SubElement(launcher_query, "action", {A + "name": "android.intent.action.MAIN"})
+if launcher_query.find(launcher_category) is None:
+    ET.SubElement(launcher_query, "category", {A + "name": "android.intent.category.LAUNCHER"})
+manifest_tree.write(manifest_path, encoding="utf-8", xml_declaration=True)
+
 
 def strings(root):
     root.find("string[@name='title_activity_settings']").text = "E-Ink Settings"
@@ -434,10 +455,43 @@ text = fragment.read_text()
 start = text.index(".method public onCreatePreferences")
 end = text.index("    return-void", start)
 text = text[:end] + """    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/PerAppRefreshSettings;->populate(Landroidx/preference/PreferenceFragmentCompat;)V
+    invoke-static {p0}, Lcom/lmqr/ha9_comp_service/AppLaunchSettings;->populate(Landroidx/preference/PreferenceFragmentCompat;)V
 
 """ + text[end:]
 fragment.write_text(text)
-print("Patched settings order, unsupported controls, and per-app refresh selectors.")
+(S / "AppLaunchSettings.smali").write_text(
+    (Path(__file__).resolve().parent / "smali/AppLaunchSettings.smali").read_text())
+launch_action = (Path(__file__).resolve().parent / "smali/LaunchAppButtonAction.smali")
+(S / "button_mapper/LaunchAppButtonAction.smali").write_text(launch_action.read_text())
+launch_action_map = (Path(__file__).resolve().parent / "smali/AppLaunchActionMap.smali")
+(S / "button_mapper/AppLaunchActionMap.smali").write_text(launch_action_map.read_text())
+# Restore setters removed by R8 that the new app pickers need.
+dialog_preference = B / "smali/androidx/preference/DialogPreference.smali"
+with dialog_preference.open("a") as output:
+    output.write("""
+.method public setDialogTitle(Ljava/lang/CharSequence;)V
+    .locals 0
+    iput-object p1, p0, Landroidx/preference/DialogPreference;->mDialogTitle:Ljava/lang/CharSequence;
+    return-void
+.end method
+""")
+preference = B / "smali/androidx/preference/Preference.smali"
+with preference.open("a") as output:
+    output.write("""
+.method public setEnabled(Z)V
+    .locals 1
+    iget-boolean v0, p0, Landroidx/preference/Preference;->mEnabled:Z
+    if-eq v0, p1, :done
+    iput-boolean p1, p0, Landroidx/preference/Preference;->mEnabled:Z
+    invoke-virtual {p0}, Landroidx/preference/Preference;->shouldDisableDependents()Z
+    move-result v0
+    invoke-virtual {p0, v0}, Landroidx/preference/Preference;->notifyDependencyChange(Z)V
+    invoke-virtual {p0}, Landroidx/preference/Preference;->notifyChanged()V
+    :done
+    return-void
+.end method
+""")
+print("Patched side-key app launching, settings, and display controls.")
 
 accessor = S / "FloatingMenuViewAccessor.smali"
 replace(accessor, ".field private final autoRefresh:Landroid/widget/Switch;",
@@ -536,6 +590,14 @@ replace(action_manager, '''    .line 17
     move-result-object v12
 
     filled-new-array/range {v1 .. v12}, [Lkotlin/Pair;''')
+replace(action_manager, '''    .line 20
+    sget-object p2, Lcom/lmqr/ha9_comp_service/button_mapper/ButtonActionManager$buttonCommands$1;->INSTANCE:Lcom/lmqr/ha9_comp_service/button_mapper/ButtonActionManager$buttonCommands$1;
+''', '''    invoke-static {p1}, Lcom/lmqr/ha9_comp_service/button_mapper/AppLaunchActionMap;->addToMap(Ljava/util/Map;)Ljava/util/Map;
+    move-result-object p1
+
+    .line 20
+    sget-object p2, Lcom/lmqr/ha9_comp_service/button_mapper/ButtonActionManager$buttonCommands$1;->INSTANCE:Lcom/lmqr/ha9_comp_service/button_mapper/ButtonActionManager$buttonCommands$1;
+''')
 (S / "button_mapper/DpadButtonAction.smali").write_text(
     (Path(__file__).resolve().parent / "smali/DpadButtonAction.smali").read_text())
 for obsolete in (

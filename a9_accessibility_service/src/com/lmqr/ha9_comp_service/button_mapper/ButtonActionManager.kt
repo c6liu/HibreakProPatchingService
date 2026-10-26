@@ -7,7 +7,22 @@ import com.lmqr.ha9_comp_service.command_runners.Commands
 import com.lmqr.ha9_comp_service.RefreshModeManager
 
 class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: RefreshModeManager) {
-    private val buttonCommands = mapOf(
+    private val launchAppPreferenceKeys = listOf(
+        "top_single_press_eink_action",
+        "top_double_press_eink_action",
+        "top_long_press_eink_action",
+        "top_single_press_eink_action_screen_off",
+        "top_double_press_eink_action_screen_off",
+        "top_long_press_eink_action_screen_off",
+        "single_press_eink_action",
+        "double_press_eink_action",
+        "long_press_eink_action",
+        "single_press_eink_action_screen_off",
+        "double_press_eink_action_screen_off",
+        "long_press_eink_action_screen_off",
+    )
+
+    private val buttonCommands = (mapOf(
         "clear" to ClearScreenButtonAction(commandRunner, refreshModeManager),
         "next_track" to NextTrackButtonAction(),
         "toggle_music" to TogglePauseButtonAction(),
@@ -20,7 +35,9 @@ class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: Refr
         "dpad_left" to DpadButtonAction(commandRunner, Commands.DPAD_LEFT),
         "dpad_right" to DpadButtonAction(commandRunner, Commands.DPAD_RIGHT),
         "previous_track" to PreviousTrackButtonAction(),
-    ).withDefault { DummyButtonAction() }
+    ) + launchAppPreferenceKeys.associate { preferenceKey ->
+        "launch_app_$preferenceKey" to LaunchAppButtonAction("launch_app_package_$preferenceKey")
+    }).withDefault { DummyButtonAction() }
 
     fun executeLongPress(context: Context){
         buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("long_press_eink_action", "dummy")]?.execute(context)

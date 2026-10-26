@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = "{http://schemas.android.com/apk/res-auto}"
+ANDROID = "{http://schemas.android.com/apk/res/android}"
 SOURCE = ROOT / "a9_accessibility_service/res/xml/root_preferences.xml"
 
 
@@ -70,6 +71,39 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertNotIn("toggle_night_light", [item.text for item in values])
         self.assertNotIn("toggle_backlight", [item.text for item in values])
 
+    def test_launch_app_actions_have_a_target_for_each_gesture(self):
+        action_keys = (
+            "top_single_press_eink_action",
+            "top_double_press_eink_action",
+            "top_long_press_eink_action",
+            "top_single_press_eink_action_screen_off",
+            "top_double_press_eink_action_screen_off",
+            "top_long_press_eink_action_screen_off",
+            "single_press_eink_action",
+            "double_press_eink_action",
+            "long_press_eink_action",
+            "single_press_eink_action_screen_off",
+            "double_press_eink_action_screen_off",
+            "long_press_eink_action_screen_off",
+        )
+        settings = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                    "AppLaunchSettings.kt").read_text()
+        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                   "button_mapper/ButtonActionManager.kt").read_text()
+        action = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                  "button_mapper/LaunchAppButtonAction.kt").read_text()
+        for key in action_keys:
+            with self.subTest(action=key):
+                self.assertIn(f'"{key}"', settings)
+                self.assertIn(f'"{key}"', manager)
+        self.assertIn("queryIntentActivities", settings)
+        self.assertIn("getLaunchIntentForPackage", action)
+        self.assertIn("FLAG_ACTIVITY_NEW_TASK", action)
+        self.assertIn("ActivityNotFoundException", action)
+        self.assertIn("Top button, single press", settings)
+        self.assertIn("Bottom button, single press", settings)
+        self.assertIn("single press (screen off)", settings)
+
     def test_video_refresh_toggle_defaults_off_and_is_explicit(self):
         layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()
         toggle = next(node for node in layout.iter()
@@ -111,13 +145,22 @@ class PatchedApkSettingsTests(unittest.TestCase):
                         probe.with_name("RuntimeInstrumentation.smali"))
         shutil.copyfile(ROOT / "tools/tests/smali/PerAppControlsProbe.smali",
                         probe.with_name("PerAppControlsProbe.smali"))
+        shutil.copyfile(ROOT / "tools/tests/smali/SettingsActivityProbe.smali",
+                        probe.with_name("SettingsActivityProbe.smali"))
         if os.environ.get("HIBREAK_ADB_TESTS") == "1":
             android = "{http://schemas.android.com/apk/res/android}"
             cls.test_package = f"hibreak.tests.regression.p{uuid.uuid4().hex}"
             manifest = ET.Element("manifest", {"package": cls.test_package})
-            ET.SubElement(manifest, "application", {
+            queries = ET.parse(cls.decoded / "AndroidManifest.xml").getroot().find("queries")
+            if queries is not None:
+                manifest.append(queries)
+            application = ET.SubElement(manifest, "application", {
                 android + "theme": "@style/Theme.Ha9_comp_service",
                 android + "testOnly": "true",
+            })
+            ET.SubElement(application, "activity", {
+                android + "name": "hibreak.tests.SettingsActivityProbe",
+                android + "exported": "false",
             })
             ET.SubElement(manifest, "instrumentation", {
                 android + "name": "hibreak.tests.RuntimeInstrumentation",
@@ -211,6 +254,58 @@ class PatchedApkSettingsTests(unittest.TestCase):
         self.assertIn('"display:"', controls)
         self.assertNotIn("disable_perapprefresh", controls)
         self.assertIn("setOnCheckedChangeListener", controls)
+        launch_settings = (smali / "AppLaunchSettings.smali").read_text()
+        self.assertIn("queryIntentActivities", launch_settings)
+        self.assertIn('"Apps to launch with side keys"', launch_settings)
+        self.assertIn('"Launch App"', launch_settings)
+        for preference_class in ("PreferenceCategory", "ListPreference"):
+            self.assertNotIn(
+                f"Landroidx/preference/{preference_class};-><init>(Landroid/content/Context;)V",
+                launch_settings,
+            )
+            self.assertIn(
+                f"Landroidx/preference/{preference_class};-><init>"
+                "(Landroid/content/Context;Landroid/util/AttributeSet;)V",
+                launch_settings,
+            )
+        for preference_class, method in (
+                ("DialogPreference", "setDialogTitle(Ljava/lang/CharSequence;)V"),
+                ("Preference", "setEnabled(Z)V")):
+            preference_source = (
+                self.decoded / f"smali/androidx/preference/{preference_class}.smali"
+            ).read_text()
+            self.assertIn(f".method public {method}", preference_source)
+        launch_action = (smali / "button_mapper/LaunchAppButtonAction.smali").read_text()
+        self.assertIn("->getLaunchIntentForPackage", launch_action)
+        self.assertIn("->startActivity", launch_action)
+        self.assertIn(":activity_not_found", launch_action)
+        self.assertIn(":security_exception", launch_action)
+        action_manager = (smali / "button_mapper/ButtonActionManager.smali").read_text()
+        action_map = (smali / "button_mapper/AppLaunchActionMap.smali").read_text()
+        self.assertIn("AppLaunchActionMap;->addToMap", action_manager)
+        for preference_key in (
+                "top_single_press_eink_action",
+                "top_double_press_eink_action",
+                "top_long_press_eink_action",
+                "top_single_press_eink_action_screen_off",
+                "top_double_press_eink_action_screen_off",
+                "top_long_press_eink_action_screen_off",
+                "single_press_eink_action",
+                "double_press_eink_action",
+                "long_press_eink_action",
+                "single_press_eink_action_screen_off",
+                "double_press_eink_action_screen_off",
+                "long_press_eink_action_screen_off"):
+            self.assertIn(f'"launch_app_{preference_key}"', action_map)
+            self.assertIn(f'"launch_app_package_{preference_key}"', action_map)
+        manifest = ET.parse(self.decoded / "AndroidManifest.xml").getroot()
+        launcher_query = next((
+            intent for intent in manifest.findall("queries/intent")
+            if intent.find(f"action[@{ANDROID}name='android.intent.action.MAIN']") is not None
+        ), None)
+        self.assertIsNotNone(launcher_query)
+        self.assertIsNotNone(launcher_query.find(
+            f"category[@{ANDROID}name='android.intent.category.LAUNCHER']"))
         app_event = (smali / "A9AccessibilityService$onAccessibilityEvent$1.smali").read_text()
         self.assertIn("->onDisplayAppChange", app_event)
         camera_refresh = (smali / "CameraLiveRefresh.smali").read_text()
@@ -258,7 +353,8 @@ class PatchedApkSettingsTests(unittest.TestCase):
                     capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("PASS: DPAD dispatch, popup inflation and switch setup, "
-                              "screen off/on receiver", result.stdout)
+                              "screen off/on receiver, settings startup and 12 app-launch pickers",
+                              result.stdout)
             finally:
                 if installed:
                     self.run_command("adb", "uninstall", self.test_package)
