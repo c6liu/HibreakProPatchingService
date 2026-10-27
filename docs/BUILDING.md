@@ -238,19 +238,17 @@ only the requested system slot, and reboots only after a successful flash. It
 does not switch slots. The optional wipe sequence above is only for a planned
 fresh migration; the two slots share userdata.
 
-The helper limits sparse transfers to 64 MiB (`fastboot -S 64M`) instead of
-using the device's larger default. If flashing fails with `reap_urb` /
-`Protocol error`, the USB transfer failed and the system partition may be
-incomplete. **Do not reboot or wipe.** Keep the phone in fastbootd, reconnect
-USB if necessary, check `fastboot devices`, and retry the complete flash.
-Try a direct USB port and a known-good data cable if the failure repeats.
-The helper stops without rebooting after a failed flash.
+The helper uses fastboot's default sparse-transfer size. If flashing fails
+with `reap_urb` / `Protocol error`, the USB transfer failed and the system
+partition may be incomplete. **Do not reboot or wipe.** Keep the phone in
+fastbootd, reconnect USB if necessary, check `fastboot devices`, and retry the
+complete flash. Try a direct USB port and a known-good data cable if the
+failure repeats. The helper stops without rebooting after a failed flash.
 
 `Invalid sparse file format at header magic` can appear when fastboot reads
 the raw ext4 image before converting it into sparse transfers; it alone does
 not indicate corruption. The complete flash must finish successfully before
-rebooting. Smaller transfers are a retry strategy, not a verified cure for
-every USB protocol error.
+rebooting.
 
 ## 5. Initial setup and verification
 

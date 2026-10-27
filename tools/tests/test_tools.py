@@ -161,7 +161,7 @@ class ToolTests(unittest.TestCase):
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Nothing was executed", result.stdout)
-        self.assertIn("fastboot -S 64M flash system_a", result.stdout)
+        self.assertIn("fastboot flash system_a", result.stdout)
         self.assertNotIn("fastboot -w", result.stdout)
 
     def test_flash_wipe_data_is_opt_in_and_visible_in_preview(self):
@@ -171,7 +171,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = result.stdout.splitlines()
         flash_command = next(command for command in commands
-                             if command.startswith("fastboot -S 64M flash system_a "))
+                             if command.startswith("fastboot flash system_a "))
         self.assertLess(commands.index(flash_command),
                         commands.index("fastboot -w"))
         self.assertLess(commands.index("fastboot -w"),
@@ -208,7 +208,7 @@ esac
             self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("flash ", command_log.read_text())
 
-    def test_flash_uses_small_chunks_and_only_reboots_on_success(self):
+    def test_flash_uses_fastboot_default_and_only_reboots_on_success(self):
         fake_bin = self.work / "bin"
         fake_bin.mkdir()
         fastboot = fake_bin / "fastboot"
@@ -217,7 +217,7 @@ echo "$*" >> "$COMMAND_LOG"
 case "$*" in
     "getvar is-userspace") echo "is-userspace: yes" >&2 ;;
     "getvar current-slot") echo "current-slot: a" >&2 ;;
-    "-S 64M flash system_a "*) exit "$FAKE_FLASH_STATUS" ;;
+    "flash system_a "*) exit "$FAKE_FLASH_STATUS" ;;
     "-w") exit "$FAKE_WIPE_STATUS" ;;
     "reboot") exit 0 ;;
     *) exit 99 ;;
@@ -243,13 +243,37 @@ esac
                 expected_status = status or (wipe_status if wipe_requested else 0)
                 self.assertEqual(result.returncode, expected_status, result.stderr)
                 commands = command_log.read_text().splitlines()
-                self.assertIn(f"-S 64M flash system_a {self.base}", commands)
+                self.assertIn(f"flash system_a {self.base}", commands)
                 self.assertEqual("-w" in commands, wipe_requested and status == 0)
                 self.assertEqual("reboot" in commands, expected_status == 0)
                 if status:
                     self.assertIn("Do not reboot", result.stderr)
                 if wipe_requested and wipe_status:
                     self.assertIn("userdata wipe failed", result.stderr)
+
+
+class RefreshModeTests(unittest.TestCase):
+    def test_hd_256_reaches_driver_and_property(self):
+        compiler = shutil.which("cc")
+        if compiler is None:
+            self.skipTest("C compiler is needed for daemon command tests")
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / "android").mkdir()
+            (work / "sys").mkdir()
+            (work / "android/log.h").write_text(
+                "#define ANDROID_LOG_INFO 4\n#define ANDROID_LOG_ERROR 6\n"
+                "int __android_log_print(int, const char *, const char *, ...);\n")
+            (work / "sys/system_properties.h").write_text(
+                "int __system_property_set(const char *, const char *);\n")
+            binary = work / "refresh-mode-probe"
+            result = subprocess.run(
+                [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
+                 ROOT / "tools/tests/native/RefreshModeProbe.c", "-o", binary],
+                capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run([binary], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 class BootWakeTests(unittest.TestCase):

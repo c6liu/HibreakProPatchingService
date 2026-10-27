@@ -82,7 +82,7 @@ slot, make room for the GSI and flash it:
 fastboot getvar current-slot          # must say a
 fastboot delete-logical-partition product_a
 fastboot delete-logical-partition system_ext_a
-fastboot -S 64M flash system_a build/HiBreakPro.img
+fastboot flash system_a build/HiBreakPro.img
 ```
 
 The GSI does not use the stock `product` and `system_ext`; without deleting

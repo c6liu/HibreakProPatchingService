@@ -21,6 +21,7 @@ static const char* kTAG = "a9EinkService";
 
 #define SOCKET_NAME "0a9_eink_socket"
 #define BUFFER_SIZE 512
+#define HD_256_MODE "2147483825" // 0x800000b1: stock HD with the 256-level flag.
 
 void startSideKeyMonitor(void);
 
@@ -118,7 +119,7 @@ void epdCommitBitmap() {
 
 void writeToEpdDisplayMode(const char* value) {
     const char* filePath = "/sys/kernel/debug/eink_debug/global_mode";
-    if(!valid_number(value)){
+    if (!valid_number(value) && strcmp(value, HD_256_MODE) != 0) {
         LOGE("Error writing to %s: Invalid Number\n", filePath);
         return;
     }
@@ -367,7 +368,7 @@ void processCommand(const char* command) {
     } else if (strcmp(command, "b") == 0) {
         applyRefreshMode("178");
     } else if (strcmp(command, "s") == 0) {
-        applyRefreshMode("177");
+        applyRefreshMode(HD_256_MODE);
     } else if (strcmp(command, "p") == 0) {
         applyRefreshMode("179");
     } else if (strcmp(command, "h") == 0) {

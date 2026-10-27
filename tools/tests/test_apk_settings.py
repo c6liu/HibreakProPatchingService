@@ -15,6 +15,20 @@ SOURCE = ROOT / "a9_accessibility_service/res/xml/root_preferences.xml"
 
 
 class SettingsResourceTests(unittest.TestCase):
+    def test_hd_label_and_saved_mode_remain_compatible(self):
+        arrays = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        self.assertEqual(arrays.find("string-array[@name='refresh_options']")[0].text,
+                         "@string/hd")
+        self.assertEqual(arrays.find("string-array[@name='refresh_values']")[0].text, "2")
+        strings = ET.parse(ROOT / "a9_accessibility_service/res/values/strings.xml").getroot()
+        self.assertEqual(strings.find("string[@name='hd']").text, "HD")
+        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                   "RefreshModeManager.kt").read_text()
+        self.assertIn("SMOOTH(Commands.SPEED_SMOOTH, 2)", manager)
+        commands = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                    "command_runners/Commands.kt").read_text()
+        self.assertIn('const val SPEED_SMOOTH = "s"', commands)
+
     def test_settings_theme_uses_monochrome_material3(self):
         themes = ET.parse(ROOT / "a9_accessibility_service/res/values/themes.xml").getroot()
         settings = themes.find("style[@name='Theme.Ha9_comp_service.Settings']")

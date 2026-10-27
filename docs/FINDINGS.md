@@ -216,7 +216,7 @@ Stock framework constants:
 | FAST | 179 | 0xb3 |
 | REGAL | 180 | 0xb4 |
 | HYPER | 183 | 0xb7 |
-| HD_256 | high-bit flagged HD | 0x800000b1 |
+| HD_256 | 2147483825 (unsigned) | 0x800000b1 |
 
 The stock dialog lists **HD 256, Regal, Fast, Extreme, Hyper**. The patched app
 uses the order **HD, Regal, Fast, Extreme, Hyper**:
@@ -225,13 +225,15 @@ uses the order **HD, Regal, Fast, Extreme, Hyper**:
 |-----------|-----------|--------------|---------|-------------|
 | Regal | Clear | 180 | `c` | 0 |
 | Fast | Balanced | 178 | `b` | 1 |
-| HD | Smooth | 177 | `s` | 2 |
+| HD | Smooth | 2147483825 (`0x800000b1`, HD_256) | `s` | 2 |
 | Extreme | Speed | 179 | `p` | 3 |
 | Hyper | new | 183 | `h` | 4 |
 
-**HD 177 is not the flagged stock HD_256 value.** The old preference indices
-and per-app selections are preserved. Hyper is a stock-exposed mode, not a
-guaranteed speed boost.
+The app label remains **HD**, but command `s` now requests the stock flagged
+**HD_256** value rather than plain HD 177. The old preference indices and per-app
+selections are preserved. Update the daemon in the image for this mapping to take
+effect. Physical 256-level output on the GSI has not yet been verified.
+Hyper is a stock-exposed mode, not a guaranteed speed boost.
 
 The GSI daemon writes both
 `/sys/kernel/debug/eink_debug/global_mode` and

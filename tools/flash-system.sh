@@ -34,7 +34,7 @@ done
 [ -s "$IMAGE" ] || { echo "Missing image: $IMAGE" >&2; exit 1; }
 if [ "$DO_FLASH" = false ]; then
     printf 'adb reboot fastboot\nfastboot getvar is-userspace\nfastboot getvar current-slot\n'
-    printf 'fastboot -S 64M flash system_%s %q\n' "$SLOT" "$IMAGE"
+    printf 'fastboot flash system_%s %q\n' "$SLOT" "$IMAGE"
     if [ "$WIPE_DATA" = true ]; then
         printf 'fastboot -w\n'
         echo "WARNING: --wipe-data erases shared userdata (apps, settings, and personal files)."
@@ -56,7 +56,7 @@ grep -qE "current-slot: *$SLOT([[:space:]]|$)" <<< "$STATE" || {
     echo "Active slot does not match requested slot $SLOT. Stopping." >&2; exit 1;
 }
 e2fsck -fn "$IMAGE"
-if ! fastboot -S 64M flash "system_$SLOT" "$IMAGE"; then
+if ! fastboot flash "system_$SLOT" "$IMAGE"; then
     echo "Flash failed; the system partition may be incomplete. Do not reboot." >&2
     echo "Keep the device in fastbootd and retry the complete flash." >&2
     exit 1
