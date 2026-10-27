@@ -61,6 +61,8 @@ class ToolTests(unittest.TestCase):
         files = {
             "system/bin/a9_eink_server": self.daemon,
             "system/priv-app/HiBreakEink/HiBreakEink.apk": self.apk,
+            "system/bin/hibreak-disable-hwc.sh": ROOT / "tools/display/hibreak-disable-hwc.sh",
+            "system/bin/hibreak-aod.sh": ROOT / "tools/display/hibreak-aod.sh",
             "system/bin/hibreak-wake-cycle.sh": ROOT / "tools/display/hibreak-wake-cycle.sh",
             "system/etc/init/hibreak-display.rc": ROOT / "tools/display/hibreak-display.rc",
         }
@@ -81,10 +83,15 @@ class ToolTests(unittest.TestCase):
         old_helper = self.work / "old-adb-helper"
         old_helper.write_text("settings put global adb_enabled 1\n")
         self.debug(f'write "{old_helper}" system/bin/hibreak-enable-adb.sh', write=True)
+        old_wake_helper = self.work / "old-wake-helper"
+        old_wake_helper.write_text("input keyevent KEYCODE_WAKEUP\n")
+        self.debug(f'write "{old_wake_helper}" system/bin/hibreak-wake-cycle.sh', write=True)
         result = self.patch()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("Inode:", self.debug(
             "stat system/bin/hibreak-enable-adb.sh", image=self.out).stdout.decode())
+        self.assertEqual(self.read_image_text("system/bin/hibreak-wake-cycle.sh"),
+                         (ROOT / "tools/display/hibreak-wake-cycle.sh").read_text())
         self.base = self.out
         self.out = self.work / "updated image.img"
         result = self.patch()
@@ -100,6 +107,20 @@ class ToolTests(unittest.TestCase):
                 self.assertNotIn("setprop persist.sys.usb.config", display)
                 self.assertNotIn("setprop sys.usb.config", display)
                 self.assertNotIn("hibreak_enable_adb", display)
+                self.assertIn("service hibreak_wake_cycle", display)
+                self.assertEqual(self.read_image_text("system/bin/hibreak-wake-cycle.sh"),
+                                 (ROOT / "tools/display/hibreak-wake-cycle.sh").read_text())
+                for prop in ("persist.sys.phh.enable_sf_gl_backpressure",
+                             "persist.sys.phh.enable_sf_hwc_backpressure",
+                             "debug.sf.enable_gl_backpressure",
+                             "debug.sf.enable_hwc_backpressure"):
+                    self.assertIn(f"setprop {prop} false", display)
+                self.assertIn("on property:init.svc.surfaceflinger=running\n"
+                              "    start hibreak_disable_hwc", display)
+                self.assertIn("on property:sys.boot_completed=1\n"
+                              "    start hibreak_disable_hwc\n"
+                              "    start hibreak_wake_cycle\n"
+                              "    start hibreak_aod_setup", display)
                 self.assertIn("persist.sys.usb.config=mtp\n",
                               self.read_image_text("system/build.prop"))
                 self.assertNotIn("Inode:", self.debug(

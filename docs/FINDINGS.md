@@ -181,12 +181,64 @@ Retained boot reasons were `reboot` / `reboot,fastboot`; no Android shutdown
 sequence was found for the observed interval.
 
 The old helper forced a sleep cycle on **every** boot, based on a first-boot
-workaround. The consolidated helper now only wakes by default. Its optional
+workaround. The subsequent consolidated helper only woke by default. Its optional
 legacy sleep/wake cycle is gated by root-set
 `persist.sys.hibreak.boot_sleep_cycle=true`. This removes unnecessary boot-time
 sleep, but **is not a verified fix for a genuine hardware power-off**. Normal
 screen timeout and AOD remain enabled; this does not keep the screen awake
 forever or change battery behavior.
+
+On 2026-10-27, a comparison image removed only the automatic wake helper,
+retaining the other display fixes and the same APK and daemon. The user
+reported repeated crashes afterwards. Read-only collection confirmed composer
+crashes at 13:20:34, 13:22:04, 13:22:32 and 13:23:00, all with the same
+`processImage+1308` signature. Immediately before the 13:23:00 crash, the
+composer logged `src ionImport is failed: Bad file descriptor(-1), ion_fd(-1)`
+and `src ion mmap fail`. This supplies direct evidence of a failed buffer
+import/mapping before that crash, without establishing why the descriptor
+was invalid or proving that the helper removal caused it.
+
+The removal experiment was reverted in source and a helper-restored rollback
+image prepared. Do not use the no-wake comparison image for normal operation.
+Restoring the helper returns to the previous configuration; it is not a fix
+for the original first-lock crash. Regression logs are retained locally in
+`build/no-wake-regression-20261027-1323/`.
+
+After flashing the helper-restored image, the user confirmed the earlier
+behavior returned: one crash on the first lock, then normal operation rather
+than repeated crashes. Read-only inspection verified the helper is installed;
+the crash buffer records the same composer `processImage+1308` SIGSEGV at
+13:29:27.275. Evidence is local in
+`build/wake-restored-crash-20261027-1329/`. Restoring the helper therefore
+did not resolve the original first-lock failure. The next isolation test is
+a boot with A9 accessibility temporarily disabled, preserving all init display
+fixes, to distinguish app-triggered display changes from the underlying
+vendor sleep-transition path. This test has not yet been performed.
+
+An attempted A9 isolation test at 13:31–13:33 was **inconclusive**. Android
+rejected a component-level shell disable. A package-level `pm disable-user`
+initially succeeded, but did not remain effective through reboot: A9's process
+started at 13:31:57 and its accessibility service connected at 13:32:07,
+applying refresh, brightness and display settings before the reported first-lock
+crash at 13:32:38.465. Post-crash package state was already `enabled=0`
+(default), and accessibility was bound. The cause of the enablement reset is
+not established. The package was explicitly returned to its original default
+state and its accessibility binding verified. This run does **not** exclude
+A9 as a contributor. Evidence is local in
+`build/a9-disabled-first-lock-20261027/`.
+
+A second attempt cleared enabled accessibility services after boot while the
+phone was still locked. Dumps verified `Bound services:{}`,
+`Enabled services:{}` and `deviceLocked=1` before the user unlocked. First lock
+again produced the same composer crash at 13:36:18.624. However, the post-crash
+snapshot already showed A9 enabled and bound again. A9's boot receiver can
+enable accessibility on `BOOT_COMPLETED`, which may arrive after first unlock;
+retained logs do not establish whether re-enablement preceded the crash or
+followed framework recovery. This test therefore also cannot exclude A9.
+Saved accessibility settings were restored and binding verified. Evidence is
+local in `build/a9-unbound-first-lock-20261027/`. A better runtime isolation
+requires disabling and verifying accessibility **after first unlock and before
+first lock**, not before unlock.
 
 To investigate a recurrence, connect USB and collect diagnostics before
 holding Power. `adb get-state`, uptime, boot completion, `dumpsys power`, and
