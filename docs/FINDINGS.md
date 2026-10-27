@@ -364,6 +364,58 @@ Dropbox records were collected read-only after the user's terminal commands
 failed because `$D` was unset in that terminal. No repeat reboot was needed
 to recover those records.
 
+### ColorFade lead (2026-10-27)
+
+The LineageOS 23.2 GSI for the HiBreak Pro Color
+([dianqk/LineageOS_gsi_HBPC](https://github.com/dianqk/LineageOS_gsi_HBPC/blob/lineage-23.2/hbpc/EINK-DISPLAY.md))
+sets `config_displayColorFadeDisabled=true`. With ColorFade, screen-off takes
+a full-screen screenshot and composites it under a fading cover layer. Our
+image leaves it enabled (`dumpsys display`: `mColorFadeEnabled=true`).
+
+The first-lock timeline fits: Power sleep at 13:09:23.096, display
+`state=ON policy=OFF` at 23.113 (ColorFade off animation, 400 ms), `Blocking
+screen off` at 23.532, composer crash at 23.538 comparing one full-screen
+RGBA buffer. Not proven yet; this is a hypothesis.
+
+Test image `build/HiBreakPro-no-colorfade.img` is the flashed
+`HiBreakPro-wake-restored.img` plus one static RRO,
+`system/product/overlay/HiBreakNoColorFade.apk` (package
+`me.hibreak.overlay.nocolorfade`, target `android`, priority 90), built with
+apktool from `build/colorfade-rro/src/`. After flashing, check
+`dumpsys display | grep mColorFadeEnabled` (expect `false`), then reboot,
+unlock and press Power.
+
+Result (13:47): **ColorFade ruled out.** After flashing, `mColorFadeEnabled=false`
+and the overlay was listed as enabled, but the first lock after unlock
+still crashed at 13:47:17.233 with the same `processImage+1308` signature.
+
+### Locked first-sleep test (2026-10-27, 13:50)
+
+TrebleDroid's staging patch 0006 ("fix display power-on for vendor HWCs with
+stale bootloader state") suggested that the first composer power-off after
+boot might be the trigger. Test on the no-ColorFade image: reboot, keep the
+phone locked, let it power the display off. The keyguard timeout turned it
+off at 13:50:59 and 13:51:33 (composer logged `ion_fb_event: screen-off`), and
+an ADB sleep/wake followed. **No crash.** The first power-off after boot is not
+sufficient; the stale-power-state hypothesis is rejected for this symptom.
+
+The user then unlocked (13:52:03; framework `BOOT_COMPLETED` broadcast at
+13:52:04.165), used the launcher, and locked (~13:52:13; screen-off without a
+crash). The crash came at **13:52:35.956, 130 ms after the next wake**
+(`debug.tracing.screen_state=2` at 13:52:35.824). So the trigger is a display
+power transition after the first unlock, sometimes sleep and sometimes wake,
+not specifically sleep. `processImage: convertToGray` runs while locked too, so
+the path itself is not unlock-gated.
+
+Logging gaps: the logcat ring buffers were only 256 KiB, so the main/system
+lines before each crash were overwritten by kernel `tee-log` spam, and the
+streaming capture ended at 13:52:04, right after unlock (likely USB
+re-enumeration). `adb logcat -G 16M` works at runtime but does not persist;
+set Developer options → Logger buffer sizes → 16M for later captures and use
+a reconnecting capture loop.
+
+Evidence: `build/no-colorfade-crash-20261027/`, `build/locked-first-sleep-20261027/`.
+
 ## Stock refresh control research
 
 Examined the local stock backup's `framework.jar`, `xrz.framework.server.jar`,
