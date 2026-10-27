@@ -57,12 +57,12 @@ class BrightnessManager(
 
     private fun brightnessForProgress(progress: Int): Int {
         val normalizedProgress = progress.coerceIn(0, MAX_BRIGHTNESS) / MAX_BRIGHTNESS.toDouble()
-        return (normalizedProgress.pow(BRIGHTNESS_GAMMA) * MAX_BRIGHTNESS).roundToInt()
+        return (normalizedProgress.pow(1.0 / BRIGHTNESS_GAMMA) * MAX_BRIGHTNESS).roundToInt()
     }
 
     private fun progressForBrightness(brightness: Int): Int {
         val normalizedBrightness = brightness.coerceIn(0, MAX_BRIGHTNESS) / MAX_BRIGHTNESS.toDouble()
-        return (normalizedBrightness.pow(1.0 / BRIGHTNESS_GAMMA) * MAX_BRIGHTNESS).roundToInt()
+        return (normalizedBrightness.pow(BRIGHTNESS_GAMMA) * MAX_BRIGHTNESS).roundToInt()
     }
 
     /**

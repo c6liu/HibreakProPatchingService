@@ -195,6 +195,123 @@ that alone does not prove power loss (USB/adbd may also fail); capture the next
 boot reason and, with suitable authorized root, pstore/last-kmsg if available.
 Pstore was not readable by the normal ADB shell on this build.
 
+### First-unlock/lock freeze and soft restart (2026-10-27)
+
+The user reports needing to unlock once and lock again after each reboot,
+followed by an apparent UI restart before the display and A9 popup work.
+Read-only collection from the connected device confirms a graphics crash on
+the latest boot:
+
+| Local time (EDT) | Evidence |
+|-----------------|----------|
+| 12:54:06.030 | First zygote `boot_progress_start`, kernel uptime 10.536 s. |
+| 12:54:27.765 | A receiver in the phone process logs `ACTION_BOOT_COMPLETED`. |
+| 12:54:32.256 | Vendor composer PID 1434, thread `Dispatcher_0`, takes SIGSEGV reading `0xffffffffffffffff`. |
+| 12:54:32.407 | Crash backtrace reports `__memcmp_aarch64+16`, `OverlayEngine::processImage+1308`, `preProcessFrame`, then `triggerEink`. |
+| 12:54:33.230 | New zygote `boot_progress_start`, kernel uptime 37.737 s. |
+| 12:54:50 | Dropbox records `SYSTEM_RESTART`. |
+
+This is the same vendor-composer crash signature as the earlier scrolling
+failure, now confirmed during boot. The installed vendor composer init service
+has `onrestart restart surfaceflinger`; SurfaceFlinger's service has
+`onrestart restart --only-if-running zygote`. These rules explain why the
+composer crash restarts the Android framework rather than only the panel.
+Aurora Store also crashes immediately afterwards with display receiver error
+`status=-32`; that is consistent with the display service disappearing, not
+evidence that Aurora caused the composer crash.
+
+The `memcmp` register arguments include an invalid second buffer pointer
+(`x1=-1`) and length `0x52e200` (824 x 1648 x 4 bytes, one full RGBA frame).
+This establishes an invalid frame-sized buffer comparison in the vendor path.
+It does not establish where that pointer originated or prove a failed `mmap`.
+The normal ADB shell cannot read the vendor library on this device.
+
+Relevant installed startup behavior:
+
+- The display rc sets backpressure properties at `early-boot`, requests
+  disable-HW-overlays when SurfaceFlinger starts, and starts the wake helper
+  plus AOD setup at `sys.boot_completed=1`.
+- The wake helper waits five seconds, reapplies disable-HW-overlays, sends
+  `KEYCODE_WAKEUP`, and reapplies disable-HW-overlays a second time.
+  `persist.sys.hibreak.boot_sleep_cycle` is unset on this device, so the
+  helper's optional `KEYCODE_SLEEP` branch is **not enabled**.
+- The observed crash is roughly 4.5 seconds after the retained boot-completed
+  receiver log. This makes boot-helper timing worth testing, but that receiver
+  log is not the exact init property transition or helper start time.
+  No `hibreak-display` messages survived in the captured logs, so neither
+  helper completion nor its ordering against the crash is established.
+- At collection time, both backpressure properties were false,
+  SurfaceFlinger reported `h/w composer disabled`, and A9 accessibility was
+  enabled and bound with no service listed as crashed. These are
+  **post-recovery** observations, not proof of correct first-boot state.
+- `doze_always_on=0`, AOD inversion preference was false, and inversion was off.
+  The AOD setup marker was already 1. This was not a fresh-install run enabling
+  AOD for the first time.
+
+There is no captured first-unlock/lock event sequence proving which interaction
+triggers the crash, nor a snapshot of the unresponsive state before recovery.
+The popup failure could accompany loss of display/framework services, but a
+separate early A9 initialization failure has not been excluded.
+
+Next: capture continuously from a cold boot through first unlock and lock,
+with helper lifecycle and SurfaceFlinger state timestamps. Then compare a
+build without the automatic post-boot wake helper, keeping the early display
+properties and SurfaceFlinger-start overlay fix unchanged. Test A9 startup
+separately if necessary; do not remove all display fixes together or add an
+automatic SurfaceFlinger restart as a speculative workaround.
+
+Evidence is retained locally in `build/boot-investigation-20261027/`, including
+the crash buffer, full log snapshot, installed rc/scripts, Dropbox records,
+and display/accessibility dumps. No reboot, settings change, flash, or
+service restart was performed for this collection.
+
+### Continuous first-unlock capture (2026-10-27, 13:09 EDT)
+
+The user captured a reboot and supplied first-unlock timestamp `1793120953`
+(13:09:13 EDT). The continuous log contains earlier boots and repeated buffer
+replays after reconnects; duplicate crash lines are not additional crashes.
+The relevant new boot has this sequence:
+
+| Local time (EDT) | Evidence |
+|-----------------|----------|
+| 13:08:52.059 | First zygote starts at kernel uptime 10.572 s. |
+| 13:08:53.253 | Disable-HW-overlays transaction accepted by SurfaceFlinger. |
+| 13:09:09.247 | Another overlay-disable transaction accepted; AOD setup completes. |
+| 13:09:13 | User's reported first-unlock timestamp. |
+| 13:09:14.247 | Wake helper's overlay-disable transaction accepted. |
+| 13:09:15.339–15.353 | Final overlay-disable transaction accepted; wake helper logs completion. |
+| 13:09:15.903–15.926 | Keyguard logs `StartUnlock`; keystore logs `on_device_unlocked`. |
+| 13:09:23.096 | PowerManager starts sleep explicitly due to `power_button`. |
+| 13:09:23.538 | Vendor composer SIGSEGV, 442 ms after the sleep request. |
+| 13:09:24.536 | Replacement zygote starts at kernel uptime 43.048 s. |
+| 13:09:33.799 | A9 logs service connection and applies its settings after recovery. |
+
+The crash buffer again shows `processImage+1308`, `x1=-1` and comparison length
+`0x52e200`. This capture ties the crash much more closely to the **first
+power-button sleep transition after unlock**, rather than to unlocking itself.
+The user timestamp and framework unlock logs differ by about three seconds;
+both precede the sleep request and crash.
+
+The overlay workaround was accepted before unlock, and the automatic wake
+helper completed about eight seconds before the crash. This rules out the
+simple explanation that the overlay workaround never ran, and weakens the
+idea of a crash simultaneous with the helper. It does not exclude a display
+state left behind by that helper. No pre-crash `A9Service` settings-application
+or daemon mode-application messages were found in the relevant captured boot
+segment; absence of those messages does not prove that the service was unbound.
+
+Next isolate first sleep from first unlock: compare a reboot where the phone
+is left unlocked without pressing Power, then capture its first power-button
+sleep transition. A wake-helper-free comparison remains useful if sleep is
+the reproducible boundary. If the popup is already unavailable before sleep,
+capture accessibility binding and app logs in that state, before recovery.
+Do not change init's restart cascade to mask the vendor crash.
+
+Evidence is local in `build/first-unlock-20261027-130809/`. Follow-up crash and
+Dropbox records were collected read-only after the user's terminal commands
+failed because `$D` was unset in that terminal. No repeat reboot was needed
+to recover those records.
+
 ## Stock refresh control research
 
 Examined the local stock backup's `framework.jar`, `xrz.framework.server.jar`,
