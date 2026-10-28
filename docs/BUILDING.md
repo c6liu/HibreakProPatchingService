@@ -3,12 +3,15 @@
 ## Scope and prerequisites
 
 This procedure is for the black-and-white HiBreak Pro, MT6877, stock vendor
-3.1.6 / `Bigme_HiBreak_V1.0_20260306`, kernel 4.19.191. The tested input is
-Doze-off's `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`.
-The original raw image's SHA-256 is:
+3.1.6 / `Bigme_HiBreak_V1.0_20260306`, kernel 4.19.191. The recommended input
+is `LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16) from
+[LineageOS for microG](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/).
+Download the `.img.xz` and extract it with `xz -dk`. SHA-256 of the archive
+and of the extracted raw image:
 
 ```text
-d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf
+fb3d902b10a60f6056e2fe389f59c1b097827e2f97d88bd8f5d0ff12044bf906  LineageOS-23.2-2026.10.10-microG-gsi.img.xz
+5347a165c2911f84915fbdd0e14065a7fbc1cbdcd0b6e571387252e6b36769b8  LineageOS-23.2-2026.10.10-microG-gsi.img
 ```
 
 Use **arm64 A/B, ext4**. Extract compressed images first. Android sparse
@@ -17,14 +20,20 @@ stock kernel. The script requires a TrebleDroid `vndk.rc` using the existing
 `phhsu_daemon` domain. It does not add a new SELinux policy or disable SELinux.
 Check other firmware/GSIs independently; do not assume compatibility.
 
-Offline patching is also validated with
-`LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16). Unlike the EvoX input,
-it omits `persist.sys.usb.config` from `system/build.prop`; the patcher adds the
-MTP default when missing. Its `system_ext/etc/build.prop` also sets
-`persist.sys.usb.config=adb` and `ro.adb.secure=0` (ADB without computer
-authorization), and it ships a setuid `/system/xbin/su`; the patcher fixes all
-three (see below). This verifies image construction, not boot or
-on-device display compatibility; those still require device testing.
+The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;
+the patcher adds the MTP default when missing. Its
+`system_ext/etc/build.prop` also sets `persist.sys.usb.config=adb` and
+`ro.adb.secure=0` (ADB without computer authorization), and it ships a setuid
+`/system/xbin/su`; the patcher fixes all three (see below). The display fixes
+worked on the same-date LineageOS 23.2 SU build on the device, but this
+microG image fully patched (app, daemon, AOD) has not yet been checked on the
+device.
+
+The previous input, Doze-off's
+`EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` (raw image SHA-256
+`d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf`), still
+patches and works, but Kindle cannot download books on it; see
+[Findings](FINDINGS.md#third-party-app-issues-on-evox).
 
 Host requirements:
 
@@ -141,7 +150,7 @@ For personal debugging builds, you can embed **your own ADB public key**:
 ```bash
 adb start-server
 # If the key does not exist, generate it using: adb keygen "$HOME/.android/adbkey"
-tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
+tools/patch-gsi.sh /path/to/LineageOS-23.2-2026.10.10-microG-gsi.img \
   build/HiBreakPro.img build/HiBreakEink.apk build/a9_eink_server \
   "$HOME/.android/adbkey.pub"
 ```
@@ -150,27 +159,29 @@ Never supply `adbkey` (the private key), only `adbkey.pub`. The key is validated
 and installed as `/adb_keys`, labelled `adb_keys_file`. That host is authorized
 for the image, so **do not distribute a personal-key image to other users**.
 Embedding a key does not itself enable USB debugging. Enable it in Developer
-options on the phone when needed; the tested EvoX base defaults to ADB off
-on fresh installs. ADB authentication remains
+options on the phone when needed; the patched image's USB default is MTP,
+not ADB. ADB authentication remains
 enabled. Omitting the last argument preserves the
 GSI's existing key setup; authorize the computer on-screen when prompted.
 
 For a public-release candidate, use `--release` and do not pass an ADB key:
 
 ```bash
-tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
+tools/patch-gsi.sh /path/to/LineageOS-23.2-2026.10.10-microG-gsi.img \
   build/HiBreakPro-release.img build/HiBreakEink.apk build/a9_eink_server \
   --release
 ```
 
-For LineageOS, use the same command with
-`LineageOS-23.2-2026.10.10-microG-gsi.img` as the input. Build the APK with the
-release signing variables first.
+For EvoX, use the same command with
+`EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` as the input. Build the
+APK with the release signing variables first. LineageOS builds keep
+`ro.debuggable=1` from the upstream image; `--release` does not change it.
 
 All builds set `external_storage.sdcardfs.enabled=false` so Android uses FUSE
 instead of the legacy kernel `sdcardfs` layer for emulated external storage.
 This is intended to avoid storage compatibility problems on newer Android GSIs
-with the stock 4.19 kernel; verify device-specific storage behavior after
+with the stock 4.19 kernel. On EvoX it did **not** fix Kindle downloads, and
+its effect on LineageOS has not been checked; verify storage behavior after
 flashing.
 The property is added to `system/build.prop` and any existing entries in
 `system_ext/etc/build.prop` or `product/etc/build.prop` are set to `false` so
@@ -185,8 +196,9 @@ for these patched properties are rejected. This is done without
 forcing USB configuration at boot or changing Android's saved USB debugging
 setting. On an update without a data wipe, ADB stays enabled or disabled as
 previously selected, and existing computer authorizations remain in userdata.
-The tested EvoX base defaults to ADB off on fresh installs; other bases may
-have upstream debug policies that enable ADB. Enable or disable USB debugging
+The tested EvoX base defaults to ADB off on fresh installs, and the patcher
+removes LineageOS's ADB-on default; other bases may have upstream debug
+policies that enable ADB. Enable or disable USB debugging
 in Developer options as needed. A factory reset erases saved settings and
 authorizations.
 The old helper that forced USB debugging on is removed, including when updating

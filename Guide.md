@@ -1,6 +1,6 @@
 # Installing the patched Android 16 GSI on the HiBreak Pro
 
-This guide installs a patched Evolution X 11.11 (Android 16) GSI on the
+This guide installs a patched LineageOS 23.2 for microG (Android 16) GSI on the
 **black-and-white Bigme HiBreak Pro (MT6877)** with the **stock 3.1.6 vendor**.
 It has been tested on one device. It is not for the HiBreak Pro Color or
 other firmware. For details and evidence see [Findings](docs/FINDINGS.md).
@@ -58,6 +58,9 @@ Confirm on the phone and let it reboot.
 
 Follow [Building](docs/BUILDING.md) steps 1–3. The result is
 `build/HiBreakPro.img`.
+
+Already running the patched EvoX image? Back up (step 1), skip steps 2 and 4,
+and see [Switching from EvoX](#switching-from-evox).
 
 ## 4. First install (slot A)
 
@@ -136,6 +139,24 @@ if the flash succeeded. **Press Power right after the Bigme logo flashes.**
 The E-Ink app is a persistent system app, so `adb install` cannot update it.
 Updates always come through a new image.
 
+## Switching from EvoX
+
+Changing to a different GSI **erases all data**, so back up personal files
+first. The vbmeta images are already flashed and `product`/`system_ext` are
+already deleted, so leave out `--delete-stock-logical-partitions`. Build the
+LineageOS image (step 3), then preview and flash:
+
+```sh
+adb reboot fastboot
+fastboot getvar current-slot  # must say a
+tools/flash-system.sh build/HiBreakPro.img a --wipe-data
+tools/flash-system.sh build/HiBreakPro.img a --wipe-data --flash
+```
+
+Without `--wipe-data`, the old EvoX data can stop the phone in recovery
+with "Can't load Android system". **Press Power right after the Bigme logo
+flashes**, then follow [First-boot setup](#5-first-boot-setup).
+
 ## Troubleshooting
 
 - **Phone turns off after a restart:** press Power right after the Bigme logo
@@ -162,5 +183,6 @@ Updates always come through a new image.
 - [vbbot's HiBreak Pro GSI notes](https://vbh.ai/hibreak-pro-gsi-release/) and
   [Android 15 GSI guide](https://vbh.ai/hibreak-pro-guide-4-flashing-the-android-15-gsi/)
 - [Unlocking the HiBreak Pro](https://vbh.ai/unlocking-the-bootloader-and-rooting-the-hibreak-pro/)
+- [LineageOS for microG GSI releases](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/)
 - [EvoX Treble releases](https://github.com/Doze-off/EvoX_treble/releases)
 - [HiBreak Pro XDA thread](https://xdaforums.com/t/bigme-hibreak-pro-dimensity-900-mt6877-e-ink-phone.4723924/)

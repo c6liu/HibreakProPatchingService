@@ -563,6 +563,33 @@ always returning success.
    slot A also had mismatched boot/dtbo after an incomplete OTA; this was a
    device-specific recovery issue, not a reason to copy boot images blindly.
 
+## Third-party app issues on EvoX
+
+These were seen on patched EvoX 11.11 microG and led to LineageOS 23.2 for
+microG becoming the recommended input.
+
+- **Kindle cannot download books.** Kindle 8.159 fails with
+  `FILE_SYSTEM_WRITE_ERROR`; logs show `EACCES` when it writes under
+  `/storage/emulated/0/Android/data/com.amazon.kindle/files/`, `statvfs`
+  returning `EACCES`, and failure creating `/storage/emulated/0/Books/`.
+  Ownership was correct, the shell could write the same paths, and no matching
+  SELinux denial was found (the audit log was overflowing). Reinstalling Kindle
+  and deleting its external folder did not help. Although
+  `persist.sys.fuse=true` and `ro.sys.sdcardfs=0`, the stock 4.19 kernel
+  supports sdcardfs and `Android/data`/`Android/obb` were sdcardfs bind mounts
+  over FUSE. Setting `external_storage.sdcardfs.enabled=false` in the image
+  did **not** fix it; whether vold honored the property was not checked. A
+  kernel update is not practical (pre-GKI 4.19, no public Bigme source).
+- **Outlook.com login page stays blank.** The account preferred a passkey.
+  Outlook called Android Credential Manager; Bitwarden (the selected provider)
+  returned an empty response and Android dropped microG's hybrid entry
+  ("Remote entry being dropped as it is not from the service configured by the
+  OEM"), so no prompt or error appeared. Saving a passkey in the credential
+  provider, or disabling it as passkey provider, are the workarounds. This is
+  a credential-provider issue, not specific to EvoX.
+
+Kindle has not yet been tested on LineageOS.
+
 ## Reproducibility and script locations
 
 The working display scripts now live under [tools/display](../tools/display).
@@ -589,5 +616,6 @@ The consolidated image and its wake-only default have **not been flashed**.
 - [Original GSI notes](https://vbh.ai/hibreak-pro-gsi-release/)
 - [Original Android 15 guide](https://vbh.ai/hibreak-pro-guide-4-flashing-the-android-15-gsi/)
 - [EvoX Treble](https://github.com/Doze-off/EvoX_treble/releases)
+- [LineageOS for microG GSI](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/)
 - [HiBreak Pro XDA discussion](https://xdaforums.com/t/bigme-hibreak-pro-dimensity-900-mt6877-e-ink-phone.4723924/)
 - [Pro Color shim research (not recommended for this baseline)](https://github.com/awong-dev/hibreak-pro-color)
