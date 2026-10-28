@@ -131,6 +131,73 @@ class ToolTests(unittest.TestCase):
         self.assertNotEqual(self.patch().returncode, 0)
         self.assertFalse(self.out.exists())
 
+    def test_missing_usb_default_is_added(self):
+        for release in (False, True):
+            for suffix in ("", "\n"):
+                with self.subTest(release=release, suffix=suffix):
+                    self.out = self.work / f"missing-usb-{release}-{len(suffix)}.img"
+                    original = "ro.debuggable=1\nro.secure=1\n# end of file" + suffix
+                    build_prop = self.work / "build.prop"
+                    build_prop.write_text(original)
+                    self.debug("rm system/build.prop", write=True)
+                    self.debug(f'write "{build_prop}" system/build.prop', write=True)
+                    result = self.patch(*(["--release"] if release else []))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(self.read_image_text("system/build.prop"),
+                                     original.rstrip("\n") + "\npersist.sys.usb.config=mtp\n")
+
+    def add_lineage_layout(self):
+        for directory in ("system/system_ext", "system/system_ext/etc", "system/xbin"):
+            self.debug(f"mkdir {directory}", write=True)
+        system_ext = self.work / "system_ext.prop"
+        system_ext.write_text("ro.adb.secure=0\nro.face.sense_service=true\n"
+                              "persist.sys.usb.config=adb\n# end of file\n")
+        self.debug(f'write "{system_ext}" system/system_ext/etc/build.prop', write=True)
+        su = self.work / "su"
+        su.write_bytes(b"su-binary")
+        self.debug(f'write "{su}" system/xbin/su', write=True)
+        return system_ext.read_text()
+
+    def test_lineage_adb_auth_usb_default_and_root_removed(self):
+        original = self.add_lineage_layout()
+        for release in (False, True):
+            with self.subTest(release=release):
+                self.out = self.work / f"lineage-{release}.img"
+                result = self.patch(*(["--release"] if release else []))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(
+                    self.read_image_text("system/system_ext/etc/build.prop"),
+                    original.replace("ro.adb.secure=0", "ro.adb.secure=1").replace(
+                        "persist.sys.usb.config=adb", "persist.sys.usb.config=mtp"))
+                self.assertIn("persist.sys.usb.config=mtp\n",
+                              self.read_image_text("system/build.prop"))
+                self.assertNotIn("Inode:", self.debug(
+                    "stat system/xbin/su", image=self.out).stdout.decode())
+
+    def test_root_flag_keeps_su(self):
+        self.add_lineage_layout()
+        result = self.patch("--release", "--root")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Root kept", result.stdout)
+        self.assertEqual(self.read_image_text("system/xbin/su"), "su-binary")
+        self.assertIn("ro.adb.secure=1\n",
+                      self.read_image_text("system/system_ext/etc/build.prop"))
+        self.out = self.work / "duplicate-root.img"
+        result = self.patch("--root", "--root")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate option: --root", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_duplicate_usb_defaults_are_rejected(self):
+        build_prop = self.work / "build.prop"
+        build_prop.write_text("persist.sys.usb.config=adb\npersist.sys.usb.config=mtp\n")
+        self.debug("rm system/build.prop", write=True)
+        self.debug(f'write "{build_prop}" system/build.prop', write=True)
+        result = self.patch()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("persist.sys.usb.config", result.stderr)
+        self.assertNotIn("Verified image ready", result.stdout)
+
     def test_optional_adb_key_label_and_symlink_replacement(self):
         import base64
         import struct
@@ -194,6 +261,8 @@ class ToolTests(unittest.TestCase):
         flash_command = next(command for command in commands
                              if command.startswith("fastboot flash system_a "))
         self.assertLess(commands.index(flash_command),
+                        commands.index("fastboot reboot bootloader"))
+        self.assertLess(commands.index("fastboot reboot bootloader"),
                         commands.index("fastboot -w"))
         self.assertLess(commands.index("fastboot -w"),
                         commands.index("fastboot reboot"))
@@ -202,6 +271,27 @@ class ToolTests(unittest.TestCase):
         duplicate = subprocess.run(
             ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
              "--wipe-data", "--wipe-data"],
+            capture_output=True, text=True)
+        self.assertNotEqual(duplicate.returncode, 0)
+
+    def test_flash_stock_partition_deletion_is_opt_in_and_ordered(self):
+        preview = subprocess.run(
+            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+             "--delete-stock-logical-partitions"],
+            capture_output=True, text=True)
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        commands = preview.stdout.splitlines()
+        product = "fastboot delete-logical-partition product_a"
+        system_ext = "fastboot delete-logical-partition system_ext_a"
+        flash = next(command for command in commands
+                     if command.startswith("fastboot flash system_a "))
+        self.assertLess(commands.index(product), commands.index(system_ext))
+        self.assertLess(commands.index(system_ext), commands.index(flash))
+        self.assertIn("removes product and system_ext from slot a", preview.stdout)
+        duplicate = subprocess.run(
+            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+             "--delete-stock-logical-partitions",
+             "--delete-stock-logical-partitions"],
             capture_output=True, text=True)
         self.assertNotEqual(duplicate.returncode, 0)
 
@@ -236,24 +326,38 @@ esac
         fastboot.write_text("""#!/bin/sh
 echo "$*" >> "$COMMAND_LOG"
 case "$*" in
-    "getvar is-userspace") echo "is-userspace: yes" >&2 ;;
+    "getvar is-userspace")
+        if [ -e "$MODE_FILE" ]; then echo "is-userspace: no" >&2
+        else echo "is-userspace: yes" >&2; fi ;;
     "getvar current-slot") echo "current-slot: a" >&2 ;;
     "flash system_a "*) exit "$FAKE_FLASH_STATUS" ;;
-    "-w") exit "$FAKE_WIPE_STATUS" ;;
+    "reboot bootloader")
+        [ "$FAKE_STAY_FASTBOOTD" = 1 ] || touch "$MODE_FILE" ;;
+    "-w")
+        [ -e "$MODE_FILE" ] || exit 98
+        echo "wipe task partition not found: cache"
+        echo "wipe task partition not found: metadata"
+        echo "Finished wipe"
+        exit "$FAKE_WIPE_STATUS"
+        ;;
     "reboot") exit 0 ;;
     *) exit 99 ;;
 esac
 """)
         fastboot.chmod(0o755)
         command_log = self.work / "commands"
-        for status, wipe_status, wipe_requested in (
-                (0, 0, False), (1, 0, False), (0, 0, True), (0, 1, True)):
+        mode_file = self.work / "in-bootloader"
+        for status, wipe_status, wipe_requested, stay in (
+                (0, 0, False, 0), (1, 0, False, 0), (0, 0, True, 0), (0, 1, True, 0),
+                (0, 0, True, 1)):
             with self.subTest(flash_status=status, wipe_status=wipe_status,
-                              wipe_requested=wipe_requested):
+                              wipe_requested=wipe_requested, stay_fastbootd=stay):
                 command_log.write_text("")
+                mode_file.unlink(missing_ok=True)
                 env = dict(os.environ, PATH=f"{fake_bin}:{os.environ['PATH']}",
                            COMMAND_LOG=str(command_log), FAKE_FLASH_STATUS=str(status),
-                           FAKE_WIPE_STATUS=str(wipe_status))
+                           FAKE_WIPE_STATUS=str(wipe_status), MODE_FILE=str(mode_file),
+                           FAKE_STAY_FASTBOOTD=str(stay))
                 args = ["bash", ROOT / "tools/flash-system.sh", self.base, "a"]
                 if wipe_requested:
                     args.append("--wipe-data")
@@ -261,16 +365,84 @@ esac
                 result = subprocess.run(
                     args,
                     capture_output=True, text=True, env=env)
-                expected_status = status or (wipe_status if wipe_requested else 0)
+                expected_status = status or (
+                    (wipe_status or stay) if wipe_requested else 0)
                 self.assertEqual(result.returncode, expected_status, result.stderr)
                 commands = command_log.read_text().splitlines()
                 self.assertIn(f"flash system_a {self.base}", commands)
-                self.assertEqual("-w" in commands, wipe_requested and status == 0)
+                self.assertEqual("reboot bootloader" in commands,
+                                 wipe_requested and status == 0)
+                self.assertEqual("-w" in commands, wipe_requested and status == 0
+                                 and not stay)
+                if "-w" in commands:
+                    self.assertLess(commands.index("reboot bootloader"),
+                                    commands.index("-w"))
                 self.assertEqual("reboot" in commands, expected_status == 0)
+                if stay:
+                    self.assertIn("not in the bootloader", result.stderr)
+                if wipe_requested and not wipe_status and not stay:
+                    self.assertIn("Finished wipe", result.stdout)
+                    self.assertNotIn("wipe task partition not found",
+                                     result.stdout + result.stderr)
                 if status:
                     self.assertIn("Do not reboot", result.stderr)
                 if wipe_requested and wipe_status:
                     self.assertIn("userdata wipe failed", result.stderr)
+                    self.assertIn("wipe task partition not found: cache", result.stderr)
+
+    def test_flash_deletes_requested_logical_partitions_before_flash(self):
+        fake_bin = self.work / "bin"
+        fake_bin.mkdir()
+        fastboot = fake_bin / "fastboot"
+        fastboot.write_text("""#!/bin/sh
+echo "$*" >> "$COMMAND_LOG"
+case "$*" in
+    "getvar is-userspace") echo "is-userspace: yes" >&2 ;;
+    "getvar current-slot") echo "current-slot: a" >&2 ;;
+    "delete-logical-partition product_a") exit "$FAKE_DELETE_PRODUCT_STATUS" ;;
+    "delete-logical-partition system_ext_a") exit "$FAKE_DELETE_SYSTEM_EXT_STATUS" ;;
+    "flash system_a "*) exit 0 ;;
+    "reboot") exit 0 ;;
+    *) exit 99 ;;
+esac
+""")
+        fastboot.chmod(0o755)
+        command_log = self.work / "commands"
+        for product_status, system_ext_status in ((0, 0), (1, 0), (0, 1)):
+            with self.subTest(product_status=product_status,
+                              system_ext_status=system_ext_status):
+                command_log.write_text("")
+                env = dict(os.environ, PATH=f"{fake_bin}:{os.environ['PATH']}",
+                           COMMAND_LOG=str(command_log),
+                           FAKE_DELETE_PRODUCT_STATUS=str(product_status),
+                           FAKE_DELETE_SYSTEM_EXT_STATUS=str(system_ext_status))
+                result = subprocess.run(
+                    ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+                     "--delete-stock-logical-partitions", "--flash"],
+                    capture_output=True, text=True, env=env)
+                commands = command_log.read_text().splitlines()
+                product = "delete-logical-partition product_a"
+                system_ext = "delete-logical-partition system_ext_a"
+                self.assertIn(product, commands)
+                if product_status:
+                    self.assertNotIn(system_ext, commands)
+                    self.assertNotIn(f"flash system_a {self.base}", commands)
+                    self.assertNotIn("reboot", commands)
+                    self.assertIn("Do not reboot", result.stderr)
+                    self.assertNotEqual(result.returncode, 0)
+                elif system_ext_status:
+                    self.assertLess(commands.index(product), commands.index(system_ext))
+                    self.assertNotIn(f"flash system_a {self.base}", commands)
+                    self.assertNotIn("reboot", commands)
+                    self.assertIn("preceding logical partition may already be deleted",
+                                  result.stderr)
+                    self.assertNotEqual(result.returncode, 0)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    flash = f"flash system_a {self.base}"
+                    self.assertLess(commands.index(product), commands.index(system_ext))
+                    self.assertLess(commands.index(system_ext), commands.index(flash))
+                    self.assertEqual(commands[-1], "reboot")
 
 
 class RefreshModeTests(unittest.TestCase):

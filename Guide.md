@@ -7,7 +7,9 @@ other firmware. For details and evidence see [Findings](docs/FINDINGS.md).
 
 The image already includes the display fixes, the E-Ink
 app and daemon, and the AOD fix. You do **not** need root, Magisk, Phh Treble
-settings, a screen-mirroring app or manual SurfaceFlinger commands.
+settings, a screen-mirroring app or manual SurfaceFlinger commands. Root
+(`su`) is removed from the image, and USB debugging always asks before
+trusting a computer.
 
 > **Press Power after every restart.** Every time the phone restarts or powers
 > up, press the Power button once **right after the Bigme logo flashes**.
@@ -76,27 +78,21 @@ fastboot reboot fastboot
 ```
 
 Now in **fastbootd** (`fastboot getvar is-userspace` says `yes`), check the
-slot, make room for the GSI and flash it:
+slot, then preview and run the helper to make room for the GSI, flash it, wipe
+userdata from bootloader mode, and reboot:
 
 ```sh
-fastboot getvar current-slot          # must say a
-fastboot delete-logical-partition product_a
-fastboot delete-logical-partition system_ext_a
-fastboot flash system_a build/HiBreakPro.img
+fastboot getvar current-slot  # must say a
+tools/flash-system.sh build/HiBreakPro.img a --delete-stock-logical-partitions --wipe-data
+tools/flash-system.sh build/HiBreakPro.img a --delete-stock-logical-partitions --wipe-data --flash
 ```
 
 The GSI does not use the stock `product` and `system_ext`; without deleting
-them the image does not fit. If the flash fails, see
-[Troubleshooting](#troubleshooting) and **do not reboot** until it succeeds.
-
-Wipe data from **bootloader** mode (fastbootd cannot wipe on this phone) and
-start Android:
-
-```sh
-fastboot reboot bootloader
-fastboot -w
-fastboot reboot
-```
+them the image does not fit. The helper deletes only the selected slot's
+logical partitions, and stops without flashing if either deletion fails. If
+the flash fails, see [Troubleshooting](#troubleshooting) and **do not reboot**
+until it succeeds. `--wipe-data` reboots to bootloader mode because fastbootd
+cannot wipe userdata on this phone.
 
 **Press Power right after the Bigme logo flashes.**
 

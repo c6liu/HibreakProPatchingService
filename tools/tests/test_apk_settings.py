@@ -29,6 +29,18 @@ class SettingsResourceTests(unittest.TestCase):
                     "command_runners/Commands.kt").read_text()
         self.assertIn('const val SPEED_SMOOTH = "s"', commands)
 
+    def test_new_install_defaults_to_fast_and_display_controls_on(self):
+        root = ET.parse(SOURCE).getroot()
+        refresh = next(node for node in root.iter()
+                       if node.get(APP + "key") == "refresh_setting")
+        self.assertEqual(refresh.get(APP + "defaultValue"), "1")
+        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                   "RefreshModeManager.kt").read_text()
+        self.assertIn('getString("refresh_setting", "1")', manager)
+        controls = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                    "DisplaySettingsManager.kt").read_text()
+        self.assertIn("index < 2 && sharedPreferences.getBoolean(keys[index], true)", controls)
+
     def test_settings_theme_uses_monochrome_material3(self):
         themes = ET.parse(ROOT / "a9_accessibility_service/res/values/themes.xml").getroot()
         settings = themes.find("style[@name='Theme.Ha9_comp_service.Settings']")
@@ -235,6 +247,12 @@ class PatchedApkSettingsTests(unittest.TestCase):
             if key:
                 self.assertEqual(actual[key], node.attrib)
         self.assertIn("camera_live_refresh", actual)
+        refresh_manager = (self.decoded /
+                           "smali/com/lmqr/ha9_comp_service/RefreshModeManager.smali").read_text()
+        self.assertIn('const-string v1, "1"', refresh_manager)
+        controls = (self.decoded /
+                    "smali/com/lmqr/ha9_comp_service/DisplaySettingsManager.smali").read_text()
+        self.assertIn("    if-ge p1, v2, :read\n    const/4 v1, 0x1", controls)
         styles = ET.parse(self.decoded / "res/values/styles.xml").getroot()
         settings = styles.find("style[@name='Theme.Ha9_comp_service.Settings']")
         self.assertEqual(settings.get("parent"), "@style/Theme.Material3.DayNight.NoActionBar")

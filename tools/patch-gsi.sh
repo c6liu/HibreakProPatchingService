@@ -2,17 +2,21 @@
 # Offline patching only; never mounts an image or connects to a device.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-if [ "$#" -lt 4 ] || [ "$#" -gt 6 ]; then
-    echo "Usage: $0 <raw-ext4-gsi.img> <output.img> <standalone.apk> <daemon> [adbkey.pub] [--release]" >&2
+if [ "$#" -lt 4 ] || [ "$#" -gt 7 ]; then
+    echo "Usage: $0 <raw-ext4-gsi.img> <output.img> <standalone.apk> <daemon> [adbkey.pub] [--release] [--root]" >&2
     exit 1
 fi
-SRC="$1"; OUT="$2"; APK="$3"; DAEMON="$4"; KEY=""; RELEASE=false
+SRC="$1"; OUT="$2"; APK="$3"; DAEMON="$4"; KEY=""; RELEASE=false; KEEP_ROOT=false
 shift 4
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --release)
             [ "$RELEASE" = false ] || { echo "Duplicate option: --release" >&2; exit 1; }
             RELEASE=true
+            ;;
+        --root)
+            [ "$KEEP_ROOT" = false ] || { echo "Duplicate option: --root" >&2; exit 1; }
+            KEEP_ROOT=true
             ;;
         *)
             [ -z "$KEY" ] || { echo "Unexpected argument: $1" >&2; exit 1; }
@@ -97,21 +101,34 @@ put() {
 }
 DISPLAY_RC="$ROOT/tools/display/hibreak-display.rc"
 EINK_RC="$ROOT/a9_eink_daemon/etc/init/a9_eink_gsi.rc"
-debugfs -R "dump system/build.prop \"$TMP/build.prop\"" "$OUT" >/dev/null
-python3 - "$TMP/build.prop" <<'PY'
+# Later partitions override system/build.prop, so fix the USB and ADB defaults in each.
+for prop in system/build.prop system/system_ext/etc/build.prop system/product/etc/build.prop; do
+    exists "$prop" || continue
+    rm -f "$TMP/build.prop"
+    debugfs -R "dump $prop \"$TMP/build.prop\"" "$OUT" >/dev/null
+    python3 - "$TMP/build.prop" "$prop" <<'PY'
 import pathlib
 import sys
 
-path = pathlib.Path(sys.argv[1])
+path, name = pathlib.Path(sys.argv[1]), sys.argv[2]
 lines = path.read_text().splitlines(keepends=True)
-indices = [i for i, line in enumerate(lines)
-           if line.startswith("persist.sys.usb.config=")]
-if len(indices) != 1:
-    raise SystemExit("Expected exactly one persist.sys.usb.config in system/build.prop")
-lines[indices[0]] = "persist.sys.usb.config=mtp\n"
+for key, value in (("persist.sys.usb.config", "mtp"), ("ro.adb.secure", "1")):
+    indices = [i for i, line in enumerate(lines) if line.startswith(key + "=")]
+    if len(indices) > 1:
+        raise SystemExit(f"Duplicate {key} entries in {name}")
+    if indices:
+        lines[indices[0]] = f"{key}={value}\n"
+    elif key == "persist.sys.usb.config" and name == "system/build.prop":
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"{key}={value}\n")
 path.write_text("".join(lines))
 PY
-put "$TMP/build.prop" system/build.prop 0100644
+    put "$TMP/build.prop" "$prop" 0100644
+done
+if exists system/xbin/su && [ "$KEEP_ROOT" = false ]; then
+    debugfs -w -R 'rm system/xbin/su' "$OUT"
+fi
 if exists system/bin/hibreak-enable-adb.sh; then
     debugfs -w -R 'rm system/bin/hibreak-enable-adb.sh' "$OUT"
 fi
@@ -188,6 +205,25 @@ if debugfs -R 'cat system/etc/init/hibreak-display.rc' "$OUT" 2>/dev/null |
 fi
 if exists system/bin/hibreak-enable-adb.sh; then
     echo "Image still contains the USB ADB enable script" >&2
+    exit 1
+fi
+for prop in system/system_ext/etc/build.prop system/product/etc/build.prop; do
+    if debugfs -R "cat $prop" "$OUT" 2>/dev/null |
+        grep -E '^persist\.sys\.usb\.config=' | grep -qvx 'persist.sys.usb.config=mtp'; then
+        echo "$prop overrides the MTP-only USB configuration" >&2
+        exit 1
+    fi
+done
+for prop in system/build.prop system/system_ext/etc/build.prop system/product/etc/build.prop; do
+    if debugfs -R "cat $prop" "$OUT" 2>/dev/null | grep -qx 'ro\.adb\.secure=0'; then
+        echo "$prop disables ADB authorization" >&2
+        exit 1
+    fi
+done
+if [ "$KEEP_ROOT" = true ]; then
+    echo "Root kept: /system/xbin/su is available to ADB shell (--root)."
+elif exists system/xbin/su; then
+    echo "Image still contains /system/xbin/su" >&2
     exit 1
 fi
 if [ "$RELEASE" = true ]; then

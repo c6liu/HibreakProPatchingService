@@ -462,7 +462,7 @@ replace(service, '''    const-string v9, "disable_show_per_app_aod_settings"
     move-result v6''', '''    const/4 v6, 0x1''')
 
 manager = S / "RefreshModeManager.smali"
-replace(manager, 'const-string v1, "3"', 'const-string v1, "2"')
+replace(manager, 'const-string v1, "3"', 'const-string v1, "1"')
 
 # R8 removed unused setters in the tested APK. Restore only the APIs used by the new UI.
 preference = B / "smali/androidx/preference/Preference.smali"

@@ -17,6 +17,15 @@ stock kernel. The script requires a TrebleDroid `vndk.rc` using the existing
 `phhsu_daemon` domain. It does not add a new SELinux policy or disable SELinux.
 Check other firmware/GSIs independently; do not assume compatibility.
 
+Offline patching is also validated with
+`LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16). Unlike the EvoX input,
+it omits `persist.sys.usb.config` from `system/build.prop`; the patcher adds the
+MTP default when missing. Its `system_ext/etc/build.prop` also sets
+`persist.sys.usb.config=adb` and `ro.adb.secure=0` (ADB without computer
+authorization), and it ships a setuid `/system/xbin/su`; the patcher fixes all
+three (see below). This verifies image construction, not boot or
+on-device display compatibility; those still require device testing.
+
 Host requirements:
 
 - Linux x86-64, Bash, Python 3, Java (Java 21 or newer recommended), coreutils.
@@ -88,9 +97,10 @@ The legacy max-brightness override is removed. Build the daemon from the
 matching source so it can dispatch the new DPAD commands.
 The popup's Auto Refresh, Anti-Shake, and Video Refresh controls are saved
 per app, independently of the per-app refresh-mode enable/disable setting.
-For apps without overrides, the existing global Auto Refresh/Anti-Shake values
-remain defaults; Video Refresh defaults off and the old global video flag is
-ignored. Changing apps applies the new app's controls and updates popup switches
+Auto Refresh and Anti-Shake default on when no global or app-specific value has
+been saved; Video Refresh defaults off and the old global video flag is ignored.
+The default refresh mode for new apps is Fast. Existing saved global and
+per-app choices are preserved. Changing apps applies the new app's controls and updates popup switches
 without saving the previous app's values into the new app. Controls remain
 disabled until an active app is detected. The per-app page's reset action resets
 refresh modes only, not these controls. The camera-preview keep-alive remains
@@ -139,8 +149,9 @@ tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
 Never supply `adbkey` (the private key), only `adbkey.pub`. The key is validated
 and installed as `/adb_keys`, labelled `adb_keys_file`. That host is authorized
 for the image, so **do not distribute a personal-key image to other users**.
-Embedding a key does not enable USB debugging. Enable it in Developer options
-on the phone; fresh installs default to ADB off. ADB authentication remains
+Embedding a key does not itself enable USB debugging. Enable it in Developer
+options on the phone when needed; the tested EvoX base defaults to ADB off
+on fresh installs. ADB authentication remains
 enabled. Omitting the last argument preserves the
 GSI's existing key setup; authorize the computer on-screen when prompted.
 
@@ -152,19 +163,38 @@ tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
   --release
 ```
 
-All builds set the image's default `persist.sys.usb.config` to `mtp`, without
+For LineageOS, use the same command with
+`LineageOS-23.2-2026.10.10-microG-gsi.img` as the input. Build the APK with the
+release signing variables first.
+
+All builds set the image's default `persist.sys.usb.config` to `mtp`, replacing
+an existing entry or adding a missing one in `system/build.prop`. An existing
+entry in `system_ext/etc/build.prop` or `product/etc/build.prop`, which would
+override it, is also set to `mtp`. Any `ro.adb.secure` entry in those files
+is set to `1` so ADB always asks before trusting a computer. Duplicate
+entries are rejected. This is done without
 forcing USB configuration at boot or changing Android's saved USB debugging
 setting. On an update without a data wipe, ADB stays enabled or disabled as
 previously selected, and existing computer authorizations remain in userdata.
-Fresh installs default to ADB off; enable USB debugging in Developer options
-when needed. A factory reset erases saved settings and authorizations.
+The tested EvoX base defaults to ADB off on fresh installs; other bases may
+have upstream debug policies that enable ADB. Enable or disable USB debugging
+in Developer options as needed. A factory reset erases saved settings and
+authorizations.
 The old helper that forced USB debugging on is removed, including when updating
 an already-patched image.
 
+Root is off by default: all builds remove the base image's `/system/xbin/su`
+(the LineageOS input's setuid root binary for the ADB shell). Pass `--root` to
+keep it, for example for development. TrebleDroid's own property handlers run
+from init and keep working without it.
+
 Release mode additionally removes the project's `debug.hibreak.*` diagnostic
 property hooks. It does not inject a host ADB key. The base image's ADB-key path is
-otherwise preserved; Android's `ro.secure=1` and `ro.debuggable=0` settings
-remain unchanged. Display-related SurfaceFlinger properties and the internal
+otherwise preserved; Android's upstream `ro.secure` and `ro.debuggable` settings
+remain unchanged. The LineageOS input has `ro.secure=1` and `ro.debuggable=1`;
+`--release` does not convert it from userdebug to a production user build or
+guarantee ADB is off on a fresh install. Display-related SurfaceFlinger properties
+and the internal
 `debug.tracing.screen_state` AOD triggers are retained because the device
 display/AOD setup uses them; release mode does not strip those required
 behavioral settings.
@@ -176,7 +206,9 @@ resolve upstream ROM redistribution requirements.
 The patcher:
 
 1. Copies the input, expands ext4, and unshares ext4 `shared_blocks`.
-2. Adds root/phhsu display and AOD services, preserving saved USB debugging state.
+2. Sets MTP-only USB and ADB authorization defaults, removes `/system/xbin/su`
+   unless `--root` is passed, and adds the display and AOD services (they run
+   as root under phhsu_daemon), preserving saved USB debugging state.
 3. Installs the APK, daemon and privileged-permission allowlist.
 4. Sets and checks file modes, ownership, SELinux labels and round-trip bytes.
 5. Minimizes the filesystem, checks it with `e2fsck`, and prints SHA-256.
@@ -192,10 +224,13 @@ The old session-only five-mode/AOD image-update scripts are superseded.
 ## 4. Flash only after preparing recovery
 
 **Back up the exact stock firmware and personal data.** Unlocking erases data.
-The scripts do not unlock, modify vbmeta, delete partitions, or enlarge super.
-Those are device preparation tasks; see [Guide.md](../Guide.md). Use the
-**stock vendor**, not the experimental HWC shim. Never flash vendor/boot images
-from a different firmware or blindly copy another user's partition commands.
+The scripts do not unlock, modify vbmeta, or enlarge super. The flash helper
+leaves logical partitions alone unless explicitly asked to delete
+`product_<slot>` and `system_ext_<slot>` with
+`--delete-stock-logical-partitions`. See [Guide.md](../Guide.md) for first
+migration steps. Use the **stock vendor**, not the experimental HWC shim.
+Never flash vendor/boot images from a different firmware or blindly copy
+another user's partition commands.
 
 Preview first (no device commands executed):
 
@@ -217,16 +252,30 @@ reset, preview the destructive action first:
 tools/flash-system.sh build/HiBreakPro.img a --wipe-data
 ```
 
-After checking the preview, add `--flash` to execute it:
+For the first GSI migration, also pass `--delete-stock-logical-partitions` to
+remove the unused `product` and `system_ext` logical partitions for that slot;
+this is needed to make room for the GSI. The option is destructive, so inspect
+the preview before executing. For example:
 
 ```bash
-tools/flash-system.sh build/HiBreakPro.img a --wipe-data --flash
+tools/flash-system.sh build/HiBreakPro.img a \
+  --delete-stock-logical-partitions --wipe-data
+tools/flash-system.sh build/HiBreakPro.img a \
+  --delete-stock-logical-partitions --wipe-data --flash
 ```
 
-The helper flashes the selected system slot first, then runs `fastboot -w`
-before rebooting. This erases shared userdata—including installed apps,
-settings, and personal files—and affects both slots. The option is never
-implicit; omit `--wipe-data` when updating the same GSI to preserve data.
+With the deletion flag, the helper deletes `product_<slot>` and
+`system_ext_<slot>` in fastbootd before flashing the selected system slot. It
+stops if either deletion fails; if only the first deletion succeeds, do not
+reboot until the partition state is resolved. It then reboots to the
+bootloader (fastbootd cannot wipe userdata on this phone), confirms it is no
+longer in fastbootd, and runs `fastboot -w` before rebooting. This erases
+shared userdata—including installed apps, settings, and personal files—and
+affects both slots. The option is never implicit; omit `--wipe-data` when
+updating the same GSI to preserve data.
+On successful wipes, the helper filters fastboot's notices that optional
+`cache` or `metadata` partitions are absent; other output is preserved, and all
+wipe output is shown if the wipe fails.
 Back up anything important before using it. A failed system flash does not run
 the wipe; if the wipe itself fails, the helper stops without rebooting.
 

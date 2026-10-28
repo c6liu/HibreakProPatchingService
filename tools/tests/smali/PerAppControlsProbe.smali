@@ -104,6 +104,15 @@
     invoke-static {v2, v1, v1, v3}, Lhibreak/tests/PerAppControlsProbe;->assertState(Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;ZZZ)V
     invoke-virtual {v2, v8}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->onAppChange(Ljava/lang/String;)V
     invoke-static {v2, v3, v3, v1}, Lhibreak/tests/PerAppControlsProbe;->assertState(Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;ZZZ)V
+    const-string v4, "per_app_controls_defaults_test"
+    invoke-virtual {p0, v4, v1}, Landroid/content/Context;->getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
+    move-result-object v4
+    new-instance v5, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;
+    invoke-direct {v5, v4, p1}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;-><init>(Landroid/content/SharedPreferences;Lcom/lmqr/ha9_comp_service/command_runners/CommandRunner;)V
+    invoke-virtual {v5, v10}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->attach(Lcom/lmqr/ha9_comp_service/A9AccessibilityService;)V
+    const-string v6, "test.defaults"
+    invoke-virtual {v5, v6}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->onAppChange(Ljava/lang/String;)V
+    invoke-static {v5, v3, v3, v1}, Lhibreak/tests/PerAppControlsProbe;->assertState(Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;ZZZ)V
     invoke-interface {v0}, Landroid/content/SharedPreferences;->getAll()Ljava/util/Map;
     move-result-object v9
     invoke-interface {v9}, Ljava/util/Map;->size()I

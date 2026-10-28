@@ -64,6 +64,7 @@
     const/4 v1, 0x0
     const/4 v2, 0x2
     if-ge p1, v2, :read
+    const/4 v1, 0x1
     invoke-direct {p0, p1}, Lcom/lmqr/ha9_comp_service/DisplaySettingsManager;->name(I)Ljava/lang/String;
     move-result-object v2
     invoke-interface {v0, v2, v1}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z

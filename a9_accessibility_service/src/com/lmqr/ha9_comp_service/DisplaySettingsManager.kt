@@ -20,7 +20,7 @@ class DisplaySettingsManager(
     private fun key(index: Int) = "display:$packageName:${keys[index]}"
 
     private fun get(index: Int): Boolean {
-        val default = index < 2 && sharedPreferences.getBoolean(keys[index], false)
+        val default = index < 2 && sharedPreferences.getBoolean(keys[index], true)
         return sharedPreferences.getBoolean(key(index), default)
     }
 
