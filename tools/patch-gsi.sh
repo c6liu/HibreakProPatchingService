@@ -101,7 +101,7 @@ put() {
 }
 DISPLAY_RC="$ROOT/tools/display/hibreak-display.rc"
 EINK_RC="$ROOT/a9_eink_daemon/etc/init/a9_eink_gsi.rc"
-# Later partitions override system/build.prop, so fix the USB and ADB defaults in each.
+# Later partitions override system/build.prop, so fix relevant defaults in each.
 for prop in system/build.prop system/system_ext/etc/build.prop system/product/etc/build.prop; do
     exists "$prop" || continue
     rm -f "$TMP/build.prop"
@@ -112,13 +112,18 @@ import sys
 
 path, name = pathlib.Path(sys.argv[1]), sys.argv[2]
 lines = path.read_text().splitlines(keepends=True)
-for key, value in (("persist.sys.usb.config", "mtp"), ("ro.adb.secure", "1")):
+for key, value in (
+    ("persist.sys.usb.config", "mtp"),
+    ("ro.adb.secure", "1"),
+    ("external_storage.sdcardfs.enabled", "false"),
+):
     indices = [i for i, line in enumerate(lines) if line.startswith(key + "=")]
     if len(indices) > 1:
         raise SystemExit(f"Duplicate {key} entries in {name}")
     if indices:
         lines[indices[0]] = f"{key}={value}\n"
-    elif key == "persist.sys.usb.config" and name == "system/build.prop":
+    elif key in ("persist.sys.usb.config", "external_storage.sdcardfs.enabled") \
+            and name == "system/build.prop":
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"{key}={value}\n")
@@ -214,6 +219,18 @@ for prop in system/system_ext/etc/build.prop system/product/etc/build.prop; do
         exit 1
     fi
 done
+for prop in system/build.prop system/system_ext/etc/build.prop system/product/etc/build.prop; do
+    if debugfs -R "cat $prop" "$OUT" 2>/dev/null |
+        grep -E '^external_storage\.sdcardfs\.enabled=' | grep -qvx 'external_storage.sdcardfs.enabled=false'; then
+        echo "$prop overrides the FUSE external-storage configuration" >&2
+        exit 1
+    fi
+done
+if ! debugfs -R 'cat system/build.prop' "$OUT" 2>/dev/null |
+        grep -qx 'external_storage.sdcardfs.enabled=false'; then
+        echo "Image does not disable the legacy sdcardfs external-storage layer" >&2
+        exit 1
+fi
 for prop in system/build.prop system/system_ext/etc/build.prop system/product/etc/build.prop; do
     if debugfs -R "cat $prop" "$OUT" 2>/dev/null | grep -qx 'ro\.adb\.secure=0'; then
         echo "$prop disables ADB authorization" >&2

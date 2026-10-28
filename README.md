@@ -34,7 +34,7 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 |--------|---------|
 | [build-apk.sh](tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-daemon.sh](tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
-| [patch-gsi.sh](tools/patch-gsi.sh) | Patch display/AOD support; preserve saved ADB state, enforce ADB authorization, remove su unless `--root`, with optional host authorization for testing and `--release` mode without diagnostic hooks |
+| [patch-gsi.sh](tools/patch-gsi.sh) | Patch display/AOD support; select FUSE for external storage, preserve saved ADB state, enforce ADB authorization, remove su unless `--root`, with optional host authorization for testing and `--release` mode without diagnostic hooks |
 | [flash-system.sh](tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
 | [collect-diagnostics.sh](tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
 

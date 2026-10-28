@@ -167,12 +167,21 @@ For LineageOS, use the same command with
 `LineageOS-23.2-2026.10.10-microG-gsi.img` as the input. Build the APK with the
 release signing variables first.
 
+All builds set `external_storage.sdcardfs.enabled=false` so Android uses FUSE
+instead of the legacy kernel `sdcardfs` layer for emulated external storage.
+This is intended to avoid storage compatibility problems on newer Android GSIs
+with the stock 4.19 kernel; verify device-specific storage behavior after
+flashing.
+The property is added to `system/build.prop` and any existing entries in
+`system_ext/etc/build.prop` or `product/etc/build.prop` are set to `false` so
+they cannot override it.
+
 All builds set the image's default `persist.sys.usb.config` to `mtp`, replacing
 an existing entry or adding a missing one in `system/build.prop`. An existing
 entry in `system_ext/etc/build.prop` or `product/etc/build.prop`, which would
 override it, is also set to `mtp`. Any `ro.adb.secure` entry in those files
-is set to `1` so ADB always asks before trusting a computer. Duplicate
-entries are rejected. This is done without
+is set to `1` so ADB always asks before trusting a computer. Duplicate entries
+for these patched properties are rejected. This is done without
 forcing USB configuration at boot or changing Android's saved USB debugging
 setting. On an update without a data wipe, ADB stays enabled or disabled as
 previously selected, and existing computer authorizations remain in userdata.
@@ -206,9 +215,10 @@ resolve upstream ROM redistribution requirements.
 The patcher:
 
 1. Copies the input, expands ext4, and unshares ext4 `shared_blocks`.
-2. Sets MTP-only USB and ADB authorization defaults, removes `/system/xbin/su`
-   unless `--root` is passed, and adds the display and AOD services (they run
-   as root under phhsu_daemon), preserving saved USB debugging state.
+2. Selects FUSE for emulated external storage, sets MTP-only USB and ADB
+   authorization defaults, removes `/system/xbin/su` unless `--root` is
+   passed, and adds the display and AOD services (they run as root under
+   phhsu_daemon), preserving saved USB debugging state.
 3. Installs the APK, daemon and privileged-permission allowlist.
 4. Sets and checks file modes, ownership, SELinux labels and round-trip bytes.
 5. Minimizes the filesystem, checks it with `e2fsck`, and prints SHA-256.
