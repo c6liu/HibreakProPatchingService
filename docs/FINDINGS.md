@@ -563,24 +563,34 @@ always returning success.
    slot A also had mismatched boot/dtbo after an incomplete OTA; this was a
    device-specific recovery issue, not a reason to copy boot images blindly.
 
-## Third-party app issues on EvoX
+## Third-party app issues
 
-These were seen on patched EvoX 11.11 microG and led to LineageOS 23.2 for
-microG becoming the recommended input.
-
-- **Kindle cannot download books.** Kindle 8.159 fails with
-  `FILE_SYSTEM_WRITE_ERROR`; logs show `EACCES` when it writes under
-  `/storage/emulated/0/Android/data/com.amazon.kindle/files/`, `statvfs`
-  returning `EACCES`, and failure creating `/storage/emulated/0/Books/`.
-  Ownership was correct, the shell could write the same paths, and no matching
-  SELinux denial was found (the audit log was overflowing). Reinstalling Kindle
-  and deleting its external folder did not help. Although
-  `persist.sys.fuse=true` and `ro.sys.sdcardfs=0`, the stock 4.19 kernel
-  supports sdcardfs and `Android/data`/`Android/obb` were sdcardfs bind mounts
-  over FUSE. Setting `external_storage.sdcardfs.enabled=false` in the image
-  did **not** fix it; whether vold honored the property was not checked. A
-  kernel update is not practical (pre-GKI 4.19, no public Bigme source).
-- **Outlook.com login page stays blank.** The account preferred a passkey.
+- **Kindle cannot download books reliably.** Seen on patched EvoX 11.11 microG,
+  patched LineageOS 23.2 microG, and (as reported) Evolution X 10.5
+  (Android 15). Kindle 8.159 fails with `FILE_SYSTEM_WRITE_ERROR`; logs show
+  `EACCES` when it creates files under
+  `/storage/emulated/0/Android/data/com.amazon.kindle/files/` (for example
+  `kindle/*.ast_temp`), `statvfs` returning `EACCES`, and failure creating
+  `/storage/emulated/0/Books/`. On LineageOS, one or a few downloads succeed
+  after each reboot, then writes fail; restarting Kindle does not help, but
+  rebooting does, temporarily. Free space was ample (221 GB).
+  Visible ownership was correct (Kindle's UID, group 1015), the shell could
+  write the same paths, and no matching SELinux denial was found, but the
+  audit log was overflowing. Reinstalling Kindle and deleting its external
+  folder did not help on EvoX. Although `persist.sys.fuse=true` and
+  `ro.sys.sdcardfs=0`, `Android/data` and `Android/obb` are sdcardfs bind
+  mounts over FUSE. The stock 4.19 kernel supports sdcardfs but not FUSE BPF,
+  and the Android 16 `vold` in both EvoX and LineageOS carries a TrebleDroid
+  patch ("FUSE BPF unavailable and sdcardfs supported; forcing sdcardfs") that
+  selects sdcardfs regardless of `external_storage.sdcardfs.enabled`.
+  Earlier patcher builds set that property to `false`. It did not change the
+  mount, and AOSP `vold` also uses it to choose FUSE-style group IDs, quota
+  project IDs and ACLs for `Android/data` directories, which do not match the
+  sdcardfs mount. The patcher no longer sets it; whether that helps is
+  untested. Root (`/system/xbin/su`, `adb root`) was not available, so the
+  underlying `/data/media` permissions were not inspected. A kernel update is
+  not practical (pre-GKI 4.19, no public Bigme source).
+- **Outlook.com login page stays blank** (seen on EvoX). The account preferred a passkey.
   Outlook called Android Credential Manager; Bitwarden (the selected provider)
   returned an empty response and Android dropped microG's hybrid entry
   ("Remote entry being dropped as it is not from the service configured by the
@@ -588,7 +598,21 @@ microG becoming the recommended input.
   provider, or disabling it as passkey provider, are the workarounds. This is
   a credential-provider issue, not specific to EvoX.
 
-Kindle has not yet been tested on LineageOS.
+The stock compositor (`hal_graphics_composer_default`) also repeatedly fails to
+set `vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither` and
+`vendor.xrz.hwc_idle`. The GSI labels them `vendor_default_prop`; stock vendor
+policy only allows the versioned `vendor_xrz_prop_31_0`. These denials flood
+the rate-limited audit log (thousands lost per boot) and hide other denials.
+Adding `vendor_xrz_prop` labels to `plat_property_contexts` was tried and did
+not stop them, because the GSI's `mapping/31.0.cil` does not link the type to
+`vendor_xrz_prop_31_0`; it also caused new app read denials, so it was
+reverted.
+  Outlook called Android Credential Manager; Bitwarden (the selected provider)
+  returned an empty response and Android dropped microG's hybrid entry
+  ("Remote entry being dropped as it is not from the service configured by the
+  OEM"), so no prompt or error appeared. Saving a passkey in the credential
+  provider, or disabling it as passkey provider, are the workarounds. This is
+  a credential-provider issue, not specific to EvoX.
 
 ## Reproducibility and script locations
 

@@ -33,7 +33,7 @@ The previous input, Doze-off's
 `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` (raw image SHA-256
 `d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf`), still
 patches and works, but Kindle cannot download books on it; see
-[Findings](FINDINGS.md#third-party-app-issues-on-evox).
+[Findings](FINDINGS.md#third-party-app-issues).
 
 Host requirements:
 
@@ -177,15 +177,12 @@ For EvoX, use the same command with
 APK with the release signing variables first. LineageOS builds keep
 `ro.debuggable=1` from the upstream image; `--release` does not change it.
 
-All builds set `external_storage.sdcardfs.enabled=false` so Android uses FUSE
-instead of the legacy kernel `sdcardfs` layer for emulated external storage.
-This is intended to avoid storage compatibility problems on newer Android GSIs
-with the stock 4.19 kernel. On EvoX it did **not** fix Kindle downloads, and
-its effect on LineageOS has not been checked; verify storage behavior after
-flashing.
-The property is added to `system/build.prop` and any existing entries in
-`system_ext/etc/build.prop` or `product/etc/build.prop` are set to `false` so
-they cannot override it.
+The patcher does not change the external-storage backend. Earlier builds set
+`external_storage.sdcardfs.enabled=false`, but the Android 16 `vold` in the
+tested GSIs forces `sdcardfs` for `Android/data` and `Android/obb` on this
+kernel anyway, and the property only made `vold` prepare those directories as
+if FUSE were in use. Kindle downloads still fail on these GSIs; see
+[Findings](FINDINGS.md#third-party-app-issues).
 
 All builds set the image's default `persist.sys.usb.config` to `mtp`, replacing
 an existing entry or adding a missing one in `system/build.prop`. An existing
@@ -227,7 +224,7 @@ resolve upstream ROM redistribution requirements.
 The patcher:
 
 1. Copies the input, expands ext4, and unshares ext4 `shared_blocks`.
-2. Selects FUSE for emulated external storage, sets MTP-only USB and ADB
+2. Sets MTP-only USB and ADB
    authorization defaults, removes `/system/xbin/su` unless `--root` is
    passed, and adds the display and AOD services (they run as root under
    phhsu_daemon), preserving saved USB debugging state.

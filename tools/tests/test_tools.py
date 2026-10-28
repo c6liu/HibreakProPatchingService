@@ -145,42 +145,13 @@ class ToolTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertEqual(self.read_image_text("system/build.prop"),
                                      original.rstrip("\n") +
-                                     "\npersist.sys.usb.config=mtp"
-                                     "\nexternal_storage.sdcardfs.enabled=false\n")
+                                     "\npersist.sys.usb.config=mtp\n")
 
-    def test_external_storage_uses_fuse_across_property_partitions(self):
-        for directory in ("system/system_ext", "system/system_ext/etc",
-                          "system/product", "system/product/etc"):
-            self.debug(f"mkdir {directory}", write=True)
-        for name, path in (
-                ("system", "system/build.prop"),
-                ("system_ext", "system/system_ext/etc/build.prop"),
-                ("product", "system/product/etc/build.prop")):
-            build_prop = self.work / f"{name}.prop"
-            build_prop.write_text("external_storage.sdcardfs.enabled=true\n")
-            self.debug(f"rm {path}", write=True)
-            self.debug(f'write "{build_prop}" {path}', write=True)
-        for release in (False, True):
-            with self.subTest(release=release):
-                self.out = self.work / f"storage-fuse-{release}.img"
-                result = self.patch(*(["--release"] if release else []))
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                for path in ("system/build.prop", "system/system_ext/etc/build.prop",
-                             "system/product/etc/build.prop"):
-                    contents = self.read_image_text(path)
-                    self.assertEqual(contents.count("external_storage.sdcardfs.enabled=false"), 1)
-                    self.assertNotIn("external_storage.sdcardfs.enabled=true", contents)
-
-    def test_duplicate_external_storage_property_is_rejected(self):
-        build_prop = self.work / "duplicate-storage.prop"
-        build_prop.write_text("external_storage.sdcardfs.enabled=true\n"
-                              "external_storage.sdcardfs.enabled=false\n")
-        self.debug("rm system/build.prop", write=True)
-        self.debug(f'write "{build_prop}" system/build.prop', write=True)
+    def test_external_storage_property_is_not_added(self):
         result = self.patch()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Duplicate external_storage.sdcardfs.enabled entries", result.stderr)
-        self.assertNotIn("Verified image ready", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("external_storage.sdcardfs.enabled",
+                         self.read_image_text("system/build.prop"))
 
     def add_lineage_layout(self):
         for directory in ("system/system_ext", "system/system_ext/etc", "system/xbin"):
