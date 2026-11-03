@@ -22,6 +22,14 @@ The current patcher does not install an IR HAL or add `ctrl_device` access;
 standard Android IR transmission through the HXD019 driver is not implemented.
 See the [IR compatibility investigation](HIBREAK_PRO_IR.md) for the APK
 analysis and the ROM-side integration requirements.
+An optional standalone learning/capture CLI can be built with
+`tools/build-ir-tool.sh build/hxd-learn`; it is not included in patched
+images. See the [capture instructions](HIBREAK_PRO_IR.md#standalone-learningcapture-tool)
+before running it: capture sends a controller learning command and needs
+explicit device-test authorization. If ADB shell is denied access, use the
+separate, opt-in [ROM capture-service overlay](HIBREAK_PRO_IR.md#opt-in-rom-capture-service).
+That overlay adds a dedicated SELinux domain; the default display patcher
+still does not modify policy. Neither route implements IR replay or a HAL.
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;

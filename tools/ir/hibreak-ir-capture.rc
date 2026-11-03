@@ -1,0 +1,19 @@
+on post-fs-data
+    mkdir /data/misc/hibreak-ir 0700 shell shell
+    restorecon_recursive /data/misc/hibreak-ir
+
+service hibreak_ir_capture /system/bin/hxd-learn --service ${debug.hibreak.ir_mode:-extended}
+    user shell
+    group shell
+    seclabel u:r:hibreak_ir_capture:s0
+    disabled
+    oneshot
+    timeout_period 35
+
+on property:debug.hibreak.ir_capture=1
+    setprop debug.hibreak.ir_capture 0
+    start hibreak_ir_capture
+
+on property:debug.hibreak.ir_cancel=1
+    setprop debug.hibreak.ir_cancel 0
+    stop hibreak_ir_capture
