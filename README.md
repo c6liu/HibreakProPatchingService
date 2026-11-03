@@ -120,7 +120,7 @@ on edge-to-edge Android versions.
   colours appear as greys. `SPRITZ` is the muted/near-monochrome style.
 - **Override Max Brightness** is removed on HiBreak: its legacy command only
   sets `sys.linevibrator_touch`, not the frontlight driver or slider limits.
-  Use the popup's independent cold/warm frontlight sliders (0–254).
+  Use the popup's independent cold/warm frontlight sliders (0–255).
 - **Allow Control via Broadcasts** enables the registered refresh-mode receiver
   while the accessibility service is running. Automation can send
   `EINK_REFRESH_SPEED_SMOOTH` (HD), `EINK_REFRESH_SPEED_CLEAR` (Regal),

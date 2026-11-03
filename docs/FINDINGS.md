@@ -501,7 +501,7 @@ and decompiled framework trees are not included in this repository.
   removed and their popup controls are hidden: native bitmap commit is
   unsupported. The separate AOD inversion switch remains available.
 - Max-brightness override only writes `sys.linevibrator_touch`; it does not
-  change HiBreak frontlight values or the 0–254 popup slider limits. This
+  change HiBreak frontlight values or the 0–255 popup slider limits. This
   unsupported legacy preference is removed. Color Scheme instead writes
   Android's `theme_customization_overlay_packages` secure setting to select
   a system palette/style; it is not an e-ink display mode.
