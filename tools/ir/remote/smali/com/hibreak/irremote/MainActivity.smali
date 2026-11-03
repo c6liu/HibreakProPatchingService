@@ -26,6 +26,9 @@
 .method private native poll()Ljava/lang/String;
 .end method
 
+.method private native isPending()Z
+.end method
+
 .method public onCreate(Landroid/os/Bundle;)V
     .locals 5
     invoke-super {p0, p1}, Landroid/app/Activity;->onCreate(Landroid/os/Bundle;)V
@@ -66,6 +69,17 @@
     invoke-virtual {v1, v2}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     invoke-virtual {v0, v1}, Landroid/view/ViewGroup;->addView(Landroid/view/View;)V
     invoke-virtual {p0, v0}, Landroid/app/Activity;->setContentView(Landroid/view/View;)V
+    invoke-direct {p0}, Lcom/hibreak/irremote/MainActivity;->isPending()Z
+    move-result v0
+    if-eqz v0, :ready
+    iget-object v0, p0, Lcom/hibreak/irremote/MainActivity;->button:Landroid/widget/Button;
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Landroid/view/View;->setEnabled(Z)V
+    iget-object v0, p0, Lcom/hibreak/irremote/MainActivity;->status:Landroid/widget/TextView;
+    const-string v1, "Resuming previous request. No new command sent. Waiting for the service to stop..."
+    invoke-virtual {v0, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
+    invoke-virtual {p0}, Lcom/hibreak/irremote/MainActivity;->run()V
+    :ready
     return-void
 .end method
 
@@ -77,6 +91,9 @@
     invoke-direct {p0}, Lcom/hibreak/irremote/MainActivity;->request()Ljava/lang/String;
     move-result-object v1
     if-eqz v1, :requested
+    invoke-direct {p0}, Lcom/hibreak/irremote/MainActivity;->isPending()Z
+    move-result v2
+    if-nez v2, :requested
     iget-object v2, p0, Lcom/hibreak/irremote/MainActivity;->status:Landroid/widget/TextView;
     invoke-virtual {v2, v1}, Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V
     const/4 v1, 0x1

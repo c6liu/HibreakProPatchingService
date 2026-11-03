@@ -38,7 +38,8 @@ The opt-in [NEC ROM adapter](HIBREAK_PRO_IR.md#experimental-standard-android-nec
 accepts single-frame NEC/NECext requests through ConsumerIrManager
 (38000 Hz and, since v8, the app's 38222 Hz nominal alias);
 it rejects other protocols, repeat sequences, and frequencies. It is not
-a general waveform HAL and still needs post-flash standard-app validation.
+a general waveform HAL. The user confirmed the standard API test on v7
+and IR Blaster's NEC control on v8; other protocols remain unsupported.
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;
@@ -197,6 +198,61 @@ For EvoX, use the same command with
 `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` as the input. Build the
 APK with the release signing variables first. LineageOS builds keep
 `ro.debuggable=1` from the upstream image; `--release` does not change it.
+
+### Optional IR support for a release candidate
+
+The display patcher does not include IR automatically. Build the NEC
+adapter using NDK and the public AOSP headers described in the
+[IR adapter build instructions](HIBREAK_PRO_IR.md#build-and-validate).
+The IR overlay additionally requires host `readelf` from `binutils` and
+`secilc`. Start with a display-patched release image **without any prior
+IR overlay**:
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android-ndk
+export AOSP_HEADERS=/path/to/aosp-include
+bash tools/build-ir-hal.sh build/consumerir.hxd.so
+
+# Preflight only: compiles/validates policy and the module, produces NO image.
+python3 tools/add-ir-capture-to-gsi.py \
+  build/HiBreakPro-release.img build/HiBreakPro-release-ir.img \
+  --hal-module build/consumerir.hxd.so \
+  --vendor-image /path/to/matching-stock-vendor.img \
+  --secilc /path/to/secilc --check-only
+```
+
+When ready to package, run that overlay command again **without**
+`--check-only`. It refuses to overwrite an existing output. The release
+configuration installs only the NEC adapter, its init bind-mount action,
+and its scoped SELinux policy/file context. It does **not** install either
+test app, `hxd-learn`, capture/camera services, private IR properties,
+or their app-domain policy. No diagnostic binary or APK is required to
+build this configuration. Stock vendor is read-only and unchanged.
+
+Development-only opt-ins (omit all from the release command):
+
+- `--diagnostics-binary build/hxd-learn`: adds capture/camera diagnostics
+  and their service/policy. Build with `tools/build-ir-tool.sh`.
+- `--remote-apk build/HiBreakIrRemote.apk`: adds the privileged, fixed
+  TCL test app/service; **requires** `--diagnostics-binary`. Build with
+  `tools/build-ir-remote.sh`.
+- `--api-test-apk build/AndroidIrApiTest.apk`: adds the ordinary Android
+  API test app under `/system/app`, independently of capture diagnostics.
+  Build with `tools/build-ir-api-test.sh`. Alternatively sideload it only
+  on a development device.
+
+The old optional positional `hxd-learn` argument is still accepted as an
+explicit diagnostic opt-in, but new commands should use
+`--diagnostics-binary` to make that intent clear. Do not layer onto v4-v8
+test images to produce a release: start from the clean release base.
+On a previously used development device, an APK installed in userdata
+may remain after changing system images; inspect/uninstall test packages
+separately rather than assuming an update wipes userdata.
+
+The retained NEC support is limited to one NEC/NECext frame at nominal
+38000/38222 Hz; both select the controller's same built-in carrier.
+Releasing this overlay does not make arbitrary waveforms/repeats supported,
+measure carrier accuracy, or remove the upstream GSI's release caveats.
 
 The patcher does not change the external-storage backend. Earlier builds set
 `external_storage.sdcardfs.enabled=false`, but the Android 16 `vold` in the

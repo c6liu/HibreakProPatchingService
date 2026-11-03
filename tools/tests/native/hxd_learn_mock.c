@@ -58,6 +58,8 @@ static int file_fd = -1;
 static bool device_open;
 static bool tcl_request;
 static double current_time = 1000;
+static double last_write_time;
+static int ownership_fd = -1;
 
 static bool is(const char *name) {
     return strcmp(scenario, name) == 0;
@@ -104,6 +106,13 @@ static int fake_close(int fd) {
     if (fd != DEVICE)
         return close(fd);
     assert(device_open);
+    if ((tcl_request || strncmp(scenario, "tx-", 3) == 0) && command_count &&
+        !is("tcl-error") && !is("tcl-partial") && !is("tx-error") && !is("tx-partial"))
+        assert(current_time - last_write_time >= 0.228799);
+    if (ownership_fd >= 0) {
+        assert(close(ownership_fd) == 0);
+        ownership_fd = -1;
+    }
     device_open = false;
     return 0;
 }
@@ -120,6 +129,12 @@ static int fake_flock(int fd, int operation) {
     if (is("busy")) {
         errno = EWOULDBLOCK;
         return -1;
+    }
+    if (is("tcl-lock-handoff")) {
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/ownership.lock", getenv("HXD_TEST_SERVICE_DIR"));
+        ownership_fd = open(path, O_CREAT | O_RDWR, 0600);
+        assert(ownership_fd >= 0 && flock(ownership_fd, operation) == 0);
     }
     return 0;
 }
@@ -138,6 +153,7 @@ static ssize_t fake_write(int fd, const void *buffer, size_t count) {
         return write(fd, buffer, count);
     }
     assert(device_open);
+    last_write_time = current_time;
     if (tcl_request) {
         static const unsigned char expected[] = {0x30, 0x00, 0x01, 0x0f, 0xf0, 0xea, 0xc7, 0x00, 0x00, 0xe1};
         assert(count == sizeof(expected) && memcmp(buffer, expected, count) == 0);
@@ -235,7 +251,15 @@ static int fake_clock_gettime(clockid_t clock, struct timespec *now) {
 
 static int fake_nanosleep(const struct timespec *delay, struct timespec *remaining) {
     (void)remaining;
-    assert(delay->tv_sec == 0 && delay->tv_nsec >= 0 && delay->tv_nsec <= 200000000);
+    assert(delay->tv_sec == 0 && delay->tv_nsec >= 0 && delay->tv_nsec <= 228800000);
+    if (is("tcl-lock-handoff")) {
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/ownership.lock", getenv("HXD_TEST_SERVICE_DIR"));
+        int contender = open(path, O_RDWR);
+        assert(contender >= 0);
+        assert(flock(contender, LOCK_EX | LOCK_NB) < 0 && errno == EWOULDBLOCK);
+        assert(close(contender) == 0);
+    }
     current_time += (double)delay->tv_nsec / 1000000000.0 + 0.000001;
     return 0;
 }
@@ -253,6 +277,13 @@ int main(int argc, char **argv) {
     assert(scenario);
     tcl_request = argc > 1 && strcmp(argv[1], "--tcl-service") == 0;
     int result = capture_main(argc, argv);
+    if (is("tcl-lock-handoff")) {
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/ownership.lock", getenv("HXD_TEST_SERVICE_DIR"));
+        int contender = open(path, O_RDWR);
+        assert(contender >= 0 && flock(contender, LOCK_EX | LOCK_NB) == 0);
+        assert(close(contender) == 0);
+    }
     assert(!device_open);
     if (is("no-device"))
         assert(device_opens == 0);
@@ -265,6 +296,7 @@ int main(int argc, char **argv) {
     if (is("tx-error") || is("tx-partial") || is("tx-cancel"))
         assert(command_count == 1 && read_count == 0);
     if (strncmp(scenario, "tcl-", 4) == 0)
-        assert(command_count == 1 && read_count == 0 && current_time == 1000);
+        assert(command_count == 1 && read_count == 0 &&
+               (is("tcl-error") || is("tcl-partial") ? current_time == 1000 : current_time >= 1000.2288));
     return result;
 }

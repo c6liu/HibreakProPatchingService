@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add opt-in IR diagnostics and an optional fixed-command remote to an ext4 GSI."""
+"""Add a NEC IR HAL to an ext4 GSI; diagnostics and test apps are explicit opt-ins."""
 
 import argparse
 import hashlib
@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -47,7 +48,9 @@ def neverallow_failures(result):
     return failures
 
 
-def prepare_policy(source, vendor, work, compiler, remote=False, hal=False):
+def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diagnostics=False):
+    if remote and not diagnostics:
+        raise ValueError("Remote app policy requires diagnostic service policy")
     if not image_exists(source, "system/bin/secilc"):
         raise ValueError("GSI has no /system/bin/secilc for boot-time policy recompilation")
     if image_exists(vendor, "/odm/etc/selinux/odm_sepolicy.cil"):
@@ -57,7 +60,7 @@ def prepare_policy(source, vendor, work, compiler, remote=False, hal=False):
         raise ValueError(f"Invalid vendor policy version: {version!r}")
     platform = extract(source, f"{POLICY}/plat_sepolicy.cil", work / "plat.cil")
     text = platform.read_text()
-    if "hibreak_ir_capture" in text:
+    if "hibreak_ir_capture" in text or "hibreak_ir_hal_file" in text:
         raise ValueError("IR policy already present; start from an image without this overlay")
     inputs = [platform]
     for label, directory, required in (
@@ -81,7 +84,7 @@ def prepare_policy(source, vendor, work, compiler, remote=False, hal=False):
                *map(str, inputs), "-o", str(work / "validated.policy"),
                "-f", str(work / "validated.contexts")]
     baseline = neverallow_failures(subprocess.run(command, capture_output=True))
-    extra = (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text()
+    extra = (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text() if diagnostics else ""
     if remote:
         extra += "\n" + (ROOT / "tools/ir/hibreak-ir-remote.cil").read_text()
     if hal:
@@ -96,7 +99,8 @@ def prepare_policy(source, vendor, work, compiler, remote=False, hal=False):
         print("IR overlay adds none; compiling with Android init's runtime -N option.")
         run(*command, "-N")
     contexts = extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")
-    contexts.write_text(contexts.read_text() + "\n" + (ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
+    if diagnostics:
+        contexts.write_text(contexts.read_text() + "\n" + (ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
     if hal:
         contexts.write_text(contexts.read_text() +
                             "\n/system/lib64/consumerir\\.hxd\\.so u:object_r:hibreak_ir_hal_file:s0\n")
@@ -128,25 +132,91 @@ def fsck(image, *args):
         raise ValueError(result.stdout.decode() + result.stderr.decode())
 
 
+def install_app(image, apk, directory, filename, work):
+    if not image_exists(image, directory):
+        run("debugfs", "-w", "-R", f"mkdir {directory}", str(image))
+    for field, value in (("mode", "040755"), ("uid", "0"), ("gid", "0")):
+        run("debugfs", "-w", "-R", f"sif {directory} {field} {value}", str(image))
+    label_file = work / "app-label"
+    label_file.write_bytes(b"u:object_r:system_file:s0\0")
+    run("debugfs", "-w", "-R", f'ea_set -f "{label_file}" {directory} security.selinux', str(image))
+    install(image, apk, f"{directory}/{filename}", "0100644", "u:object_r:system_file:s0", work)
+
+
+def validate_hal_module(path):
+    module = path.read_bytes()
+    if (len(module) < 64 or module[:7] != b"\x7fELF\x02\x01\x01" or
+            module[16:20] != b"\x03\x00\xb7\x00"):
+        raise ValueError("Expected an arm64 little-endian shared HAL module")
+    phoff = struct.unpack_from("<Q", module, 32)[0]
+    phsize, phnum = struct.unpack_from("<HH", module, 54)
+    if phsize != 56 or not phnum or phoff < 64 or phoff + phsize * phnum > len(module):
+        raise ValueError("Invalid HAL ELF program headers")
+    segments = [struct.unpack_from("<IIQQQQQQ", module, phoff + index * phsize)
+                for index in range(phnum)]
+    for kind, flags, offset, virtual, physical, filesz, memsz, alignment in segments:
+        if offset + filesz > len(module) or (kind == 1 and filesz > memsz):
+            raise ValueError("Truncated or invalid HAL ELF segment")
+    loads = [segment for segment in segments if segment[0] == 1]
+    dynamic = [segment for segment in segments if segment[0] == 2]
+    if not loads or not any(segment[1] & 1 for segment in loads) or len(dynamic) != 1:
+        raise ValueError("HAL requires executable LOAD and DYNAMIC segments")
+    if any(segment[0] == 3 for segment in segments):
+        raise ValueError("HAL must be a shared library, not a PIE executable")
+    _, _, offset, virtual, _, size, _, _ = dynamic[0]
+    if not size or size % 16 or not any(
+        load[3] <= virtual and virtual + size <= load[3] + load[5] and
+        offset == load[2] + virtual - load[3] for load in loads
+    ) or not any(struct.unpack_from("<qQ", module, pos)[0] == 0
+                 for pos in range(offset, offset + size, 16)):
+        raise ValueError("Invalid HAL dynamic table")
+    # Use the platform ELF inspector rather than implementing a second dynamic-symbol parser.
+    symbols = run("readelf", "--dyn-syms", "--wide", str(path)).stdout.decode()
+    if not re.search(r"\b(?:248|0xf8)\s+OBJECT\s+GLOBAL\s+DEFAULT\s+[1-9]\d*\s+HMI\s*$",
+                     symbols, re.M):
+        raise ValueError("HAL must export the 248-byte arm64 consumerir HMI object")
+    details = run("readelf", "--dynamic", "--wide", str(path)).stdout.decode()
+    needed = set(re.findall(r"\(NEEDED\).*?\[([^]]+)\]", details))
+    unsupported = needed - {"libc.so", "libdl.so", "liblog.so", "libm.so"}
+    if unsupported:
+        raise ValueError("Unsupported HAL dependencies: " + ", ".join(sorted(unsupported)))
+    if "(TEXTREL)" in details or re.search(r"\(FLAGS\).*TEXTREL", details):
+        raise ValueError("HAL must not contain text relocations")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="Raw ext4 GSI, optionally already display-patched")
     parser.add_argument("output", type=Path, help="New image; never overwritten")
-    parser.add_argument("binary", type=Path, help="NDK-built arm64 hxd-learn")
+    parser.add_argument("binary", nargs="?", type=Path,
+                        help="Legacy explicit opt-in for diagnostics; prefer --diagnostics-binary")
+    parser.add_argument("--diagnostics-binary", type=Path,
+                        help="Opt in to capture/camera services with an NDK-built hxd-learn")
     parser.add_argument("--vendor-image", required=True, type=Path, help="Matching stock vendor ext4 image, read-only")
     parser.add_argument("--secilc", default="secilc", help="Host CIL compiler")
     parser.add_argument("--check-only", action="store_true", help="Validate merged policy without producing an image")
     parser.add_argument("--remote-apk", type=Path, help="Optional HiBreak IR Test app; enables fixed TCL transmit service")
+    parser.add_argument("--api-test-apk", type=Path, help="Opt in to the ordinary Android IR API Test app")
     parser.add_argument("--hal-module", type=Path, help="Experimental arm64 NEC/NECext legacy consumerir adapter")
     args = parser.parse_args()
+    if args.binary and args.diagnostics_binary:
+        parser.error("Choose either positional binary or --diagnostics-binary, not both")
+    args.binary = args.diagnostics_binary or args.binary
+    if args.remote_apk and not args.binary:
+        parser.error("--remote-apk requires --diagnostics-binary")
+    if not args.binary and not args.hal_module:
+        parser.error("Select --hal-module (release) or --diagnostics-binary (diagnostics)")
     for tool in ("debugfs", "e2fsck", "resize2fs", "dumpe2fs", "cp", args.secilc):
         if not shutil.which(tool):
             parser.error(f"Missing dependency: {tool}")
-    for path in (args.source, args.output, args.binary, args.vendor_image, ROOT, Path(tempfile.gettempdir()),
-                 *([args.remote_apk] if args.remote_apk else [])):
+    if args.hal_module and not shutil.which("readelf"):
+        parser.error("Missing dependency: readelf (binutils)")
+    for path in filter(None, (args.source, args.output, args.binary, args.vendor_image, ROOT,
+                             Path(tempfile.gettempdir()), args.remote_apk, args.api_test_apk)):
         if any(char in str(path) for char in ('"', "\\", "\n", "\r")):
             parser.error(f"Unsupported path characters: {path}")
-    for path in (args.source, args.binary, args.vendor_image):
+    for path in filter(None, (args.source, args.binary, args.vendor_image,
+                             args.remote_apk, args.api_test_apk)):
         if not path.is_file() or path.stat().st_size == 0:
             parser.error(f"Missing input: {path}")
     if args.remote_apk and (not args.remote_apk.is_file() or args.remote_apk.stat().st_size == 0):
@@ -156,25 +226,23 @@ def main():
             parser.error("Unsupported HAL module path characters")
         if not args.hal_module.is_file():
             parser.error(f"Missing HAL module: {args.hal_module}")
-        module = args.hal_module.read_bytes()
-        if (len(module) < 64 or module[:6] != b"\x7fELF\x02\x01" or
-                module[16:20] != b"\x03\x00\xb7\x00"):
-            parser.error("Expected an arm64 little-endian shared HAL module")
+        validate_hal_module(args.hal_module)
     if os.path.lexists(args.output):
         parser.error(f"Refusing to overwrite: {args.output}")
-    binary = args.binary.read_bytes()
-    if len(binary) < 20 or binary[:5] != b"\x7fELF\x02" or binary[18:20] != b"\xb7\x00":
-        parser.error("Expected an arm64 ELF capture binary")
-    if len(binary) < 64 or binary[5] != 1:
-        parser.error("Expected a complete little-endian ELF header")
-    phoff = int.from_bytes(binary[32:40], "little")
-    phsize = int.from_bytes(binary[54:56], "little")
-    phnum = int.from_bytes(binary[56:58], "little")
-    if phsize < 56 or not phnum or phoff + phsize * phnum > len(binary):
-        parser.error("Invalid ELF program headers")
-    if any(int.from_bytes(binary[off:off + 4], "little") == 3
-           for off in range(phoff, phoff + phsize * phnum, phsize)):
-        parser.error("Service requires a static executable; rebuild with tools/build-ir-tool.sh")
+    if args.binary:
+        binary = args.binary.read_bytes()
+        if len(binary) < 20 or binary[:5] != b"\x7fELF\x02" or binary[18:20] != b"\xb7\x00":
+            parser.error("Expected an arm64 ELF capture binary")
+        if len(binary) < 64 or binary[5] != 1:
+            parser.error("Expected a complete little-endian ELF header")
+        phoff = int.from_bytes(binary[32:40], "little")
+        phsize = int.from_bytes(binary[54:56], "little")
+        phnum = int.from_bytes(binary[56:58], "little")
+        if phsize < 56 or not phnum or phoff + phsize * phnum > len(binary):
+            parser.error("Invalid ELF program headers")
+        if any(int.from_bytes(binary[off:off + 4], "little") == 3
+               for off in range(phoff, phoff + phsize * phnum, phsize)):
+            parser.error("Service requires a static executable; rebuild with tools/build-ir-tool.sh")
     with tempfile.TemporaryDirectory(prefix="hibreak-ir-") as directory:
         work = Path(directory)
         if args.hal_module:
@@ -183,11 +251,14 @@ def main():
             if stock.read_bytes()[:6] != b"\x7fELF\x02\x01" or "class hal" not in service.read_text():
                 raise ValueError("Expected arm64 legacy consumerir.common.so and class-hal IR service")
             platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc,
-                                                        remote=bool(args.remote_apk), hal=True)
+                                                        remote=bool(args.remote_apk), hal=True,
+                                                        diagnostics=bool(args.binary))
         elif args.remote_apk:
-            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc, remote=True)
+            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc,
+                                                        remote=True, diagnostics=True)
         else:
-            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc)
+            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc,
+                                                        diagnostics=True)
         remote_contexts = []
         if args.remote_apk:
             for name, suffix in (("plat_seapp_contexts", "seapp-contexts"), ("plat_property_contexts", "property-contexts")):
@@ -217,10 +288,14 @@ def main():
                 (platform, f"{POLICY}/plat_sepolicy.cil", "0100644", "system_file"),
                 (contexts, f"{POLICY}/plat_file_contexts", "0100644", "system_file"),
                 (digest_file, f"{POLICY}/plat_sepolicy_and_mapping.sha256", "0100644", "system_file"),
-                (args.binary, "system/bin/hxd-learn", "0100755", "hibreak_ir_capture_exec"),
-                (ROOT / "tools/ir/hibreak-ir-capture.rc", "system/etc/init/hibreak-ir-capture.rc", "0100644", "system_file"),
             ):
                 install(args.output, source, dest, mode, f"u:object_r:{label}:s0", work)
+            if args.binary:
+                for source, dest, mode, label in (
+                    (args.binary, "system/bin/hxd-learn", "0100755", "hibreak_ir_capture_exec"),
+                    (ROOT / "tools/ir/hibreak-ir-capture.rc", "system/etc/init/hibreak-ir-capture.rc", "0100644", "system_file"),
+                ):
+                    install(args.output, source, dest, mode, f"u:object_r:{label}:s0", work)
             if args.hal_module:
                 for source, dest, label in (
                     (args.hal_module, "system/lib64/consumerir.hxd.so", "hibreak_ir_hal_file"),
@@ -228,20 +303,16 @@ def main():
                 ):
                     install(args.output, source, dest, "0100644", f"u:object_r:{label}:s0", work)
             if args.remote_apk:
-                directory = "system/priv-app/HiBreakIrRemote"
-                if not image_exists(args.output, directory):
-                    run("debugfs", "-w", "-R", f"mkdir {directory}", str(args.output))
-                for field, value in (("mode", "040755"), ("uid", "0"), ("gid", "0")):
-                    run("debugfs", "-w", "-R", f"sif {directory} {field} {value}", str(args.output))
-                label_file = work / "app-label"
-                label_file.write_bytes(b"u:object_r:system_file:s0\0")
-                run("debugfs", "-w", "-R", f'ea_set -f "{label_file}" {directory} security.selinux', str(args.output))
+                install_app(args.output, args.remote_apk, "system/priv-app/HiBreakIrRemote",
+                            "HiBreakIrRemote.apk", work)
                 for source, dest, mode, label in [
                     *remote_contexts,
-                    (args.remote_apk, f"{directory}/HiBreakIrRemote.apk", "0100644", "system_file"),
                     (ROOT / "tools/ir/hibreak-ir-remote.rc", "system/etc/init/hibreak-ir-remote.rc", "0100644", "system_file"),
                 ]:
                     install(args.output, source, dest, mode, f"u:object_r:{label}:s0", work)
+            if args.api_test_apk:
+                install_app(args.output, args.api_test_apk, "system/app/HiBreakIrApiTest",
+                            "HiBreakIrApiTest.apk", work)
             fsck(args.output, "-fy")
             run("resize2fs", "-M", str(args.output))
             header = run("dumpe2fs", "-h", str(args.output)).stdout.decode()

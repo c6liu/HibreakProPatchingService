@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,96 @@ SPEC.loader.exec_module(overlay)
 
 
 class IrOverlayTests(unittest.TestCase):
+    def build_hal_fixture(self, work, symbol=True):
+        compiler = shutil.which("cc")
+        if not compiler or not shutil.which("readelf"):
+            self.skipTest("Missing C compiler or readelf")
+        source = work / "hal.c"
+        source.write_text("char " + ("HMI" if symbol else "unrelated") + "[248] = {1};\nvoid code(void) {}\n")
+        module = work / ("hal.so" if symbol else "unrelated.so")
+        subprocess.run([compiler, "-shared", "-fPIC", "-nostdlib", source, "-o", module], check=True)
+        # Host fixtures exercise ELF validation, not execution; production is built with the NDK.
+        data = bytearray(module.read_bytes())
+        data[18:20] = b"\xb7\x00"
+        module.write_bytes(data)
+        return module
+
+    def test_hal_rejects_truncated_headers_segments_and_missing_export(self):
+        with tempfile.TemporaryDirectory(prefix="ir-hal-validation-") as directory:
+            work = Path(directory)
+            module = self.build_hal_fixture(work)
+            overlay.validate_hal_module(module)
+            good = module.read_bytes()
+            for content in (good[:64], good[:-256]):
+                module.write_bytes(content)
+                with self.assertRaises((ValueError, subprocess.CalledProcessError)):
+                    overlay.validate_hal_module(module)
+            module.write_bytes(good)
+            data = bytearray(good)
+            data[32:40] = (len(good) + 1).to_bytes(8, "little")
+            module.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, "program headers"):
+                overlay.validate_hal_module(module)
+            with self.assertRaisesRegex(ValueError, "HMI"):
+                overlay.validate_hal_module(self.build_hal_fixture(work, symbol=False))
+            module.write_bytes(good)
+            phoff = struct.unpack_from("<Q", good, 32)[0]
+            phnum = struct.unpack_from("<H", good, 56)[0]
+            for kind, message in ((1, "LOAD"), (2, "DYNAMIC")):
+                data = bytearray(good)
+                for index in range(phnum):
+                    offset = phoff + index * 56
+                    if struct.unpack_from("<I", data, offset)[0] == kind:
+                        struct.pack_into("<I", data, offset, 0)
+                module.write_bytes(data)
+                with self.assertRaisesRegex(ValueError, message):
+                    overlay.validate_hal_module(module)
+            data = bytearray(good)
+            for index in range(phnum):
+                offset = phoff + index * 56
+                if struct.unpack_from("<I", data, offset)[0] == 2:
+                    old_offset = struct.unpack_from("<Q", data, offset + 8)[0]
+                    struct.pack_into("<Q", data, offset + 8, old_offset - 16)
+            module.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, "dynamic table"):
+                overlay.validate_hal_module(module)
+            module.write_bytes(good)
+            symbols = subprocess.CompletedProcess([], 0, b"1: 0000000000001000 248 OBJECT GLOBAL DEFAULT 8 HMI\n", b"")
+            for details, message in ((b"(NEEDED) Shared library: [libunavailable.so]\n", "dependencies"),
+                                     (b"(TEXTREL)\n", "text relocations")):
+                with mock.patch.object(overlay, "run", side_effect=[
+                    symbols, subprocess.CompletedProcess([], 0, details, b""),
+                ]):
+                    with self.assertRaisesRegex(ValueError, message):
+                        overlay.validate_hal_module(module)
+
+    def test_release_policy_excludes_diagnostic_domains_and_contexts(self):
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        with tempfile.TemporaryDirectory(prefix="ir-release-policy-") as directory, \
+                mock.patch.object(overlay, "extract", side_effect=extract), \
+                mock.patch.object(overlay, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(overlay.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")):
+            platform, contexts, _ = overlay.prepare_policy(
+                Path("base"), Path("vendor"), Path(directory), "secilc", hal=True,
+            )
+            for excluded in ("hibreak_ir_capture", "hibreak_ir_remote", "hibreak_ir_request_prop"):
+                self.assertNotIn(excluded, platform.read_text())
+                self.assertNotIn(excluded, contexts.read_text())
+            self.assertIn("hibreak_ir_hal_file", platform.read_text())
+            self.assertIn("consumerir", contexts.read_text())
+
+    def test_release_requires_explicit_feature_and_diagnostic_opt_in(self):
+        for options in ([], ["--remote-apk", "remote.apk"]):
+            with self.subTest(options=options), mock.patch.object(
+                sys, "argv", ["overlay", "base.img", "output.img", "--vendor-image", "vendor.img", *options],
+            ):
+                with self.assertRaises(SystemExit) as result:
+                    overlay.main()
+                self.assertEqual(result.exception.code, 2)
+
     def test_compiler_errors_are_not_silently_ignored(self):
         with self.assertRaisesRegex(ValueError, "Policy compilation failed"):
             overlay.neverallow_failures(subprocess.CompletedProcess([], 1, b"", b"Unknown type ctrl_device"))
@@ -65,11 +156,15 @@ class IrOverlayTests(unittest.TestCase):
                     self.assertIn("-N", compile_policy.call_args.args[0])
 
     def test_ext4_overlay_roundtrip_and_refusal_to_overwrite(self):
-        for remote, hal in ((False, False), (True, False), (False, True), (True, True)):
-            with self.subTest(remote=remote, hal=hal):
-                self._overlay_roundtrip(remote, hal)
+        for remote, hal, diagnostics, api in (
+            (False, False, True, False), (True, False, True, False),
+            (False, True, True, False), (True, True, True, True),
+            (False, True, False, False), (False, True, False, True),
+        ):
+            with self.subTest(remote=remote, hal=hal, diagnostics=diagnostics, api=api):
+                self._overlay_roundtrip(remote, hal, diagnostics, api)
 
-    def _overlay_roundtrip(self, remote, hal):
+    def _overlay_roundtrip(self, remote, hal, diagnostics, api):
         for tool in ("debugfs", "mke2fs", "e2fsck", "resize2fs", "dumpe2fs"):
             if not shutil.which(tool):
                 self.skipTest(f"Missing {tool}")
@@ -80,7 +175,7 @@ class IrOverlayTests(unittest.TestCase):
                 stream.truncate(32 * 1024 * 1024)
             subprocess.run(["mke2fs", "-q", "-t", "ext4", "-F", source], check=True)
             for path in ("system", "system/etc", "system/etc/selinux", "system/etc/init", "system/bin",
-                         "system/priv-app", "system/lib64", "lib64", "lib64/hw", "etc", "etc/init"):
+                         "system/priv-app", "system/app", "system/lib64", "lib64", "lib64/hw", "etc", "etc/init"):
                 overlay.run("debugfs", "-w", "-R", f"mkdir {path}", str(source))
             context_source = work / "context-source"
             context_source.write_text("# existing context\n")
@@ -96,10 +191,7 @@ class IrOverlayTests(unittest.TestCase):
             elf[56:58] = (1).to_bytes(2, "little")
             elf[64:68] = (1).to_bytes(4, "little")
             binary.write_bytes(elf)
-            shared = bytearray(elf)
-            shared[16:18] = (3).to_bytes(2, "little")
-            module = work / "hal.so"
-            module.write_bytes(shared)
+            module = self.build_hal_fixture(work)
             vendor_rc = work / "vendor.rc"
             vendor_rc.write_text("service vendor.ir-hal-1-0 /vendor/bin/hw/android.hardware.ir@1.0-service\n    class hal\n")
             overlay.install(source, module, "lib64/hw/consumerir.common.so",
@@ -111,13 +203,20 @@ class IrOverlayTests(unittest.TestCase):
             def policy(_source, _vendor, temporary, _compiler, **kwargs):
                 self.assertEqual(kwargs.get("remote", False), remote)
                 self.assertEqual(kwargs.get("hal", False), hal)
+                self.assertEqual(kwargs.get("diagnostics", False), diagnostics)
                 cil, contexts = temporary / "plat.cil", temporary / "contexts"
                 cil.write_text("(type fixture)\n")
                 contexts.write_text((ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
                 return cil, contexts, [cil]
 
-            argv = ["overlay", str(source), str(output), str(binary),
+            argv = ["overlay", str(source), str(output),
                     "--vendor-image", str(source), "--secilc", "true"]
+            if diagnostics:
+                argv.extend(["--diagnostics-binary", str(binary)])
+            if api:
+                api_apk = work / "api.apk"
+                api_apk.write_bytes(b"test API APK")
+                argv.extend(["--api-test-apk", str(api_apk)])
             if remote:
                 apk = work / "remote.apk"
                 apk.write_bytes(b"test APK")
@@ -127,13 +226,24 @@ class IrOverlayTests(unittest.TestCase):
             with mock.patch.object(sys, "argv", argv), mock.patch.object(overlay, "prepare_policy", side_effect=policy):
                 overlay.main()
                 self.assertEqual(source.read_bytes(), original)
-                self.assertEqual(
-                    overlay.run("debugfs", "-R", "cat system/etc/init/hibreak-ir-capture.rc", str(output)).stdout,
-                    (ROOT / "tools/ir/hibreak-ir-capture.rc").read_bytes(),
-                )
-                stat = overlay.run("debugfs", "-R", "stat system/bin/hxd-learn", str(output)).stdout.decode()
-                self.assertIn("Mode:  0755", stat)
-                self.assertIn("u:object_r:hibreak_ir_capture_exec:s0", stat)
+                if diagnostics:
+                    self.assertEqual(
+                        overlay.run("debugfs", "-R", "cat system/etc/init/hibreak-ir-capture.rc", str(output)).stdout,
+                        (ROOT / "tools/ir/hibreak-ir-capture.rc").read_bytes(),
+                    )
+                    stat = overlay.run("debugfs", "-R", "stat system/bin/hxd-learn", str(output)).stdout.decode()
+                    self.assertIn("Mode:  0755", stat)
+                    self.assertIn("u:object_r:hibreak_ir_capture_exec:s0", stat)
+                else:
+                    self.assertFalse(overlay.image_exists(output, "system/bin/hxd-learn"))
+                    self.assertFalse(overlay.image_exists(output, "system/etc/init/hibreak-ir-capture.rc"))
+                    self.assertFalse(overlay.image_exists(output, "system/etc/init/hibreak-ir-remote.rc"))
+                self.assertEqual(overlay.image_exists(output, "system/app/HiBreakIrApiTest"), api)
+                if api:
+                    self.assertEqual(
+                        overlay.run("debugfs", "-R", "cat system/app/HiBreakIrApiTest/HiBreakIrApiTest.apk", str(output)).stdout,
+                        b"test API APK",
+                    )
                 if remote:
                     apk_path = "system/priv-app/HiBreakIrRemote/HiBreakIrRemote.apk"
                     self.assertEqual(overlay.run("debugfs", "-R", f"cat {apk_path}", str(output)).stdout, b"test APK")

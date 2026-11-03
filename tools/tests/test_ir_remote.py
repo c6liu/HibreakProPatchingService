@@ -32,6 +32,8 @@ class IrRemoteTests(unittest.TestCase):
         smali = (source / "smali/com/hibreak/irremote/MainActivity.smali").read_text()
         create = smali.split(".method public onCreate", 1)[1].split(".end method", 1)[0]
         self.assertNotIn("->request()", create)
+        self.assertIn("->isPending()Z", create)
+        self.assertIn("->run()V", create)
         self.assertEqual(smali.count("->request()Ljava/lang/String;"), 1)
         self.assertIn("->setEnabled(Z)V", smali)
         self.assertIn("->removeCallbacks(Ljava/lang/Runnable;)V", smali)

@@ -15,6 +15,8 @@ static int property_error;
 static char response[PROP_VALUE_MAX];
 static char last_request[PROP_VALUE_MAX];
 static char message[256];
+static char service[PROP_VALUE_MAX];
+static int requests;
 
 static jstring new_string(JNIEnv *env, const char *value) {
     (void)env;
@@ -34,12 +36,19 @@ int __system_property_set(const char *name, const char *value) {
     assert(strlen(value) < sizeof(last_request));
     strcpy(last_request, value);
     errno = EACCES;
+    ++requests;
     return property_error;
 }
 
 int __system_property_get(const char *name, char *value) {
-    assert(strcmp(name, "debug.hibreak.ir_tcl_result") == 0);
-    strcpy(value, response);
+    if (strcmp(name, "debug.hibreak.ir_tcl_result") == 0)
+        strcpy(value, response);
+    else if (strcmp(name, "debug.hibreak.ir_tcl_request") == 0)
+        strcpy(value, last_request);
+    else {
+        assert(strcmp(name, "init.svc.hibreak_ir_tcl") == 0);
+        strcpy(value, service);
+    }
     return (int)strlen(value);
 }
 
@@ -49,11 +58,27 @@ int main(void) {
     property_error = -1;
     assert(strstr(Java_com_hibreak_irremote_MainActivity_request(&env, NULL), "Cannot request"));
     property_error = 0;
+    last_request[0] = '\0';
     assert(Java_com_hibreak_irremote_MainActivity_request(&env, NULL) == NULL);
     assert(strcmp(last_request, "100000000000") == 0);
+    int sent = requests;
+    assert(strstr(Java_com_hibreak_irremote_MainActivity_request(&env, NULL), "still pending"));
+    assert(requests == sent);
+    // Activity recreation and process restart recover state without sending.
+    token[0] = '\0';
+    started = 0;
+    assert(Java_com_hibreak_irremote_MainActivity_isPending(&env, NULL));
+    assert(strcmp(token, last_request) == 0 && started == 100);
+    assert(requests == sent);
     strcpy(response, "999:written");
     assert(Java_com_hibreak_irremote_MainActivity_poll(&env, NULL) == NULL);
     strcpy(response, "100000000000:written");
+    strcpy(service, "running");
+    seconds += 11;
+    assert(Java_com_hibreak_irremote_MainActivity_isPending(&env, NULL));
+    assert(Java_com_hibreak_irremote_MainActivity_poll(&env, NULL) == NULL);
+    strcpy(service, "stopped");
+    assert(!Java_com_hibreak_irremote_MainActivity_isPending(&env, NULL));
     assert(strstr(Java_com_hibreak_irremote_MainActivity_poll(&env, NULL), "TV response is not verified"));
     strcpy(response, "100000000000:failed");
     assert(strstr(Java_com_hibreak_irremote_MainActivity_poll(&env, NULL), "may have occurred"));

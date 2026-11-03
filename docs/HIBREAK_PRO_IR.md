@@ -1839,21 +1839,22 @@ Android 12 public headers and NDK 27.2.12479018 were used for this build.
 export ANDROID_NDK_HOME=/path/to/android-ndk
 export AOSP_HEADERS=/path/to/aosp-include
 bash tools/build-ir-hal.sh build/consumerir.hxd.so
-bash tools/build-ir-api-test.sh build/AndroidIrApiTest.apk
 python3 -m unittest tools.tests.test_hxd_nec tools.tests.test_hxd_learn \
   tools.tests.test_ir_overlay tools.tests.test_ir_remote
 python3 tools/add-ir-capture-to-gsi.py \
-  /path/to/display-patched-without-ir.img build/HiBreakPro-ir-nec-hal.img \
-  build/hxd-learn-remote \
+  /path/to/display-release-without-ir.img build/HiBreakPro-ir-nec-hal.img \
   --vendor-image /path/to/matching-stock-vendor.img \
   --secilc /path/to/secilc \
-  --remote-apk build/HiBreakIrRemote.apk \
-  --hal-module build/consumerir.hxd.so
+  --hal-module build/consumerir.hxd.so --check-only
 ```
 
-`--remote-apk` is optional and preserves the earlier private-path control
-for comparisons. The existing overlay variants remain unchanged when
-`--hal-module` is absent. The HAL transport tests use official headers
+This command preflights without creating an image. Remove `--check-only`
+only when ready to package. For optional comparisons, build the private
+app and tool and pass `--diagnostics-binary build/hxd-learn-remote
+--remote-apk build/HiBreakIrRemote.apk`. Build the ordinary test app
+with `bash tools/build-ir-api-test.sh build/AndroidIrApiTest.apk` and
+either sideload it or opt in using `--api-test-apk`.
+The HAL transport tests use official headers
 from `AOSP_HEADERS` (default `local/ir-hal-headers`), skipping that ABI
 test if headers are unavailable. Encoder tests need only a host C compiler.
 
@@ -1936,6 +1937,48 @@ leader, non-NEC protocols, and bundled repeat sequences are not enabled
 by this frequency-alias change. Post-flash testing from IR Blaster remains
 necessary; this update does not establish that the user's full remote
 database is compatible.
+
+The user subsequently confirmed that IR Blaster works with v8. This
+confirms the tested NEC command through that app; it does not broaden
+the supported protocol contract.
+
+#### Release preparation and review hardening
+
+The current overlay's release command uses `--hal-module` with no
+diagnostic binary or APK. It installs the standard adapter only.
+Both test apps are explicit opt-ins: `--remote-apk` requires
+`--diagnostics-binary`, while `--api-test-apk` independently adds the
+ordinary API test app. Capture/camera services, their binary, private
+request properties, and diagnostic-domain contexts/policy are absent
+from the HAL-only configuration. The optional old positional binary
+argument remains an explicit diagnostic opt-in for earlier commands.
+See [the release build procedure](BUILDING.md#optional-ir-support-for-a-release-candidate)
+for preflight and eventual packaging commands. No new release image
+was packaged during this preparation.
+
+Review hardening keeps a shared post-write ownership guard in both the
+HAL and diagnostic transmitter, including the diagnostic's last packet.
+Fixed sample/TCL commands use a conservative 108800 us envelope plus
+120 ms; HAL requests use their validated envelope plus the same guard.
+This remains unmeasured pacing, not a controller completion notification.
+Signal-interrupted sleeps finish the guard before releasing the lock.
+Regression coverage checks that a second lock owner is excluded during
+the diagnostic guard and can acquire the lock after completion.
+
+Before any output image is created, the overlay checks HAL ELF program
+headers/segments, a terminated dynamic table, an exported arm64-sized
+`HMI` object, a restricted set of Android runtime dependencies, and absence
+of text relocations. Host `readelf` (`binutils`) is required for HAL builds.
+Malformed/truncated and unrelated shared-library inputs are rejected;
+these checks do not replace runtime linker/ABI testing.
+
+The optional private test app now recovers its request token and start
+time from existing properties when recreated, including after process
+restart. It resumes status polling without sending and keeps sending
+disabled while the init service is running, even if a result has already
+been published or ten seconds have elapsed. Without a running service,
+an unanswered request times out explicitly. Tests simulate erased
+process-local state and verify no duplicate property request is made.
 
 ## 7. Recommended next investigation
 

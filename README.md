@@ -41,7 +41,7 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 | [build-apk.sh](tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-daemon.sh](tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-tool.sh](tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; no HAL installation |
-| [add-ir-capture-to-gsi.py](tools/add-ir-capture-to-gsi.py) | Optional offline IR diagnostics overlay; `--remote-apk` includes the experimental one-button TCL test app; validates policy and never flashes or transmits |
+| [add-ir-capture-to-gsi.py](tools/add-ir-capture-to-gsi.py) | Offline IR overlay: HAL-only release support with `--hal-module`; diagnostics and both test apps explicitly opt-in; `--check-only` never packages an image |
 | [build-ir-remote.sh](tools/build-ir-remote.sh) | Build the standalone one-button IR test APK with apktool and the NDK; requires the matching ROM overlay |
 | [build-ir-hal.sh](tools/build-ir-hal.sh) | Build the experimental single-frame NEC/NECext Consumer IR adapter (38000/38222 Hz nominal aliases); opt in with overlay `--hal-module` |
 | [build-ir-api-test.sh](tools/build-ir-api-test.sh) | Build an ordinary ConsumerIrManager test client; no root or private properties |

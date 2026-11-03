@@ -16,6 +16,8 @@
 #include <sys/system_properties.h>
 #endif
 
+#include "ir/hxd-transmit-guard.h"
+
 static volatile sig_atomic_t interrupted;
 
 static void on_signal(int number) {
@@ -288,7 +290,8 @@ cleanup:
     return 0;
 }
 
-static int transmit_packets(const unsigned char *packet, size_t length, int count) {
+static int transmit_packets(const unsigned char *packet, size_t length, int count,
+                            unsigned int envelope_us) {
     struct sigaction action = {.sa_handler = on_signal};
     sigemptyset(&action.sa_mask);
     if (sigaction(SIGINT, &action, NULL) < 0 || sigaction(SIGTERM, &action, NULL) < 0) {
@@ -327,11 +330,15 @@ static int transmit_packets(const unsigned char *packet, size_t length, int coun
             goto cleanup;
         }
         fprintf(stderr, "Transmit test write %d/%d completed; optical output is NOT verified.\n", i + 1, count);
+        if (hxd_transmit_guard(envelope_us) < 0) {
+            perror("transmit ownership guard");
+            goto cleanup;
+        }
         if (i + 1 < count) {
             double now;
             if (monotonic_time(&now) < 0)
                 goto cleanup;
-            double deadline = now + 1.0;
+            double deadline = now + 1.0 - (double)(envelope_us + HXD_TRANSMIT_GUARD_US) / 1000000.0;
             while (!interrupted) {
                 if (monotonic_time(&now) < 0)
                     goto cleanup;
@@ -360,14 +367,14 @@ static int transmit_test(void) {
     static const unsigned char packet[] = {0x30, 0x00, 0x01, 0x1c, 0xe3, 0x00, 0xff, 0x20, 0x88, 0xd7};
     fprintf(stderr, "IR TRANSMIT TEST: five manufacturer sample commands, one second apart.\n"
                     "Unknown appliance action: aim away from appliances. No learned data is replayed.\n");
-    return transmit_packets(packet, sizeof(packet), 5);
+    return transmit_packets(packet, sizeof(packet), 5, 108800);
 }
 
 static int transmit_tcl(void) {
     /* Experimental compact F=1 mapping of the public TCL NECext EA C7 / 0F F0 code. */
     static const unsigned char packet[] = {0x30, 0x00, 0x01, 0x0f, 0xf0, 0xea, 0xc7, 0x00, 0x00, 0xe1};
     fprintf(stderr, "Experimental TCL Volume Up: one fixed packet; HXD protocol mapping is unverified.\n");
-    return transmit_packets(packet, sizeof(packet), 1);
+    return transmit_packets(packet, sizeof(packet), 1, 108800);
 }
 
 static int publish_tcl_result(const char *token, int result) {

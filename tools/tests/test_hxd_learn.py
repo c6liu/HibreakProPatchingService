@@ -194,7 +194,7 @@ class HxdLearnTests(unittest.TestCase):
         capture_log = Path(self.tmp.name) / "result.txt"
         record.write_bytes(b"keep capture")
         capture_log.write_text("keep capture log")
-        for scenario, expected in (("tcl-success", 0), ("tcl-error", 1),
+        for scenario, expected in (("tcl-success", 0), ("tcl-lock-handoff", 0), ("tcl-error", 1),
                                    ("tcl-partial", 1), ("tcl-publish-error", 1),
                                    ("busy", 1), ("open-denied", 1), ("fsync-error", 1)):
             with self.subTest(scenario=scenario):

@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "hxd-nec.h"
+#include "hxd-transmit-guard.h"
 
 static pthread_mutex_t transmit_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -66,15 +67,9 @@ static int transmit(consumerir_device_t *device, int frequency, const int *patte
      * requested envelope plus a conservative 120 ms guard after the bus write.
      * This is experimental pacing, not measured optical completion.
      */
-    struct timespec delay = {
-        .tv_sec = (duration + 120000U) / 1000000U,
-        .tv_nsec = (long)((duration + 120000U) % 1000000U) * 1000L,
-    };
-    while (nanosleep(&delay, &delay) < 0) {
-        if (errno != EINTR) {
-            result = fail("transmit pacing", errno);
-            goto close_device;
-        }
+    if (hxd_transmit_guard(duration) < 0) {
+        result = fail("transmit pacing", errno);
+        goto close_device;
     }
     __android_log_print(ANDROID_LOG_INFO, "HibreakIR",
           "HXD NEC adapter: request=%d Hz -> built-in NEC carrier; one packet written, address=%02x%02x command=%02x; optical completion unverified",
