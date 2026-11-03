@@ -54,8 +54,9 @@ Data is preserved unless `flash-system.sh` is run with both `--wipe-data` and
 `--flash`; that option erases shared userdata. Large inputs, generated images,
 logs, and local tools belong in git-ignored `local/` and `build/`. AOSP build
 modules remain available as an alternative to the prebuilt-APK route.
-For explicitly authorized remote-learning tests, see the
-[capture tool instructions](docs/HIBREAK_PRO_IR.md#standalone-learningcapture-tool).
+IR learning is not a supported feature on the tested phone; the earlier
+capture path is a legacy development diagnostic only. See the
+[investigation summary](docs/HIBREAK_PRO_IR.md#historical-diagnostic-results-v1-v6-not-release-features).
 
 ## Default button mappings
 

@@ -22,24 +22,20 @@ The current patcher does not install an IR HAL or add `ctrl_device` access;
 standard Android IR transmission through the HXD019 driver is not included
 by default. A separate experimental, NEC-only adapter is described below.
 See the [IR compatibility investigation](HIBREAK_PRO_IR.md) for the APK
-analysis and the ROM-side integration requirements.
-An optional standalone learning/capture CLI can be built with
-`tools/build-ir-tool.sh build/hxd-learn`; it is not included in patched
-images. See the [capture instructions](HIBREAK_PRO_IR.md#standalone-learningcapture-tool)
-before running it: capture sends a controller learning command and needs
-explicit device-test authorization. If ADB shell is denied access, use the
-separate, opt-in [ROM capture-service overlay](HIBREAK_PRO_IR.md#opt-in-rom-capture-service).
-That overlay adds a dedicated SELinux domain; the default display patcher
-still does not modify policy. The overlay also supports an explicitly selected
-camera-transmit diagnostic and an optional
-[one-button TCL test app](HIBREAK_PRO_IR.md#one-button-tcl-volume-up-test-v4-image).
-These are fixed-command diagnostics, not a HAL or arbitrary-waveform encoder.
-The opt-in [NEC ROM adapter](HIBREAK_PRO_IR.md#experimental-standard-android-nec-adapter-v7)
+analysis and ROM integration. Learning did not work on the tested phone:
+button and no-button captures matched. Do not treat capture as a supported
+user feature. The
+standalone CLI and privileged capture/test-app paths are legacy, opt-in
+development diagnostics; the HAL-only release does not install them. See
+the [historical diagnostic results](HIBREAK_PRO_IR.md#historical-diagnostic-results-v1-v6-not-release-features).
+The optional TCL test app is a fixed-command diagnostic, not a general
+remote. The opt-in [NEC ROM adapter](HIBREAK_PRO_IR.md#experimental-standard-android-nec-adapter)
 accepts single-frame NEC/NECext requests through ConsumerIrManager
 (38000 Hz and, since v8, the app's 38222 Hz nominal alias);
 it rejects other protocols, repeat sequences, and frequencies. It is not
-a general waveform HAL. The user confirmed the standard API test on v7
-and IR Blaster's NEC control on v8; other protocols remain unsupported.
+a general waveform HAL. The user reported the standard API test working
+and later confirmed IR Blaster's NEC control; other protocols remain
+unsupported.
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;
@@ -203,7 +199,7 @@ APK with the release signing variables first. LineageOS builds keep
 
 The display patcher does not include IR automatically. Build the NEC
 adapter using NDK and the public AOSP headers described in the
-[IR adapter build instructions](HIBREAK_PRO_IR.md#build-and-validate).
+[IR adapter build instructions](HIBREAK_PRO_IR.md#build-and-validation).
 The IR overlay additionally requires host `readelf` from `binutils` and
 `secilc`. Start with a display-patched release image **without any prior
 IR overlay**.

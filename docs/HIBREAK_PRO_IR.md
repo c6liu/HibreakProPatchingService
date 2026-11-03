@@ -1,15 +1,19 @@
 # HiBreak Pro IR compatibility investigation
 
-Initial investigation performed on 2026-11-03. **The initial inspection was
-read-only: no ROM implementation or device configuration changes,
-installations, app launches, or IR transmissions.**
-Later, explicitly authorized ROM builds and device tests established
-optical transmission and working TCL Volume Up control through the v6
-diagnostic app. The v7 build adds an opt-in, experimental
-[NEC-only standard Android adapter](#experimental-standard-android-nec-adapter-v7);
-the user subsequently reported that the standard-client test works.
-The v8 follow-up adds the app's nominal 38222 Hz NEC carrier as an explicit
-alias of the same controller-built NEC output; see the compatibility note below.
+This investigation began with read-only APK, kernel and stock-firmware
+analysis. Later, with explicit authorization, test ROMs were built and
+transmission was tested on-device. The current result is an opt-in
+[NEC/NECext Android IR adapter](#experimental-standard-android-nec-adapter).
+The user confirmed that a fixed TCL Volume Up command worked through the
+test app and later that IR Blaster worked through the standard API adapter.
+Those are user-reported appliance results, not independent optical
+measurements. This document distinguishes static findings, on-device
+observations and user reports.
+
+Device results are from one black-and-white HiBreak Pro using stock 3.1.6
+vendor (`Bigme_HiBreak_V1.0_20260306`) with the tested EvoX image. The
+LineageOS release configuration and other vendor firmware versions have not
+been validated on-device; do not infer compatibility from this report.
 
 ## Conclusion
 
@@ -31,22 +35,31 @@ This app's Internal transmitter
   -> /dev/lirc0 (not present on the connected device)
 ```
 
-The second diagram's module implementation was inspected in the existing
-stock-vendor backup, not read directly from the running HAL: SELinux denied
-ADB access to the live library. The running service identity and reported
-frequency table agree with that backup. This is strong evidence of an
-interface mismatch, **not an end-to-end transmission test**.
+The stock-module implementation was inspected in a backup, not read
+directly from the running HAL; SELinux denied ADB access to that library.
+The running service identity and reported frequency table agree with the
+backup. On the inspected firmware, the stock module targets `/dev/lirc0`,
+while the working HXD transport uses `/dev/ctrl`.
 
-**Recommended direction:** a ROM-side Android IR HAL adapter that
-converts standard frequency/pulse-pattern requests to HXD packets and uses
-the existing `/dev/ctrl` driver. That would benefit this app and other
-ConsumerIrManager applications without device-specific integrations.
-The experimental v7 implementation takes the bounded NEC/NECext route,
-not the still-unresolved generic arbitrary-waveform route.
+**Current implementation:** the system-image overlay replaces the module
+visible to the existing Android IR service with an experimental adapter.
+Ordinary `ConsumerIrManager` apps can request supported NEC/NECext frames;
+the adapter translates these into HXD packets for `/dev/ctrl`. This has
+been reported working with the TCL test command and IR Blaster. See the
+adapter section for the exact contract and its qualifications.
 
-An app-specific backend is also plausible, but needs both an independent
-HXD waveform encoder and a supported access path for modern apps. It is not
-just a replacement of `ConsumerIrManager.transmit()` with a file write.
+This is deliberately **not a generic waveform adapter**: it accepts one
+full NEC/NECext frame per call and canonicalizes its timing. Only nominal
+38000 and 38222 Hz requests are accepted, and both select the same
+controller-built carrier. Exact optical carrier/timing, repeat behavior
+and other protocols remain unverified. The controller does not expose a
+generic Android timing/carrier API in the inspected kernel paths.
+
+Learning is not supported as a user feature. The attempted learning tests
+on the inspected firmware returned the same data for a button press and a
+no-button control; see the historical experiment summary below. Do not
+treat a nonempty capture or successful device write as proof of signal
+reception or optical output.
 
 No new kernel driver appears necessary for the existing HxdIR path.
 Static analysis can recover the app-side record transformations without IR
@@ -55,20 +68,17 @@ conditional on mapping those records to Android timings and carriers;
 measurement is needed to validate physical output, not to continue APK
 analysis.
 
-The recovered stock kernel now confirms a bit-banged controller transport:
+The recovered stock kernel confirms a bit-banged controller transport:
 its ioctls drive individual GPIOs, and its initialization sends no
 carrier/timer configuration packet. It does not expose a hidden generic
 IR timing API. See [the stock driver trace](#5-stock-firmware-driver-discovery)
 for the exact read commands, byte limit, and error semantics.
 
-A subsequent stock-resource search found no HXD firmware/update candidate
-in the inspected OS resources. Public manufacturer documentation does
-identify a **conditional alternative**: `30 30 60` enters an SCL-controlled
-IR-envelope mode on newer chips. Current E-family marketing also advertises
-custom encoding, but does not tie that claim to this command or phone.
-The inspected documentation does not specify carrier selection,
-mode exit, or HiBreak variant support, so this is not yet a working generic
-HAL. See [the resource and public-source comparison](#6-stock-resources-and-public-hxd019-comparison).
+A public document describes an SCL-controlled IR-envelope mode for newer
+controller variants, but does not establish support or safe control on this
+phone. It is not used by the adapter. See
+[the variant/source analysis](#6-stock-resources-and-public-hxd019-comparison)
+if this becomes a future investigation.
 
 ## Inputs and limits
 
@@ -80,9 +90,6 @@ HAL. See [the resource and public-source comparison](#6-stock-resources-and-publ
   `02217864bc97f74eb9c2c946f09aaa29e8aa08b9f330d48f8976fc58ac35e770`.
 - Current app source revision:
   `c2fbf7887d594fd795393d0d7847771bc9ab9b2f`.
-- Local [HibreakProPatchingService](https://github.com/c6liu/HibreakProPatchingService)
-  checkout revision: `da5ce3c321553adf91d98e49471139e31a5e54ee`;
-  its worktree was clean when inspected.
 - Read-only ADB inspection of the connected black-and-white MT6877 device:
   Android 16/API 36, kernel `4.19.191`, SELinux **Enforcing**.
 - Existing stock 3.1.6 backup: selected libraries from
@@ -388,13 +395,12 @@ as `2 MHz / 52 ~= 38.46 kHz` can fit a common frequency by choosing a
 clock, but no recovered clock/divider definition justifies that formula.
 Do not expose a fabricated frequency range in an Android HAL.
 
-**Current implementation consequence:** bounded HXD/database transmission
-is demonstrated; host-request repetition can be implemented explicitly.
-Generic frequency-controlled waveform transmission remains blocked on a
-carrier definition and per-command optical-repeat semantics, not on
-SELinux access. A known protocol command that actually operates an
-appliance can constrain these hypotheses; camera brightness alone cannot
-measure carrier frequency or determine frames per command.
+**Current implementation consequence:** the adapter intentionally supports
+only the validated NEC/NECext packet mapping described below. The codec
+analysis does not provide a generic mapping from Android frequency/timings
+to HXD carrier and repeat controls. Appliance response to a known command
+does not determine the exact optical waveform; a camera cannot measure its
+carrier or precise timing.
 
 `compdata` decrements its length argument before dispatch. It calls
 `delfeng` even if `Modifywave` returned failure, and only invokes `getfigure`
@@ -775,11 +781,17 @@ result to the application's void `transmit()` call.
 Consequently **a normal API return, this app's success result, and
 `hasIrEmitter = true` are not proof of emitted IR** on this configuration.
 That behavior was checked in AOSP source, not the GSI's exact framework
-binary.
+binary. Separately, the user reports actual TCL response through the API
+adapter and IR Blaster on the tested image; those observations are useful
+end-to-end evidence for those commands, but are not an optical waveform
+measurement or a guarantee for other commands/devices.
 
-## 3. Can this app implement HxdIR's protocol?
+## 3. App-specific integration context
 
-**Plausible, with additional codec and access work.**
+The examined app already represents IR as frequency plus pulse durations,
+but the phone's stock HAL path did not reach the HXD controller. The
+ROM-side adapter now supplies a bounded standard-API path, so an
+app-specific HXD backend is not required for the tested use case.
 
 Existing integration points:
 
@@ -824,17 +836,16 @@ JNI, Kotlin file I/O, and `TRANSMIT_IR` permission do not bypass that policy.
 Do not lower target SDK, disable SELinux, change device permissions globally,
 or depend on root as the compatibility solution.
 
-Possible access designs are a permission-protected ROM broker or carefully
-scoped ROM policy/integration. A broker should accept validated waveform
-requests, not arbitrary device paths or unrestricted vendor packets.
-An independent native encoder can support arm64 and 32-bit without shipping
-the proprietary APK, SDK library, or remote-code database.
+These observations explain why direct app access was not chosen. Do not
+ship the proprietary APK/native database as a substitute for the ROM adapter.
 
-## 4. Can the custom ROM expose standard Android IR?
+## 4. ROM-side Android IR adapter
 
-**Yes as an architectural approach; waveform coverage needs validation.**
-This is a HAL translation task, not a new appliance protocol. Android IR
-defines carrier frequency and pulse timing, not NEC/RC5/etc. encoding.
+**Yes.** The implemented route replaces the legacy module visible to the
+existing HIDL IR service; it is a bounded translation layer, not a new
+appliance protocol. Android IR defines carrier frequency and pulse timing,
+not NEC/RC5/etc. encoding. Only the NEC/NECext subset described below is
+implemented.
 
 The patching project's [build guide](BUILDING.md)
 preserves stock vendor and patches an ext4 system/GSI image. Its current
@@ -843,17 +854,17 @@ the existing `phhsu_daemon` domain for its display daemon.
 Adding a HAL is therefore additional ROM integration, not a switch in the
 current display service.
 
-Two routes:
+The explored routes:
 
 | Route | Benefit | Required integration |
 | --- | --- | --- |
 | Replace the legacy Consumer IR module with an HXD adapter | Reuses the running HIDL service and framework plumbing | Correct module selection/ABI, offline vendor change or verified library overlay, and HAL access to `ctrl_device` |
 | Add an AIDL `android.hardware.ir.IConsumerIr/default` adapter | Modern interface; AOSP Android 16 prefers declared AIDL IR over HIDL | Native service, build/install rules, init lifecycle, correctly scoped VINTF declaration, service labeling and SELinux policy; verify discovery and startup on the actual GSI |
 
-A system-image-only AIDL approach is attractive for this patching project,
-but is not assumed to work by merely copying a binary/XML file into the
-image. Its declaration location, SELinux policy composition, and service
-selection must be proven against the target GSI.
+The legacy HIDL module replacement is the implemented route because the
+target image already runs that service. The AIDL alternative was not
+implemented; do not infer that copying a service or VINTF file into an
+image would work.
 
 The observed `hal_ir_default` vendor policy explicitly grants `irtx_device`
 access but has no explicit grant to `ctrl_device`. Replacing only the
@@ -861,20 +872,26 @@ transmit function can therefore leave an access failure. Do not repurpose
 the display daemon's domain as an IR HAL without checking all required
 device, Binder, and service-registration permissions.
 
-The adapter must:
+Current implementation properties and remaining qualifications:
 
-1. Validate frequency and positive durations, with overflow-safe size/time
-   limits; Android documents a two-second transmission limit.
-2. Encode supported patterns into the HXD format, rejecting patterns that
-   cannot be represented rather than truncating or silently approximating.
-3. Serialize requests and learning/replay ownership.
-4. Handle device open, full packet writes, acknowledgment/completion,
-   timeout, and close correctly; avoid automatic retransmission after an
-   ambiguous failure.
-5. Report only verified carrier ranges, not the generic stock table.
-6. Preserve synchronous Android transmission semantics.
-7. Surface hardware failures through HAL status and diagnostics; account
-   for framework versions that do not propagate all failures to callers.
+- Input frequency, frame shape, duration positivity/total, NEC command
+  complement and array length are checked before device access. Unsupported
+  patterns are rejected rather than approximated. Total duration is capped
+  at two seconds.
+- Requests use a process mutex and nonblocking advisory controller lock,
+  then one ten-byte write. Partial/error writes are not retried. The lock
+  serializes cooperating clients only.
+- After a complete write, the adapter waits for the requested envelope
+  duration plus a 120 ms guard. This is conservative, unmeasured pacing,
+  not hardware completion feedback.
+- Device errors are logged and returned as HAL errors. Android framework
+  callers may not receive every HAL error through the void API.
+- It advertises only the two accepted **nominal request aliases**
+  (38000/38222 Hz). They both select the controller's same built-in NEC
+  carrier; the physical output frequency has not been measured.
+- The kernel exposes no optical acknowledgment/completion notification.
+  The HAL does not impose a cancellable deadline on a blocking kernel
+  `write`, so a stuck driver operation is not covered by the pacing guard.
 
 Do **not** symlink `/dev/lirc0` to `/dev/ctrl`. The ioctl contract and byte
 payloads differ. A LIRC-compatible kernel frontend is an alternative, but
@@ -1188,23 +1205,22 @@ recognition or optical output. Every ioctl restores BUSY/state to input,
 so those commands alone do not guarantee the datasheet's held-high BUSY
 condition.
 
-This changes the implementation decision, but does not yet justify a HAL:
+This is a documented alternative, but the current HAL does not use it:
 
-- **Packet route:** retain the existing kernel driver, but establish
-  carrier/timing fields and representable-waveform limits first.
-- **Envelope-gate route:** establish chip support, carrier behavior, exit
-  behavior, and idle pin requirements. A robust version would need a
-  bounded kernel-side timing operation, serialized ownership, and an
-  error/cancellation cleanup path that restores IR-off. Repeated
-  userspace sleeps and GPIO ioctls are not a reliable microsecond
-  waveform scheduler, especially with per-call logging and GPIO
-  direction changes.
+- **Packet route:** the existing adapter uses the bounded compact NEC packet
+  route; generic timing/carrier fields remain unknown.
+- **Envelope-gate route:** support for this phone's controller variant,
+  carrier behavior, exit behavior and idle-pin requirements are unknown.
+  A robust implementation would need a bounded kernel-side timing
+  operation, serialized ownership and an error/cancellation path that
+  reliably restores IR-off. Repeated userspace sleeps and GPIO ioctls are
+  not a reliable microsecond waveform scheduler.
 - Do not advertise a 36/38/40-kHz range based on a gate-only interface.
   A fixed-carrier implementation would need an explicitly verified
   single-frequency contract, not silently ignore caller frequency.
-- Do not send the optional command during offline investigation. The
-  phone's E-family integration comment is not proof of support, and a
-  write count cannot detect whether the controller entered the mode.
+- The optional mode was not used for the implemented adapter. The phone's
+  E-family integration comment is not proof of support, and a write count
+  cannot detect whether the controller entered the mode.
 
 ### E-variant follow-up: what can actually be established
 
@@ -1298,475 +1314,36 @@ ab7195be741f32ae56e7d9f736218eb9c66a648067b36a71816d10321cb896c2  20260827110017
 8af01027ce0774ebbf43bd2fe8e5216011e7f68561dac8b86d2434e35ab777dd  202409181106004097b4384.png
 ```
 
-### Standalone learning/capture tool
+### Historical diagnostic results (v1-v6; not release features)
 
-The [capture CLI](../tools/hxd-learn.c) is a small, independent Android
-arm64 executable. Its capture modes do not transmit IR. The updated tool
-also has an explicitly selected fixed-packet transmit diagnostic described
-below; it **does not implement learned-record replay or arbitrary-waveform
-transmission**, use proprietary codec code, install a HAL, or change SELinux.
-Building the tool does not authorize or start device testing.
+These experiments established a few controller facts, but their old
+commands, image recipes and troubleshooting steps are omitted: they describe
+superseded test images and are not needed to build or use the current
+adapter. The standalone capture tool and privileged test app remain
+opt-in development artifacts; neither is included in a HAL-only release.
 
-Build on the host:
+- **Learning did not work on the tested stock 3.1.6 device.** In both short
+  and extended modes, a button attempt returned the same bytes as its
+  no-button control. A nonempty record or successful controller read was
+  therefore not evidence of optical reception. No learning/receive feature
+  is claimed or exposed as a supported user feature.
+- **A fixed manufacturer sample produced visible IR-camera flashes** in an
+  explicitly authorized test. This established optical output for that
+  sample only, not its carrier accuracy, appliance meaning, or support for
+  arbitrary waveforms.
+- **A fixed TCL Volume Up packet controlled the user's TV** through the
+  v6 private-path diagnostic app. This established the tested packet and
+  device path, not a general Android API or arbitrary-code capability.
+- **The v4/v5 private test app needed SELinux/ART startup corrections.**
+  The v6 policy fixed the observed JIT-memory and Android service-discovery
+  failures. These fixes apply only to the optional diagnostic app; ordinary
+  apps use the separate HAL adapter below.
 
-```sh
-export ANDROID_NDK_HOME="$HOME/Android/Sdk/ndk/27.2.12479018"
-tools/build-ir-tool.sh build/hxd-learn
-```
+The detailed implementation, test code and opt-in build flags remain in the
+repository. See [the build guide](BUILDING.md#optional-ir-support-for-a-release-candidate).
+Do not use the historical test procedures as a production setup guide.
 
-The [build script](../tools/build-ir-tool.sh) uses the API-30 arm64 compiler,
-treats warnings as errors, and refuses to overwrite an existing binary.
-The executable is statically linked and has no APK/Unicorn or runtime-linker
-dependency.
-
-Only after explicit approval to deploy and enable learning, target the
-intended device with `adb -s SERIAL`:
-
-```sh
-adb -s SERIAL push build/hxd-learn /data/local/tmp/hxd-learn
-adb -s SERIAL shell chmod 0755 /data/local/tmp/hxd-learn
-adb -s SERIAL shell /data/local/tmp/hxd-learn --help
-# This command enables controller learning; it is NOT a read-only check.
-adb -s SERIAL shell /data/local/tmp/hxd-learn capture \
-  --timeout 25 /data/local/tmp/tv-power-extended.bin
-adb -s SERIAL pull /data/local/tmp/tv-power-extended.bin local/tv-power-extended.bin
-wc -c local/tv-power-extended.bin
-sha256sum local/tv-power-extended.bin
-```
-
-Point the TV remote toward the phone's IR port and press one button after
-the tool's prompt. Use a new filename for each capture; start with a
-non-destructive TV function, such as volume, rather than a service-menu
-or reset command. `--short` selects the alternative short learning method.
-The saved record sizes are exactly **230 bytes** by default or **110
-bytes** with `--short`. The tool neither converts nor truncates the record.
-Local captures belong in ignored `local/`, not the source tree.
-
-Behavior and limitations:
-
-- The tool reserves a new mode-0600 output file before device access.
-  Existing files and symlinks are refused. On failure it removes the
-  incomplete file and reports an error, never a successful capture.
-- It opens only `/dev/ctrl`, checks that it is a character device, and
-  takes an advisory exclusive lock. This prevents concurrent instances
-  of cooperating tools, **not** interference from HxdIR or another
-  process ignoring the lock. Stop other IR software first.
-- It sends exactly one `30 20 50` learning command, or `30 10 40` for
-  short mode. It never writes the record back or sends `30 30 60`.
-  Device writes are not retried or split into separate transactions.
-- It waits at least 200 ms after the command when the deadline permits,
-  then polls complete record reads, pausing up to 200 ms after a
-  zero/not-ready result. Nonzero short reads are rejected, not padded
-  or stitched together. A read error aborts rather than guessing whether
-  it means SELinux denial or the driver's raw `-1` controller status.
-- The monotonic deadline defaults to 25 seconds; `--timeout` accepts
-  integers 1..60. It rejects a record returned after that deadline.
-  It cannot enforce a hard deadline inside an uninterruptible kernel
-  syscall. The controller's own learning timeout may be shorter.
-- SIGINT/SIGTERM request cancellation; no undocumented cancel/reset
-  command is sent. The chip may remain in learning mode until its own
-  timeout (approximately 20 seconds). Wait for that timeout before
-  trying again after an interrupted or failed session.
-- A successful file has zero status and a nonzero payload, is saved
-  byte-for-byte, and is flushed with `fsync`. These are basic capture
-  checks, **not** proof of a replayable signal: the stock driver
-  discards the receive checksum. Keep multiple captures of the same
-  button for comparison. Records are controller data, not microsecond
-  pulse arrays or ready-to-send packets.
-- The updated tool rejects the exact 230-byte no-button control observed on
-  stock 3.1.6, reports `No signal learned`, and removes the output. This is
-  an exact-record exclusion, not a general decoder: it does not reject
-  all records with `88 99 aa` or assert that every other record is valid.
-  Complete reads also report elapsed time. The initially flashed tool
-  predates this check and can still report success for the control record.
-- An open/lock/access failure does not trigger root escalation,
-  permission changes, or SELinux modifications. Mode `0666` does not
-  guarantee access from ADB shell on an enforcing ROM.
-
-Host-only tests, with no controller access:
-
-```sh
-python3 -m unittest discover -s tools/tests -p test_hxd_learn.py -v
-```
-
-The tests compile the real CLI against a
-[mock syscall boundary](../tools/tests/native/hxd_learn_mock.c).
-They check exact learning-command bytes, full output bytes and permissions,
-both modes, delayed readiness, timeout, interruption, access/lock failures,
-partial/error device writes, short/invalid/error reads, file-write and
-flush failures, refusal to overwrite, and argument validation before
-device access. They do not establish phone-side permissions or learning
-success. Replay still requires a separate implementation and explicit
-transmission approval; never `cat` the raw file to `/dev/ctrl`.
-
-### Opt-in ROM capture service
-
-On the tested custom ROM, ADB shell was denied `read write` access to
-`ctrl_device` while SELinux was enforcing. Neither mode `0666` nor running
-the image patcher with `--root` fixes that: `--root` only preserves an
-already-existing `su` binary; it does not install root or enable `adb root`.
-
-The separate [image overlay](../tools/add-ir-capture-to-gsi.py) installs the
-static capture executable and a
-[disabled, oneshot init service](../tools/ir/hibreak-ir-capture.rc).
-It runs as **shell UID**, in a
-[dedicated enforcing SELinux domain](../tools/ir/hibreak-ir-capture.cil),
-not as root or `phhsu_daemon`. Only that new domain receives the added
-`ctrl_device` permissions (`open read write getattr lock`); there is no
-new shell-to-controller grant, ioctl access, or network grant.
-The executable and capture destination are fixed. Its only mode parameter
-is `debug.hibreak.ir_mode`, strictly validated as `extended`, `short`, or `tx-test`
-before any file/controller access; unset defaults to `extended`. One init
-service handles both modes, so mode selection does not introduce competing
-capture services.
-
-Prerequisites: the existing image tools, a host `secilc` compiler (Fedora/
-Debian package `secilc`), and a **raw ext4 vendor image matching the phone**.
-No compiler/dependency download occurs inside the overlay. It extracts
-the GSI's platform/system_ext/product CIL and the matching vendor-version
-mappings, plus the stock vendor CIL and versioned public policy. Compilation
-targets SELinux policy version 30, supported by the stock kernel.
-An independent ODM policy is not supported by this overlay.
-
-```sh
-# Choose fresh output filenames; builders refuse to overwrite.
-tools/build-ir-tool.sh build/hxd-learn-service
-# First apply the normal display/app patcher if those fixes are wanted.
-tools/patch-gsi.sh /path/to/EvoX.img build/EvoX-display.img \
-  build/HiBreakEink.apk build/a9_eink_server
-python3 tools/add-ir-capture-to-gsi.py \
-  build/EvoX-display.img build/EvoX-ir-capture.img build/hxd-learn-service \
-  --vendor-image /path/to/extracted-vendor/vendor_a.img \
-  --secilc /path/to/host/secilc
-```
-
-`--check-only` compiles the merged policy without copying/modifying an
-image. Both inputs remain unchanged. The output's injected bytes, mode,
-ownership and SELinux xattrs are checked, and its filesystem is checked
-after shrinking. A changed platform policy-cache digest forces init to
-recompile instead of accepting a vendor precompiled policy without the
-new domain. That digest is an overlay cache-buster, not an AOSP build hash.
-The compiler-produced binary is for host validation; boot init compiles
-the installed CIL itself.
-
-The selected EvoX 11.11 GSI plus stock 3.1.6 vendor already has **1,750
-neverallow conflicts** in the unmodified host merge, including its broad
-`phhsu_daemon` rules. The overlay compares baseline and modified compiler
-diagnostics and **rejects any new conflict**, then compiles using the same
-`-N` option Android init uses at runtime. This does not disable SELinux
-enforcement or remove the baseline policy's restrictions. It also does
-not fix EvoX's existing broad policy. The modified merge compiled with
-zero additional conflicts. Boot and one explicit learning transaction were
-subsequently tested with SELinux enforcing: the service ran, opened the
-controller, saved 230 bytes, and exited with status zero. This proves
-service/transport access, **not successful remote-signal learning**. The first
-record arrived after about 22 seconds and contained `00 88 99 aa 00`,
-32 bytes of `ff`, mostly zeros, and tail `f2 e1 51`; its meaning remains
-unresolved and it must not be replayed as a confirmed TV command.
-An immediate second Volume Up test and an explicitly authorized **no-button
-control** both returned exactly the same 230 bytes (SHA-256
-`1adcddd588b95e03b2f2200326c1e6f8ab97e7aeb4750628e8e793666d88b38c`).
-Thus this observed record is not evidence of remote reception. The current
-initial CLI's zero-status/nonzero-payload checks accept it: exit status zero means
-the transport/save completed, not that learning succeeded. Further work
-must distinguish this no-signal response and investigate receiver/learning
-mode behavior before replay testing.
-
-Offline follow-up confirmed:
-
-- The APK's study task writes the same learning command, waits 200 ms, and
-  reads the corresponding buffer size. No additional receive-enable
-  command appears in that task. The driver open/release functions only
-  set private data/return; they do not enable an optical receiver.
-- Re-executing the stock driver verifies that mode `30 10 40` selects
-  reads with `30 52 31`, while `30 20 50` selects `30 62 31`. There is no
-  kernel-generated `88 99 aa` placeholder in the traced read path: returned
-  payload bytes come from the controller bus (which does not prove optical
-  reception or exclude bus errors).
-- The native extended converter accepts the exact no-signal control and
-  produces a checksummed 232-byte packet. It rewrites its first two header
-  fields to `fe fe` and zero field 4 to `34`; these repairs do **not** make
-  it a learned waveform. This is now an offline emulator regression case.
-
-The next discriminating device test is short learning, preferably with a
-no-button baseline and then the same button/position. These modes are
-known learning commands, not invented configuration writes. A successful
-short read alone would still require comparison against its own no-button
-baseline. If neither mode responds to a remote, physical receive-path
-availability, remote type/carrier, and placement remain unproven; software
-analysis cannot establish that the board has a usable optical receiver.
-
-The v2 image was subsequently flashed and short mode tested with explicit
-approval. The no-button control returned 110 bytes after 21.771 seconds;
-the Volume Up attempt returned identical bytes after 21.772 seconds:
-`00 88 99 aa` followed by 106 zero bytes (SHA-256
-`ae470e67b57d64608d8d4d5fa0ecbb2874f2fee56d067a361eee391f7b49e74e`).
-Neither learning mode has demonstrated optical reception. V2 rejects only
-the exact extended no-signal record; its short-mode candidate check still
-accepts this newly observed short control, so status zero is not success
-at learning. Preserve these baselines and do not replay them. Before more
-image changes, establish that the remote actually uses IR for the tested
-button and obtain evidence that this phone's board supports learning,
-not merely transmission.
-
-Building this image neither flashes it nor starts controller learning.
-Back up first and use the repository's normal flashing procedure only
-after separately deciding to install the test image. After boot, the
-following checks are read-only:
-
-```sh
-adb -s SERIAL shell getenforce
-adb -s SERIAL shell getprop init.svc.hibreak_ir_capture
-adb -s SERIAL shell ls -ldZ /data/misc/hibreak-ir
-adb -s SERIAL shell ls -lZ /dev/ctrl
-```
-
-Expect `Enforcing`, directory `hibreak_ir_capture_data_file` owned by shell
-with mode `0700`, and controller `ctrl_device`. Before its first start, the
-disabled service's state property can be empty; after a completed run it
-is `stopped`. Shell cannot inspect or directly execute the dedicated
-`hibreak_ir_capture_exec` binary under this policy; those denials are not
-proof that init cannot start it. If data/controller labels differ, collect
-init/SELinux logs rather than starting learning or disabling enforcement.
-
-Only when ready to capture, stop other IR software, point the remote at
-the phone's IR port, and explicitly trigger:
-
-```sh
-# Enables learning; not a read-only command.
-# On the updated image, choose extended or short before triggering.
-adb -s SERIAL shell setprop debug.hibreak.ir_mode extended
-adb -s SERIAL shell setprop debug.hibreak.ir_capture 1
-adb -s SERIAL shell getprop init.svc.hibreak_ir_capture
-adb -s SERIAL shell cat /data/misc/hibreak-ir/result.txt
-```
-
-After the service reports `running` and its result file says
-`Starting extended IR learning` (or `Starting short IR learning`), press
-one remote button. The normal
-deadline is 25 seconds; init also applies a 35-second service timeout.
-Neither can instantly stop an uninterruptible kernel syscall.
-Poll `init.svc.hibreak_ir_capture` until `stopped`, then read the result.
-A candidate requires `Capture service exit status: 0` and a 230-byte
-extended or 110-byte short record:
-
-```sh
-adb -s SERIAL shell cat /data/misc/hibreak-ir/result.txt
-adb -s SERIAL shell wc -c /data/misc/hibreak-ir/record.bin
-# Run in Bash; refuse to overwrite a previously saved host capture.
-( set -o noclobber
-  adb -s SERIAL exec-out cat /data/misc/hibreak-ir/record.bin > local/tv-volume-up-1.bin
-)
-wc -c local/tv-volume-up-1.bin
-sha256sum local/tv-volume-up-1.bin
-```
-
-Each trigger **replaces the preceding service capture and result**, so
-export a successful record before triggering again. Direct `adb pull`
-runs in `adbd`, which has no access to this directory; `adb exec-out cat`
-uses the permitted shell domain instead. Verify the exported file is
-exactly 230 bytes (110 for short mode). The dedicated directory
-is readable by ADB shell, but SELinux grants shell no write access there.
-Files are mode `0600`. Once setup succeeds, failed captures remove the
-record. A failure before log setup can leave an older result; if the
-expected running/starting transition is not observed, inspect init/SELinux
-logs instead of trusting an old file. Do not treat a successful `setprop`
-as successful capture. Triggers during an already
-running session do not queue another capture.
-
-For cancellation, run `adb -s SERIAL shell setprop debug.hibreak.ir_cancel 1`.
-Wait for the service to stop and for the controller's own learning timeout
-before retrying. No undocumented controller reset/cancel is sent.
-The original test image supports extended capture only. The updated image
-adds short selection: set `debug.hibreak.ir_mode` to `short` before the
-same capture trigger. Mode changes apply only to the next service start,
-not an in-progress capture, and reset to the extended default after boot.
-Use extended again by setting the property to `extended`. Both modes
-replace the same result/record paths. Deploying a new standalone binary
-to `/data/local/tmp` does not update the ROM service.
-There is **still no learned-record replay, transmit HAL, or arbitrary-waveform
-encoder**. The explicitly selected transmit diagnostics below are separate.
-
-### Camera-only transmit diagnostic (v3 image)
-
-The v3 tool adds the explicitly selected `tx-test` service mode. Normal
-boot and the default capture mode do not transmit. This diagnostic sends
-the manufacturer HXD019D instructions REV 1.3 section 1.1 sample:
-`30 00 01 1c e3 00 ff 20 88 d7`. Its final byte matches the low-eight-bit
-additive checksum. This is a documented compact database command, not
-an invented encoding or replay of a no-signal record. Compatibility with
-this phone's controller/code database is unverified.
-
-It issues exactly five writes, waiting one second between completed writes,
-then exits. Any failed/partial write aborts without retry. It uses the
-same character-device check/advisory lock and supports signal cancellation.
-It preserves the last capture record but replaces `result.txt`. There are
-no GPIO ioctls, carrier guesses, or unrestricted user-supplied packets.
-No additional SELinux permission is needed.
-
-**The sample's appliance action is unknown. Aim away from appliances.**
-First verify the observing camera can see the LED on a working IR remote
-(the front camera may have less IR filtering). Record video of the phone's
-IR window; this is more likely to catch brief pulses than a still photo.
-After installing v3 and separately authorizing transmission:
-
-```sh
-adb -s SERIAL shell setprop debug.hibreak.ir_mode tx-test
-adb -s SERIAL shell setprop debug.hibreak.ir_capture 1
-# Wait for the service to stop, then inspect the result.
-adb -s SERIAL shell cat /data/misc/hibreak-ir/result.txt
-# Restore capture mode before any later trigger.
-adb -s SERIAL shell setprop debug.hibreak.ir_mode extended
-```
-
-`Transmit test service exit status: 0` establishes only that five controller
-writes completed. Visible flashing would establish optical output, not
-correct carrier/timing or TV compatibility. No visible flash is inconclusive:
-camera filtering/exposure, an unsupported sample database command, or
-hardware/driver behavior can all prevent an observation.
-
-On-device v3 test: with SELinux enforcing and explicit approval, all five
-sample-packet writes completed and the service exited zero after 4.225
-seconds. The user observed IR flashes through another phone's camera.
-This confirms optical transmission for this sample on the custom ROM.
-The service stopped and its mode was restored to extended capture.
-It does not establish carrier/timing accuracy, appliance compatibility,
-arbitrary-waveform support, or a functioning optical learning receiver.
-
-### One-button TCL Volume Up test (v4 image)
-
-The optional **HiBreak IR Test** launcher app provides one button, so a
-computer is not needed next to the TV. It targets the user's TCL 43S525
-Roku TV. The public
-[TCL Roku TV IR reference](https://raw.githubusercontent.com/Lucaslhm/Flipper-IRDB/main/TVs/TCL/TCL_Roku_TV.ir)
-lists NECext address bytes `EA C7` and Volume Up command bytes `0F F0`
-for related TCL Roku models, including 65S525. This is a candidate for the
-43S525, not a verified command for this particular TV.
-
-The fixed experimental HXD packet is:
-
-```text
-30 00 01 0f f0 ea c7 00 00 e1
-```
-
-It uses the recovered compact layout `30 00 F KEY[2] COM[4] checksum`.
-The sum of the first nine bytes modulo 256 is `E1`. **Choosing F=1 for
-NECext, address byte order, and zero-filled remaining custom-code bytes
-are hypotheses**, not results of the native codec verification. This
-does not identify the carrier-frequency formula. It asks the controller
-to use its compact protocol slot, which may have its own timing/repeat
-behavior. One successful device write is not proof of correct optical
-output or appliance response. No proprietary database/code is included.
-
-Each explicit tap makes one property request, which starts a disabled,
-oneshot, shell-UID init service and issues **one device write**. There is
-no automatic emission at app launch/boot, long-press loop, host repeat,
-learning, or retry. The button is disabled while awaiting a result.
-Status is matched against a per-request token; stale results are ignored.
-After ten seconds without a matching result, the UI explicitly reports
-that transmission is unknown. That timeout does not cancel an in-flight
-kernel write. The app does not report that the TV responded.
-
-The APK has no Android permissions and cannot open `/dev/ctrl`. Only its
-privileged-system installation with the exact package
-`com.hibreak.irremote` receives the dedicated app SELinux domain. That
-domain can set only the new request property; it receives no broad
-`debug_prop` grant. The existing transport domain can publish only the
-new result property. An ordinary sideloaded copy does not receive this
-access. The test APK uses the signer's bundled **debug key**, not a
-production signing identity; do not ship this diagnostic as a production
-remote or treat its signing key as private.
-
-Build with the same apktool, signer, and NDK prerequisites as the display
-app (no Gradle, Android platform SDK, or vendor APK required):
-
-```sh
-export ANDROID_NDK_HOME=/path/to/android-ndk
-bash tools/build-ir-remote.sh build/HiBreakIrRemote.apk
-bash tools/build-ir-tool.sh build/hxd-learn-remote
-python3 tools/add-ir-capture-to-gsi.py \
-  /path/to/display-patched-without-ir.img build/HiBreakPro-ir-remote.img \
-  build/hxd-learn-remote \
-  --vendor-image /path/to/matching-stock-vendor.img \
-  --secilc /path/to/secilc \
-  --remote-apk build/HiBreakIrRemote.apk
-```
-
-Start from an image without an earlier IR overlay. The image includes
-the APK, service, narrowly scoped policy, property contexts, and privileged
-app mapping; installing the APK alone on the old image is insufficient.
-Existing capture/camera diagnostics remain available, but are never
-triggered by this app. TCL requests preserve both `record.bin` and the
-capture `result.txt`; their separate log is
-`/data/misc/hibreak-ir/tcl-result.txt`. For troubleshooting after an
-explicit test:
-
-```sh
-adb -s SERIAL shell getprop init.svc.hibreak_ir_tcl
-adb -s SERIAL shell getprop debug.hibreak.ir_tcl_result
-adb -s SERIAL shell cat /data/misc/hibreak-ir/tcl-result.txt
-```
-
-The host build verifies APK signature/alignment, the full GSI/vendor policy
-merge with no additional neverallow conflicts, and injected image contents
-and filesystem integrity. Mock tests check exact packet/checksum, one
-write, no retries, invalid tokens, failed/partial writes, busy device,
-result publication failures, stale-result rejection, UI timeout, and both
-overlay variants. **Boot-time app labeling/property access and the TV's
-response still require testing after flashing v4.** After flashing,
-unlock, open **HiBreak IR Test**, point the IR window at the TV, and tap
-**Send Volume Up (experimental)** once. No computer is needed for that
-button press. App installation, JNI library loading, and the actual
-four-element launcher UI were checked on the existing ROM without
-pressing Send or transmitting.
-
-#### v4 boot regression and v5 correction
-
-After flashing v4, the dedicated `hibreak_ir_remote` domain was selected
-correctly, but ART aborted before app creation:
-`Could not create private region after zygote fork: Failed to initialize
-memory file: Permission denied`. The matching AVC denied writing
-`memfd:jit-cache`, labeled `tmpfs`. Membership in `appdomain` alone does
-not reproduce Android's per-domain `app_domain` macro expansion.
-The earlier UI check used the old ROM's ordinary app domain, so it did
-not exercise this policy.
-
-The v5 overlay adds the same `tmpfs` to `appdomain_tmpfs` file transition
-and scoped JIT-memory permissions used by the base ROM's `priv_app`,
-plus its per-domain userfaultfd transition and permissions. It does not
-grant writes to generic `tmpfs`, disable JIT, change the IR command, or
-relax SELinux enforcement. A regression test requires these runtime
-rules. The corrected image still needs a post-flash launch and
-explicitly authorized transmission test; host policy compilation alone
-cannot establish that the app runs in its new domain.
-
-#### v5 startup regression and v6 correction
-
-On the flashed v5 image, ART successfully initialized its JIT memory.
-The next startup blocker was a service-manager denial for `activity`,
-type `activity_service`, from `hibreak_ir_remote`. The standard
-`priv_app` domain explicitly grants discovery of `app_api_service`;
-`appdomain` membership does not include that grant.
-
-The v6 policy grants the dedicated domain discovery of Android's public
-app API services, rather than all service-manager types. Reviewing the
-base ROM's explicit `priv_app` startup rules also identified its native
-library execution, app-data symlink, and system-linker execution grants;
-these are included for this JNI app and its installed updates. Existing
-`appdomain` rules already supply Binder calls and app-data access through
-attribute expressions, so those rules are not duplicated. IR/property
-permissions are unchanged. Regression tests require both runtime memory
-and service-discovery/native-loader rules. Actual launch still needs
-validation under the corrected policy after flashing v6.
-
-On the flashed v6 image, the user confirmed that the control works on
-the TV. This establishes appliance response for the fixed
-`30 00 01 0f f0 ea c7 00 00 e1` packet and the on-phone request path.
-It supports the compact F=1, key/custom-byte mapping for this command,
-not all NEC addresses/commands, an exact carrier frequency, or the
-arbitrary-waveform codec.
-
-### Experimental standard Android NEC adapter (v7)
+### Experimental standard Android NEC adapter
 
 This opt-in adapter connects **ordinary `ConsumerIrManager` clients**
 to the existing controller. It recognizes a tightly bounded NEC envelope
@@ -1775,10 +1352,10 @@ button. It does not use learning or proprietary native libraries/tables.
 
 Supported input contract:
 
-- Exactly **38000 Hz requested**. This is the nominal NEC protocol carrier,
-  not a measurement of the HXD output; the compact protocol slot selects
-  the controller's actual carrier. The HAL advertises only `[38000,38000]`,
-  replacing the unrelated stock six-frequency table.
+- Exactly **38000 or 38222 Hz requested**. These are nominal request
+  aliases, not measurements of the HXD output; both select the same
+  controller-built NEC carrier. The HAL advertises these as two singleton
+  ranges instead of the unrelated stock six-frequency table.
 - One NEC/NECext frame: 9000/4500 us leader, 32 LSB-first bits using
   560 us marks and 560/1690 us spaces, and a final 560 us mark.
   Recognition allows +/-15% per interval and canonicalizes to the
@@ -1788,8 +1365,8 @@ Supported input contract:
   to 2000000 us with overflow-safe checks.
 - NEC's command complement must be valid; both ordinary complemented
   address bytes and NECext's independent address bytes are accepted.
-  Command/address combinations other than the confirmed TCL Volume Up
-  remain experimental.
+  The user's tested TCL Volume Up command is confirmed; broader code
+  database coverage has not been validated.
 
 Standalone NEC repeat frames, multiple frames in one array, NEC variants
 with a 16-bit non-complemented command, RC5/RC6/Sony/AC and other raw
@@ -1810,7 +1387,6 @@ overlay permits init's file mount and permits `hal_ir_default` to
 read/execute the module and read/write/lock `ctrl_device`. Ordinary
 apps receive no device or private-property access. SELinux stays
 enforcing. Reflashing the pre-HAL system image removes the bind action.
-The separate v6 diagnostic button remains available.
 
 Requests are serialized with a process mutex and the same advisory
 controller lock as the diagnostic services. Each accepted frame uses
@@ -1823,86 +1399,25 @@ notification. Controller-internal repeats are still unmeasured.
 Consequently this is not yet a timing-faithful, fully conformant generic
 Android IR HAL.
 
-#### Build and validate
+#### Build and validation
 
-The NDK omits legacy `libhardware` headers. Supply public AOSP headers
-from matching `android-12.0.0_r1` checkouts, preserving their include
-directories. An `AOSP_HEADERS` directory can contain symlinks `hardware`
-to `hardware/libhardware/include/hardware`, `cutils` to
-`system/core/libcutils/include/cutils`, and `system` to
-`system/core/libsystem/include/system`. The consumerir header includes
-hardware/graphics headers transitively; do not replace these with
-handwritten ABI stubs. Keep dependencies in ignored local storage.
-Android 12 public headers and NDK 27.2.12479018 were used for this build.
+Build and preflight the HAL using the current
+[release procedure](BUILDING.md#optional-ir-support-for-a-release-candidate).
+It requires the Android 12 public headers and a stock vendor image matching
+the target phone's installed firmware. The ordinary API test APK is optional
+and is not part of a HAL-only release. The host regression suite checks the
+NEC encoder, HAL transport/error handling, locking and image overlay. These
+tests are not physical waveform measurements or firmware-compatibility
+certification.
 
-```sh
-export ANDROID_NDK_HOME=/path/to/android-ndk
-export AOSP_HEADERS=/path/to/aosp-include
-bash tools/build-ir-hal.sh build/consumerir.hxd.so
-python3 -m unittest tools.tests.test_hxd_nec tools.tests.test_hxd_learn \
-  tools.tests.test_ir_overlay tools.tests.test_ir_remote
-python3 tools/add-ir-capture-to-gsi.py \
-  /path/to/display-release-without-ir.img build/HiBreakPro-ir-nec-hal.img \
-  --vendor-image /path/to/matching-stock-vendor.img \
-  --secilc /path/to/secilc \
-  --hal-module build/consumerir.hxd.so --check-only
-```
+The earlier API test was launched as an ordinary app under `untrusted_app`;
+its send action used the public `ConsumerIrManager` API, not private HXD
+access. The user reported the test command worked. A query-only native probe
+also loaded the module and opened/queried it without transmitting; that probe
+alone did not validate the HAL service's runtime domain. The later IR Blaster
+compatibility update and user report are recorded below.
 
-This command preflights without creating an image. Remove `--check-only`
-only when ready to package. For optional comparisons, build the private
-app and tool and pass `--diagnostics-binary build/hxd-learn-remote
---remote-apk build/HiBreakIrRemote.apk`. Build the ordinary test app
-with `bash tools/build-ir-api-test.sh build/AndroidIrApiTest.apk` and
-either sideload it or opt in using `--api-test-apk`.
-The HAL transport tests use official headers
-from `AOSP_HEADERS` (default `local/ir-hal-headers`), skipping that ABI
-test if headers are unavailable. Encoder tests need only a host C compiler.
-
-The host tests cover exact TCL bytes/checksum, randomized NEC/NECext
-addresses/commands, timing boundaries, atomic unsupported-input rejection,
-duration overflow, ABI/callbacks, busy/non-character controllers,
-partial/interrupted writes without retry, pacing interruptions, concurrent
-requests, and image content/label roundtrips for all overlay variants.
-An arm64 query-only probe successfully loaded the module on the phone,
-opened its HAL device, queried the single 38000 Hz range, and closed it
-**without transmitting**. That probe runs as shell; it does not verify
-vendor linker namespaces or the post-boot HAL domain.
-
-The separate **Android IR API Test** APK uses only the public API and
-normal `TRANSMIT_IR` permission. It was installed and launched under
-`untrusted_app` on v6; its send button correctly remained disabled
-because the old HAL still advertises six ranges. No send was requested.
-It enables sending only when one exact 38000 Hz range is reported.
-The app's only send button constructs the known TCL NECext waveform,
-not an HXD packet. It explicitly warns that Android's void `transmit`
-return does not prove HAL success.
-
-After flashing v7, first check (without sending):
-
-```sh
-adb -s SERIAL shell getenforce
-adb -s SERIAL shell 'cat /proc/mounts | grep consumerir'
-adb -s SERIAL logcat -d -s HibreakIR
-adb -s SERIAL shell am start -n com.hibreak.irapitest/.MainActivity
-```
-
-Expect the adapter-loaded log and the API test app reporting a single
-38000 Hz range. A bind-mount/module-load error must be fixed before
-transmitting; do not mistake the original diagnostic app working for
-standard-API success. Then, only when ready for a live test, aim at the
-TV and tap **Send Volume Up via Android API** once. Confirm a matching
-`HibreakIR` write log and actual TV response. Follow with an existing
-ordinary IR app using one full NEC frame.
-
-After the v7 flashing/test instructions, the user reported "it works".
-This is user-reported end-to-end success for the standard Android API
-TCL Volume Up test, following the earlier private-path success on v6.
-No independent post-flash logs or optical measurements were collected
-for this confirmation. Other ordinary IR apps, additional NEC commands,
-controller-internal repeats, exact carrier/timing, and optical completion
-remain unverified. This result does not establish arbitrary-waveform support.
-
-#### IR Blaster carrier compatibility (v8)
+#### IR Blaster carrier compatibility
 
 The user's IR Blaster app reached the v7 HAL, but logged unsupported
 waveforms. Its `NecProtocolEncoder` and `Nec2ProtocolEncoder` use **38222
@@ -1931,18 +1446,17 @@ describe accepted carrier canonicalization.
 
 The user can keep the existing IR Blaster APK and button settings after
 flashing v8. The old v7 API-test APK expects one carrier range and will
-disable its button on v8; install the updated API-test APK if using that
-diagnostic. Other protocol limits are unchanged: NECx1/NECx2's 4500 us
-leader, non-NEC protocols, and bundled repeat sequences are not enabled
-by this frequency-alias change. Post-flash testing from IR Blaster remains
-necessary; this update does not establish that the user's full remote
-database is compatible.
+disable its button on v8; use the updated API-test APK only if that optional
+diagnostic is needed. The user's confirmation establishes that IR Blaster
+works for the tested NEC command, not that every command in its remote
+database is compatible. Non-NEC protocols and bundled repeat sequences
+remain unsupported.
 
 The user subsequently confirmed that IR Blaster works with v8. This
 confirms the tested NEC command through that app; it does not broaden
 the supported protocol contract.
 
-#### Release preparation and review hardening
+#### Validation safeguards
 
 The current overlay's release command uses `--hal-module` with no
 diagnostic binary or APK. It installs the standard adapter only.
@@ -1950,84 +1464,49 @@ Both test apps are explicit opt-ins: `--remote-apk` requires
 `--diagnostics-binary`, while `--api-test-apk` independently adds the
 ordinary API test app. Capture/camera services, their binary, private
 request properties, and diagnostic-domain contexts/policy are absent
-from the HAL-only configuration. The optional old positional binary
-argument remains an explicit diagnostic opt-in for earlier commands.
+from the HAL-only configuration.
 See [the release build procedure](BUILDING.md#optional-ir-support-for-a-release-candidate)
-for preflight and eventual packaging commands. No new release image
-was packaged during this preparation.
+for preflight and packaging commands.
 
 Review hardening keeps a shared post-write ownership guard in both the
 HAL and diagnostic transmitter, including the diagnostic's last packet.
-Fixed sample/TCL commands use a conservative 108800 us envelope plus
-120 ms; HAL requests use their validated envelope plus the same guard.
-This remains unmeasured pacing, not a controller completion notification.
-Signal-interrupted sleeps finish the guard before releasing the lock.
-Regression coverage checks that a second lock owner is excluded during
-the diagnostic guard and can acquire the lock after completion.
+HAL requests hold the controller lock for their validated envelope plus
+120 ms; this is unmeasured pacing, not a completion notification.
 
-Before any output image is created, the overlay checks HAL ELF program
-headers/segments, a terminated dynamic table, an exported arm64-sized
-`HMI` object, a restricted set of Android runtime dependencies, and absence
-of text relocations. Host `readelf` (`binutils`) is required for HAL builds.
-Malformed/truncated and unrelated shared-library inputs are rejected;
-these checks do not replace runtime linker/ABI testing.
+The overlay statically checks the arm64 HAL ELF, program segments,
+terminated dynamic table, exported `HMI` object, runtime dependencies and
+absence of text relocations before packaging. This does not replace runtime
+linker/ABI validation.
 
-The optional private test app now recovers its request token and start
-time from existing properties when recreated, including after process
-restart. It resumes status polling without sending and keeps sending
-disabled while the init service is running, even if a result has already
-been published or ten seconds have elapsed. Without a running service,
-an unanswered request times out explicitly. Tests simulate erased
-process-local state and verify no duplicate property request is made.
+## 7. Remaining limitations and useful next evidence
 
-## 7. Recommended next investigation
+The bounded adapter is implemented and has user-reported success with the
+TCL test command and IR Blaster. Do not describe the implementation as
+generic or fully measured. Useful next work is limited to evidence that
+would change its supported contract:
 
-1. Resolve the specific unanswered questions in the E-variant checklist
-   above through manufacturer/board-vendor documentation or a newly
-   identified implementation. The targeted public-source and supplied-APK
-   follow-up did not expose a carrier setter or exit command; do not
-   repeat broad web/firmware scans without a new lead. Continue offline
-   record analysis where it can constrain timing/carrier fields.
-   Approximately 16 us per normalized unit remains uncalibrated despite
-   public-source corroboration. Do not enable either HAL route on that alone.
-2. Extend complete short-record coverage to more segment classifications
-   and protocol-specific waveform toggle changes. The harness now covers
-   the original 45 isolated/packet vectors, complete short-record helpers
-   and wrapper acceptance/rejection, and 22 protocol-scale hypotheses.
-   JNI and hardware semantics remain unverified. Do not open the IR device
-   or transmit during codec analysis.
-3. If measurement equipment becomes available, observe one known-working
-   command's optical waveform to validate the inferred carrier, pulse units,
-   and repeat behavior. That is physical validation, not a prerequisite for
-   static analysis.
-4. Establish permission-protected access on the target ROM. Test from this
-   app's actual target-SDK-36 domain, not only from root/ADB.
-5. Specify which Android waveforms the recovered HXD format can represent;
-   reject unsupported patterns rather than silently approximating them.
-   Do not redistribute proprietary code tables.
-6. Build a minimal native encoder/transport proof, followed by the chosen
-   HAL or app-backend integration.
+1. **Firmware compatibility:** the overlay is validated against a matching
+   stock-vendor image, but the user's successful tests do not establish
+   compatibility with other vendor, kernel or GSI versions. Validate each
+   intended firmware combination on-device before claiming support.
+2. **Optical waveform:** use a calibrated receiver/oscilloscope to measure
+   carrier, mark/space timing and repeats for a known command. Camera-visible
+   flashes and appliance response do not provide those measurements.
+3. **Repeat behavior:** determine what the controller emits per accepted
+   packet and test how ordinary apps express held keys. Current adapter
+   accepts one full frame per call and rejects standalone/bundled repeat
+   frames.
+4. **Broader protocol support:** add a protocol only when its input
+   recognition, HXD encoding and on-device result are validated. RC5/RC6,
+   Sony, air-conditioner protocols and arbitrary timings remain unsupported.
+5. **Learning:** do not spend effort exposing learning unless new evidence
+   establishes that this board has a usable optical receive path. Existing
+   button and no-button records matched.
 
-Acceptance criteria before calling it standard-IR compatible:
-
-- Matching carrier, pulse timing, payload, and repeat behavior for captured
-  reference commands; report measured errors against the reference.
-- Successful appliance response and independently observed optical output,
-  not just Binder success.
-- NEC-style patterns plus biphase protocols, odd-length trailing marks,
-  long gaps, and longer air-conditioner frames where supported.
-- Defined frequency/timing/buffer limits, with explicit rejection outside
-  those limits and no partial command emitted on preflight failure.
-- Concurrent requests, busy device, failed writes, unsupported input, and
-  timeout behavior.
-- Cold boot and SELinux-enforcing operation without root for callers.
-- For a ROM HAL: this app and a second ordinary ConsumerIrManager client.
-  For an app backend: every foreground and background transmit surface.
-
-**Decision:** favor ROM-side HAL translation for ecosystem compatibility;
-use an app backend only if app-local support is the priority and a sound
-modern-app access mechanism is available. Neither implementation is
-considered proven until the remaining waveform tests pass.
+The existing host suite covers framing, input bounds, controller errors,
+serialization and the documented HAL/overlay contract. Passing those tests
+does not replace validation on each target firmware or physical waveform
+measurement.
 
 ## Read-only checks used
 
