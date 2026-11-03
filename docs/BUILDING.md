@@ -19,7 +19,8 @@ images need `simg2img`; EROFS is not supported by this patcher or the tested
 stock kernel. The script requires a TrebleDroid `vndk.rc` using the existing
 `phhsu_daemon` domain. It does not add a new SELinux policy or disable SELinux.
 The current patcher does not install an IR HAL or add `ctrl_device` access;
-standard Android IR transmission through the HXD019 driver is not implemented.
+standard Android IR transmission through the HXD019 driver is not included
+by default. A separate experimental, NEC-only adapter is described below.
 See the [IR compatibility investigation](HIBREAK_PRO_IR.md) for the APK
 analysis and the ROM-side integration requirements.
 An optional standalone learning/capture CLI can be built with
@@ -29,7 +30,15 @@ before running it: capture sends a controller learning command and needs
 explicit device-test authorization. If ADB shell is denied access, use the
 separate, opt-in [ROM capture-service overlay](HIBREAK_PRO_IR.md#opt-in-rom-capture-service).
 That overlay adds a dedicated SELinux domain; the default display patcher
-still does not modify policy. Neither route implements IR replay or a HAL.
+still does not modify policy. The overlay also supports an explicitly selected
+camera-transmit diagnostic and an optional
+[one-button TCL test app](HIBREAK_PRO_IR.md#one-button-tcl-volume-up-test-v4-image).
+These are fixed-command diagnostics, not a HAL or arbitrary-waveform encoder.
+The opt-in [NEC ROM adapter](HIBREAK_PRO_IR.md#experimental-standard-android-nec-adapter-v7)
+accepts single-frame NEC/NECext requests through ConsumerIrManager
+(38000 Hz and, since v8, the app's 38222 Hz nominal alias);
+it rejects other protocols, repeat sequences, and frequencies. It is not
+a general waveform HAL and still needs post-flash standard-app validation.
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;

@@ -1,0 +1,8 @@
+(type hibreak_ir_hal_file)
+(roletype object_r hibreak_ir_hal_file)
+(typeattributeset file_type (hibreak_ir_hal_file))
+(typeattributeset vendor_file_type (hibreak_ir_hal_file))
+(allow init hibreak_ir_hal_file (file (read open getattr)))
+(allow init vendor_file (file (mounton)))
+(allow hal_ir_default hibreak_ir_hal_file (file (read open getattr map execute)))
+(allow hal_ir_default ctrl_device (chr_file (read write open getattr lock)))

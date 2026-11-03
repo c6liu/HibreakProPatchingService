@@ -1,0 +1,2 @@
+debug.hibreak.ir_tcl_request u:object_r:hibreak_ir_request_prop:s0 exact string
+debug.hibreak.ir_tcl_result u:object_r:hibreak_ir_result_prop:s0 exact string

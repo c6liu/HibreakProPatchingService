@@ -1,0 +1,10 @@
+service hibreak_ir_tcl /system/bin/hxd-learn --tcl-service ${debug.hibreak.ir_tcl_request}
+    user shell
+    group shell
+    seclabel u:r:hibreak_ir_capture:s0
+    disabled
+    oneshot
+    timeout_period 10
+
+on property:debug.hibreak.ir_tcl_request=*
+    start hibreak_ir_tcl

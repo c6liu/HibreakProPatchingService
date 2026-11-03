@@ -33,6 +33,7 @@ static int fake_unlink(const char *path);
 #define nanosleep fake_nanosleep
 #define fsync fake_fsync
 #define unlink fake_unlink
+#define __ANDROID__
 #define main capture_main
 #include "../../hxd-learn.c"
 #undef open
@@ -55,10 +56,17 @@ static int read_count;
 static int device_opens;
 static int file_fd = -1;
 static bool device_open;
+static bool tcl_request;
 static double current_time = 1000;
 
 static bool is(const char *name) {
     return strcmp(scenario, name) == 0;
+}
+
+int __system_property_set(const char *name, const char *value) {
+    assert(strcmp(name, "debug.hibreak.ir_tcl_result") == 0);
+    fprintf(stderr, "PROPERTY %s\n", value);
+    return is("tcl-publish-error") ? -1 : 0;
 }
 
 static const char *service_path(const char *path) {
@@ -130,6 +138,20 @@ static ssize_t fake_write(int fd, const void *buffer, size_t count) {
         return write(fd, buffer, count);
     }
     assert(device_open);
+    if (tcl_request) {
+        static const unsigned char expected[] = {0x30, 0x00, 0x01, 0x0f, 0xf0, 0xea, 0xc7, 0x00, 0x00, 0xe1};
+        assert(count == sizeof(expected) && memcmp(buffer, expected, count) == 0);
+        unsigned int sum = 0;
+        for (size_t i = 0; i + 1 < count; ++i)
+            sum += expected[i];
+        assert((sum & 0xff) == expected[count - 1]);
+        assert(++command_count == 1 && read_count == 0);
+        if (is("tcl-error")) {
+            errno = EIO;
+            return -1;
+        }
+        return is("tcl-partial") ? 4 : (ssize_t)count;
+    }
     if (strncmp(scenario, "tx-", 3) == 0) {
         static const unsigned char expected[] = {0x30, 0x00, 0x01, 0x1c, 0xe3, 0x00, 0xff, 0x20, 0x88, 0xd7};
         assert(count == sizeof(expected) && memcmp(buffer, expected, count) == 0);
@@ -229,6 +251,7 @@ static int fake_fsync(int fd) {
 int main(int argc, char **argv) {
     scenario = getenv("HXD_TEST_SCENARIO");
     assert(scenario);
+    tcl_request = argc > 1 && strcmp(argv[1], "--tcl-service") == 0;
     int result = capture_main(argc, argv);
     assert(!device_open);
     if (is("no-device"))
@@ -241,5 +264,7 @@ int main(int argc, char **argv) {
         assert(command_count == 5 && read_count == 0 && current_time >= 1004);
     if (is("tx-error") || is("tx-partial") || is("tx-cancel"))
         assert(command_count == 1 && read_count == 0);
+    if (strncmp(scenario, "tcl-", 4) == 0)
+        assert(command_count == 1 && read_count == 0 && current_time == 1000);
     return result;
 }

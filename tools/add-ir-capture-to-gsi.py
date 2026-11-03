@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add an opt-in IR capture service to an ext4 GSI; never flash or access ADB."""
+"""Add opt-in IR diagnostics and an optional fixed-command remote to an ext4 GSI."""
 
 import argparse
 import hashlib
@@ -47,7 +47,7 @@ def neverallow_failures(result):
     return failures
 
 
-def prepare_policy(source, vendor, work, compiler):
+def prepare_policy(source, vendor, work, compiler, remote=False, hal=False):
     if not image_exists(source, "system/bin/secilc"):
         raise ValueError("GSI has no /system/bin/secilc for boot-time policy recompilation")
     if image_exists(vendor, "/odm/etc/selinux/odm_sepolicy.cil"):
@@ -81,7 +81,12 @@ def prepare_policy(source, vendor, work, compiler):
                *map(str, inputs), "-o", str(work / "validated.policy"),
                "-f", str(work / "validated.contexts")]
     baseline = neverallow_failures(subprocess.run(command, capture_output=True))
-    platform.write_text(text + "\n" + (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text())
+    extra = (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text()
+    if remote:
+        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-remote.cil").read_text()
+    if hal:
+        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-hal.cil").read_text()
+    platform.write_text(text + "\n" + extra)
     modified = neverallow_failures(subprocess.run(command, capture_output=True))
     added = modified - baseline
     if added:
@@ -92,6 +97,9 @@ def prepare_policy(source, vendor, work, compiler):
         run(*command, "-N")
     contexts = extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")
     contexts.write_text(contexts.read_text() + "\n" + (ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
+    if hal:
+        contexts.write_text(contexts.read_text() +
+                            "\n/system/lib64/consumerir\\.hxd\\.so u:object_r:hibreak_ir_hal_file:s0\n")
     return platform, contexts, inputs
 
 
@@ -128,16 +136,30 @@ def main():
     parser.add_argument("--vendor-image", required=True, type=Path, help="Matching stock vendor ext4 image, read-only")
     parser.add_argument("--secilc", default="secilc", help="Host CIL compiler")
     parser.add_argument("--check-only", action="store_true", help="Validate merged policy without producing an image")
+    parser.add_argument("--remote-apk", type=Path, help="Optional HiBreak IR Test app; enables fixed TCL transmit service")
+    parser.add_argument("--hal-module", type=Path, help="Experimental arm64 NEC/NECext legacy consumerir adapter")
     args = parser.parse_args()
     for tool in ("debugfs", "e2fsck", "resize2fs", "dumpe2fs", "cp", args.secilc):
         if not shutil.which(tool):
             parser.error(f"Missing dependency: {tool}")
-    for path in (args.source, args.output, args.binary, args.vendor_image, ROOT, Path(tempfile.gettempdir())):
+    for path in (args.source, args.output, args.binary, args.vendor_image, ROOT, Path(tempfile.gettempdir()),
+                 *([args.remote_apk] if args.remote_apk else [])):
         if any(char in str(path) for char in ('"', "\\", "\n", "\r")):
             parser.error(f"Unsupported path characters: {path}")
     for path in (args.source, args.binary, args.vendor_image):
         if not path.is_file() or path.stat().st_size == 0:
             parser.error(f"Missing input: {path}")
+    if args.remote_apk and (not args.remote_apk.is_file() or args.remote_apk.stat().st_size == 0):
+        parser.error(f"Missing remote APK: {args.remote_apk}")
+    if args.hal_module:
+        if any(char in str(args.hal_module) for char in ('"', "\\", "\n", "\r")):
+            parser.error("Unsupported HAL module path characters")
+        if not args.hal_module.is_file():
+            parser.error(f"Missing HAL module: {args.hal_module}")
+        module = args.hal_module.read_bytes()
+        if (len(module) < 64 or module[:6] != b"\x7fELF\x02\x01" or
+                module[16:20] != b"\x03\x00\xb7\x00"):
+            parser.error("Expected an arm64 little-endian shared HAL module")
     if os.path.lexists(args.output):
         parser.error(f"Refusing to overwrite: {args.output}")
     binary = args.binary.read_bytes()
@@ -155,7 +177,24 @@ def main():
         parser.error("Service requires a static executable; rebuild with tools/build-ir-tool.sh")
     with tempfile.TemporaryDirectory(prefix="hibreak-ir-") as directory:
         work = Path(directory)
-        platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc)
+        if args.hal_module:
+            stock = extract(args.vendor_image, "/lib64/hw/consumerir.common.so", work / "stock-ir.so")
+            service = extract(args.vendor_image, "/etc/init/android.hardware.ir@1.0-service.rc", work / "stock-ir.rc")
+            if stock.read_bytes()[:6] != b"\x7fELF\x02\x01" or "class hal" not in service.read_text():
+                raise ValueError("Expected arm64 legacy consumerir.common.so and class-hal IR service")
+            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc,
+                                                        remote=bool(args.remote_apk), hal=True)
+        elif args.remote_apk:
+            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc, remote=True)
+        else:
+            platform, contexts, inputs = prepare_policy(args.source, args.vendor_image, work, args.secilc)
+        remote_contexts = []
+        if args.remote_apk:
+            for name, suffix in (("plat_seapp_contexts", "seapp-contexts"), ("plat_property_contexts", "property-contexts")):
+                context = extract(args.source, f"{POLICY}/{name}", work / name)
+                context.write_text(context.read_text() + "\n" +
+                                   (ROOT / f"tools/ir/hibreak-ir-remote-{suffix}").read_text())
+                remote_contexts.append((context, f"{POLICY}/{name}", "0100644", "system_file"))
         print("Merged GSI + stock vendor IR policy compiled; no new neverallow conflicts.")
         if args.check_only:
             return
@@ -182,6 +221,27 @@ def main():
                 (ROOT / "tools/ir/hibreak-ir-capture.rc", "system/etc/init/hibreak-ir-capture.rc", "0100644", "system_file"),
             ):
                 install(args.output, source, dest, mode, f"u:object_r:{label}:s0", work)
+            if args.hal_module:
+                for source, dest, label in (
+                    (args.hal_module, "system/lib64/consumerir.hxd.so", "hibreak_ir_hal_file"),
+                    (ROOT / "tools/ir/hibreak-ir-hal.rc", "system/etc/init/hibreak-ir-hal.rc", "system_file"),
+                ):
+                    install(args.output, source, dest, "0100644", f"u:object_r:{label}:s0", work)
+            if args.remote_apk:
+                directory = "system/priv-app/HiBreakIrRemote"
+                if not image_exists(args.output, directory):
+                    run("debugfs", "-w", "-R", f"mkdir {directory}", str(args.output))
+                for field, value in (("mode", "040755"), ("uid", "0"), ("gid", "0")):
+                    run("debugfs", "-w", "-R", f"sif {directory} {field} {value}", str(args.output))
+                label_file = work / "app-label"
+                label_file.write_bytes(b"u:object_r:system_file:s0\0")
+                run("debugfs", "-w", "-R", f'ea_set -f "{label_file}" {directory} security.selinux', str(args.output))
+                for source, dest, mode, label in [
+                    *remote_contexts,
+                    (args.remote_apk, f"{directory}/HiBreakIrRemote.apk", "0100644", "system_file"),
+                    (ROOT / "tools/ir/hibreak-ir-remote.rc", "system/etc/init/hibreak-ir-remote.rc", "0100644", "system_file"),
+                ]:
+                    install(args.output, source, dest, mode, f"u:object_r:{label}:s0", work)
             fsck(args.output, "-fy")
             run("resize2fs", "-M", str(args.output))
             header = run("dumpe2fs", "-h", str(args.output)).stdout.decode()
@@ -194,7 +254,8 @@ def main():
         except BaseException:
             args.output.unlink()
             raise
-    print(f"Verified IR capture test image: {args.output}")
+    kind = "NEC HAL" if args.hal_module else "remote" if args.remote_apk else "capture"
+    print(f"Verified IR {kind} test image: {args.output}")
     print("No flashing, ADB access, learning, or IR transmission was performed.")
 
 

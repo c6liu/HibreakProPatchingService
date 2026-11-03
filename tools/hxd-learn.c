@@ -12,6 +12,9 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 static volatile sig_atomic_t interrupted;
 
@@ -285,9 +288,7 @@ cleanup:
     return 0;
 }
 
-static int transmit_test(void) {
-    /* HXD019D manufacturer instructions REV 1.3, section 1.1 sample packet. */
-    static const unsigned char packet[] = {0x30, 0x00, 0x01, 0x1c, 0xe3, 0x00, 0xff, 0x20, 0x88, 0xd7};
+static int transmit_packets(const unsigned char *packet, size_t length, int count) {
     struct sigaction action = {.sa_handler = on_signal};
     sigemptyset(&action.sa_mask);
     if (sigaction(SIGINT, &action, NULL) < 0 || sigaction(SIGTERM, &action, NULL) < 0) {
@@ -313,22 +314,20 @@ static int transmit_test(void) {
         perror("lock transmit test controller");
         goto cleanup;
     }
-    fprintf(stderr, "IR TRANSMIT TEST: five manufacturer sample commands, one second apart.\n"
-                    "Unknown appliance action: aim away from appliances. No learned data is replayed.\n");
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < count; ++i) {
         if (interrupted)
             goto cleanup;
-        ssize_t sent = write(device, packet, sizeof(packet));
-        if (sent != (ssize_t)sizeof(packet)) {
+        ssize_t sent = write(device, packet, length);
+        if (sent != (ssize_t)length) {
             if (sent < 0)
                 perror("write transmit test packet");
             else
-                fprintf(stderr, "Incomplete transmit test packet: %zd of %zu bytes.\n", sent, sizeof(packet));
+                fprintf(stderr, "Incomplete transmit test packet: %zd of %zu bytes.\n", sent, length);
             fprintf(stderr, "Aborting test; failed or partial command is not retried.\n");
             goto cleanup;
         }
-        fprintf(stderr, "Transmit test write %d/5 completed; optical output is NOT verified.\n", i + 1);
-        if (i < 4) {
+        fprintf(stderr, "Transmit test write %d/%d completed; optical output is NOT verified.\n", i + 1, count);
+        if (i + 1 < count) {
             double now;
             if (monotonic_time(&now) < 0)
                 goto cleanup;
@@ -356,11 +355,47 @@ cleanup:
     return result;
 }
 
+static int transmit_test(void) {
+    /* HXD019D manufacturer instructions REV 1.3, section 1.1 sample packet. */
+    static const unsigned char packet[] = {0x30, 0x00, 0x01, 0x1c, 0xe3, 0x00, 0xff, 0x20, 0x88, 0xd7};
+    fprintf(stderr, "IR TRANSMIT TEST: five manufacturer sample commands, one second apart.\n"
+                    "Unknown appliance action: aim away from appliances. No learned data is replayed.\n");
+    return transmit_packets(packet, sizeof(packet), 5);
+}
+
+static int transmit_tcl(void) {
+    /* Experimental compact F=1 mapping of the public TCL NECext EA C7 / 0F F0 code. */
+    static const unsigned char packet[] = {0x30, 0x00, 0x01, 0x0f, 0xf0, 0xea, 0xc7, 0x00, 0x00, 0xe1};
+    fprintf(stderr, "Experimental TCL Volume Up: one fixed packet; HXD protocol mapping is unverified.\n");
+    return transmit_packets(packet, sizeof(packet), 1);
+}
+
+static int publish_tcl_result(const char *token, int result) {
+#ifdef __ANDROID__
+    char value[PROP_VALUE_MAX];
+    int size = snprintf(value, sizeof(value), "%s:%s", token, result == 0 ? "written" : "failed");
+    if (size < 0 || (size_t)size >= sizeof(value) ||
+        __system_property_set("debug.hibreak.ir_tcl_result", value) < 0) {
+        fprintf(stderr, "Cannot publish TCL transmit result.\n");
+        return 1;
+    }
+#else
+    (void)token;
+#endif
+    return result;
+}
+
 int main(int argc, char **argv) {
-    if (argc < 2 || strcmp(argv[1], "--service") != 0)
+    bool tcl_service = argc >= 2 && strcmp(argv[1], "--tcl-service") == 0;
+    if (tcl_service && (argc != 3 || !argv[2][0] || strlen(argv[2]) > 20 ||
+                        strspn(argv[2], "0123456789") != strlen(argv[2]))) {
+        fprintf(stderr, "TCL service requires a numeric request token of 1..20 digits.\n");
+        return 2;
+    }
+    if (!tcl_service && (argc < 2 || strcmp(argv[1], "--service") != 0))
         return run_capture(argc, argv);
-    if (argc > 3 || (argc == 3 && strcmp(argv[2], "extended") != 0 &&
-                     strcmp(argv[2], "short") != 0 && strcmp(argv[2], "tx-test") != 0)) {
+    if (!tcl_service && (argc > 3 || (argc == 3 && strcmp(argv[2], "extended") != 0 &&
+                     strcmp(argv[2], "short") != 0 && strcmp(argv[2], "tx-test") != 0))) {
         fprintf(stderr, "Service mode must be extended, short, or tx-test; no device access attempted.\n");
         return 2;
     }
@@ -368,37 +403,37 @@ int main(int argc, char **argv) {
     bool tx_test = argc == 3 && strcmp(argv[2], "tx-test") == 0;
 
     char record[] = "/data/misc/hibreak-ir/record.bin";
-    int log = open("/data/misc/hibreak-ir/result.txt",
+    int log = open(tcl_service ? "/data/misc/hibreak-ir/tcl-result.txt" : "/data/misc/hibreak-ir/result.txt",
                    O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (log < 0) {
         perror("open capture service result");
-        return 1;
+        return tcl_service ? publish_tcl_result(argv[2], 1) : 1;
     }
     if (dup2(log, STDOUT_FILENO) < 0 || dup2(log, STDERR_FILENO) < 0) {
         perror("redirect capture service output");
         close(log);
-        return 1;
+        return tcl_service ? publish_tcl_result(argv[2], 1) : 1;
     }
     if (close(log) < 0) {
         perror("close capture service log descriptor");
-        return 1;
+        return tcl_service ? publish_tcl_result(argv[2], 1) : 1;
     }
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
-    if (!tx_test && unlink(record) < 0 && errno != ENOENT) {
+    if (!tx_test && !tcl_service && unlink(record) < 0 && errno != ENOENT) {
         perror("remove previous service capture");
         return 1;
     }
     char *capture[] = {argv[0], "capture", short_record ? "--short" : "--", record, NULL};
-    int result = tx_test ? transmit_test() : run_capture(4, capture);
-    printf("%s service exit status: %d\n", tx_test ? "Transmit test" : "Capture", result);
+    int result = tcl_service ? transmit_tcl() : tx_test ? transmit_test() : run_capture(4, capture);
+    printf("%s service exit status: %d\n", tcl_service ? "TCL transmit" : tx_test ? "Transmit test" : "Capture", result);
     if (fflush(NULL) != 0) {
         perror("flush capture service result");
-        return 1;
+        return tcl_service ? publish_tcl_result(argv[2], 1) : 1;
     }
     if (fsync(STDOUT_FILENO) < 0) {
         perror("fsync capture service result");
-        return 1;
+        return tcl_service ? publish_tcl_result(argv[2], 1) : 1;
     }
-    return result;
+    return tcl_service ? publish_tcl_result(argv[2], result) : result;
 }

@@ -20,6 +20,7 @@ class HxdLearnTests(unittest.TestCase):
         cls.binary = Path(cls.build.name) / "mock-hxd-learn"
         subprocess.run(
             [compiler, "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror",
+             "-I", ROOT / "tools/tests/native/include",
              ROOT / "tools/tests/native/hxd_learn_mock.c", "-o", cls.binary],
             check=True,
         )
@@ -187,6 +188,33 @@ class HxdLearnTests(unittest.TestCase):
                     self.assertIn("optical output is NOT verified", log)
                 elif scenario != "tx-cancel":
                     self.assertIn("not retried", log)
+
+    def test_tcl_fixed_single_write_status_and_no_capture_changes(self):
+        record = Path(self.tmp.name) / "record.bin"
+        capture_log = Path(self.tmp.name) / "result.txt"
+        record.write_bytes(b"keep capture")
+        capture_log.write_text("keep capture log")
+        for scenario, expected in (("tcl-success", 0), ("tcl-error", 1),
+                                   ("tcl-partial", 1), ("tcl-publish-error", 1),
+                                   ("busy", 1), ("open-denied", 1), ("fsync-error", 1)):
+            with self.subTest(scenario=scenario):
+                result = self.run_tool(scenario, "--tcl-service", "123")
+                self.assertEqual(result.returncode, expected, result.stderr)
+                log = (Path(self.tmp.name) / "tcl-result.txt").read_text()
+                self.assertIn("Experimental TCL", log)
+                if scenario != "tcl-publish-error":
+                    self.assertIn(f"PROPERTY 123:{'written' if expected == 0 else 'failed'}", log)
+                else:
+                    self.assertIn("Cannot publish TCL transmit result", log)
+                self.assertEqual(record.read_bytes(), b"keep capture")
+                self.assertEqual(capture_log.read_text(), "keep capture log")
+
+    def test_tcl_invalid_token_before_log_or_device_access(self):
+        for args in ([], [""], ["abc"], ["1:written"], ["1" * 21], ["123", "extra"]):
+            result = self.run_tool("no-device", "--tcl-service", *args)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("numeric request token", result.stderr)
+        self.assertFalse((Path(self.tmp.name) / "tcl-result.txt").exists())
 
 
 if __name__ == "__main__":

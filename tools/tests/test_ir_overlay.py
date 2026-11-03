@@ -65,6 +65,11 @@ class IrOverlayTests(unittest.TestCase):
                     self.assertIn("-N", compile_policy.call_args.args[0])
 
     def test_ext4_overlay_roundtrip_and_refusal_to_overwrite(self):
+        for remote, hal in ((False, False), (True, False), (False, True), (True, True)):
+            with self.subTest(remote=remote, hal=hal):
+                self._overlay_roundtrip(remote, hal)
+
+    def _overlay_roundtrip(self, remote, hal):
         for tool in ("debugfs", "mke2fs", "e2fsck", "resize2fs", "dumpe2fs"):
             if not shutil.which(tool):
                 self.skipTest(f"Missing {tool}")
@@ -74,8 +79,14 @@ class IrOverlayTests(unittest.TestCase):
             with source.open("wb") as stream:
                 stream.truncate(32 * 1024 * 1024)
             subprocess.run(["mke2fs", "-q", "-t", "ext4", "-F", source], check=True)
-            for path in ("system", "system/etc", "system/etc/selinux", "system/etc/init", "system/bin"):
+            for path in ("system", "system/etc", "system/etc/selinux", "system/etc/init", "system/bin",
+                         "system/priv-app", "system/lib64", "lib64", "lib64/hw", "etc", "etc/init"):
                 overlay.run("debugfs", "-w", "-R", f"mkdir {path}", str(source))
+            context_source = work / "context-source"
+            context_source.write_text("# existing context\n")
+            for name in ("plat_seapp_contexts", "plat_property_contexts"):
+                overlay.install(source, context_source, f"system/etc/selinux/{name}",
+                                "0100644", "u:object_r:system_file:s0", work)
             original = source.read_bytes()
             elf = bytearray(120)
             elf[:6] = b"\x7fELF\x02\x01"
@@ -85,8 +96,21 @@ class IrOverlayTests(unittest.TestCase):
             elf[56:58] = (1).to_bytes(2, "little")
             elf[64:68] = (1).to_bytes(4, "little")
             binary.write_bytes(elf)
+            shared = bytearray(elf)
+            shared[16:18] = (3).to_bytes(2, "little")
+            module = work / "hal.so"
+            module.write_bytes(shared)
+            vendor_rc = work / "vendor.rc"
+            vendor_rc.write_text("service vendor.ir-hal-1-0 /vendor/bin/hw/android.hardware.ir@1.0-service\n    class hal\n")
+            overlay.install(source, module, "lib64/hw/consumerir.common.so",
+                            "0100644", "u:object_r:vendor_file:s0", work)
+            overlay.install(source, vendor_rc, "etc/init/android.hardware.ir@1.0-service.rc",
+                            "0100644", "u:object_r:vendor_file:s0", work)
+            original = source.read_bytes()
 
-            def policy(_source, _vendor, temporary, _compiler):
+            def policy(_source, _vendor, temporary, _compiler, **kwargs):
+                self.assertEqual(kwargs.get("remote", False), remote)
+                self.assertEqual(kwargs.get("hal", False), hal)
                 cil, contexts = temporary / "plat.cil", temporary / "contexts"
                 cil.write_text("(type fixture)\n")
                 contexts.write_text((ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
@@ -94,6 +118,12 @@ class IrOverlayTests(unittest.TestCase):
 
             argv = ["overlay", str(source), str(output), str(binary),
                     "--vendor-image", str(source), "--secilc", "true"]
+            if remote:
+                apk = work / "remote.apk"
+                apk.write_bytes(b"test APK")
+                argv.extend(["--remote-apk", str(apk)])
+            if hal:
+                argv.extend(["--hal-module", str(module)])
             with mock.patch.object(sys, "argv", argv), mock.patch.object(overlay, "prepare_policy", side_effect=policy):
                 overlay.main()
                 self.assertEqual(source.read_bytes(), original)
@@ -104,6 +134,34 @@ class IrOverlayTests(unittest.TestCase):
                 stat = overlay.run("debugfs", "-R", "stat system/bin/hxd-learn", str(output)).stdout.decode()
                 self.assertIn("Mode:  0755", stat)
                 self.assertIn("u:object_r:hibreak_ir_capture_exec:s0", stat)
+                if remote:
+                    apk_path = "system/priv-app/HiBreakIrRemote/HiBreakIrRemote.apk"
+                    self.assertEqual(overlay.run("debugfs", "-R", f"cat {apk_path}", str(output)).stdout, b"test APK")
+                    for name, suffix in (("plat_seapp_contexts", "seapp-contexts"),
+                                         ("plat_property_contexts", "property-contexts")):
+                        self.assertEqual(
+                            overlay.run("debugfs", "-R", f"cat system/etc/selinux/{name}", str(output)).stdout,
+                            b"# existing context\n\n" + (ROOT / f"tools/ir/hibreak-ir-remote-{suffix}").read_bytes(),
+                        )
+                    self.assertEqual(
+                        overlay.run("debugfs", "-R", "cat system/etc/init/hibreak-ir-remote.rc", str(output)).stdout,
+                        (ROOT / "tools/ir/hibreak-ir-remote.rc").read_bytes(),
+                    )
+                else:
+                    self.assertFalse(overlay.image_exists(output, "system/priv-app/HiBreakIrRemote"))
+                if hal:
+                    self.assertEqual(
+                        overlay.run("debugfs", "-R", "cat system/lib64/consumerir.hxd.so", str(output)).stdout,
+                        module.read_bytes(),
+                    )
+                    self.assertIn("u:object_r:hibreak_ir_hal_file:s0", overlay.run(
+                        "debugfs", "-R", "stat system/lib64/consumerir.hxd.so", str(output)).stdout.decode())
+                    self.assertEqual(
+                        overlay.run("debugfs", "-R", "cat system/etc/init/hibreak-ir-hal.rc", str(output)).stdout,
+                        (ROOT / "tools/ir/hibreak-ir-hal.rc").read_bytes(),
+                    )
+                else:
+                    self.assertFalse(overlay.image_exists(output, "system/lib64/consumerir.hxd.so"))
                 with self.assertRaises(SystemExit):
                     overlay.main()
             self.assertTrue(output.exists())
