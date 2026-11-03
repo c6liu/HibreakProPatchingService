@@ -18,6 +18,10 @@ Use **arm64 A/B, ext4**. Extract compressed images first. Android sparse
 images need `simg2img`; EROFS is not supported by this patcher or the tested
 stock kernel. The script requires a TrebleDroid `vndk.rc` using the existing
 `phhsu_daemon` domain. It does not add a new SELinux policy or disable SELinux.
+The current patcher does not install an IR HAL or add `ctrl_device` access;
+standard Android IR transmission through the HXD019 driver is not implemented.
+See the [IR compatibility investigation](HIBREAK_PRO_IR.md) for the APK
+analysis and the ROM-side integration requirements.
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The LineageOS input omits `persist.sys.usb.config` from `system/build.prop`;

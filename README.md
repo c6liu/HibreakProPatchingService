@@ -18,6 +18,8 @@ has the details for building the app, daemon and patched image.
 - [Findings and troubleshooting](docs/FINDINGS.md): tested hardware/software,
   display fixes, stock mode research, AOD, boot/power evidence, limitations,
   and failed approaches.
+- [HiBreak Pro IR investigation](docs/HIBREAK_PRO_IR.md): HXD019 and Android
+  IR interfaces, APK codec analysis, and ROM-side HAL integration constraints.
 - [LineageOS for microG GSI releases](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/):
   recommended input `LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16).
 - [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases): previous
