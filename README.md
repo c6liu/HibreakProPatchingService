@@ -21,9 +21,7 @@ has the details for building the app, daemon and patched image.
 - [LineageOS for microG GSI releases](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/):
   recommended input `LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16).
 - [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases): previous
-  input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`. Kindle cannot
-  download books on it; see
-  [Findings](docs/FINDINGS.md#third-party-app-issues).
+  input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`. 
 - [Original HiBreak release](https://github.com/vbbot/HibreakProPatchingService/releases/tag/20250507):
   source of the prebuilt APK used by the offline APK patcher.
 
