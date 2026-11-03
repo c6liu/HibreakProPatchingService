@@ -4,6 +4,13 @@ This guide is for the **black-and-white Bigme HiBreak Pro (MT6877)** with
 **stock 3.1.6 vendor**. It is **not** for the HiBreak Pro Color.
 Keep the stock vendor, boot and kernel; do not install a Color HWC shim.
 
+> **Firmware compatibility:** this is not a universal HiBreak Pro image.
+> The documented stock baseline is **3.1.6 /
+> `Bigme_HiBreak_V1.0_20260306`**. Older and newer stock firmware are
+> untested. An image built/validated against this vendor may fail to boot
+> or lose functionality on another version. Do not flash it on a different
+> firmware baseline merely because the phone model matches.
+
 The result includes E-Ink settings, the matching display daemon, and AOD fixes.
 Optional IR support lets ordinary Android IR apps transmit single NEC/NECext
 commands. Root/Magisk is not required. The release commands below remove
@@ -226,6 +233,18 @@ Skip the rest of section 3 if you do not want IR. The IR overlay needs a
 **raw ext4 vendor image from your stock 3.1.6 backup** to validate policy.
 It reads this file; it does not flash or modify vendor.
 
+**Is this file required?** Yes for the IR overlay, including `--check-only`;
+no for the display-only patcher. It supplies the vendor SELinux policy
+and mapping version for the merge check, and the stock IR module/service
+used to check the expected integration.
+
+**It must match the vendor firmware installed on the target phone**, not
+just its model. A backup from before a stock firmware update may no longer
+match. The tool cannot compare an offline file with the recipient's phone.
+Passing preflight proves only the checked inputs, not compatibility with
+older/newer firmware, the kernel, or the physical device. Rebuilding with
+another version's vendor is not by itself a supported port.
+
 If vendor is stored inside the backup's `super.bin`, extract `vendor_a`
 from it using a verified `lpunpack` tool. AOSP documents the
 [dynamic-partition tools](https://android.googlesource.com/platform/system/extras/+/refs/tags/android-12.0.0_r1/partition_tools/).
@@ -439,7 +458,12 @@ sha256sum "$IMAGE"
 ```
 
 Stop if the filesystem check fails. Save the checksum alongside any image
-you distribute. `--release` makes a **release candidate**: it does not sign
+you distribute. Also publish the exact required stock firmware/vendor
+version and the GSI version used, plus the test status. Recipients must
+check their installed stock vendor baseline before flashing; installing a
+GSI does not automatically update vendor. Do not advertise compatibility
+with older/newer firmware without separate validation on that combination.
+`--release` makes a **release candidate**: it does not sign
 the whole ROM for verified boot/OTA, change every upstream debug setting, or
 grant redistribution rights. Test the final image before distributing it.
 See [release caveats](docs/BUILDING.md#3-patch-the-gsi-offline).

@@ -206,7 +206,22 @@ adapter using NDK and the public AOSP headers described in the
 [IR adapter build instructions](HIBREAK_PRO_IR.md#build-and-validate).
 The IR overlay additionally requires host `readelf` from `binutils` and
 `secilc`. Start with a display-patched release image **without any prior
-IR overlay**:
+IR overlay**.
+
+`--vendor-image` is required for IR, including preflight, but not for a
+display-only build. Supply a raw vendor image matching the firmware
+installed on the **target phone**. The overlay uses its SELinux policy
+and mapping version for merge validation and checks the stock IR
+module/service; it does not bundle or flash vendor.
+The documented baseline is stock **3.1.6 /
+`Bigme_HiBreak_V1.0_20260306`**. A release validated against that vendor is
+not established to work on older or newer stock firmware, even on the
+same model. The offline tool cannot verify a recipient's installed firmware.
+A successful preflight, or rebuilding with another vendor image, does not
+replace device testing of that firmware/kernel/GSI combination.
+Publish the required stock firmware/vendor and GSI versions with every
+release image and checksum. Do not claim other firmware versions supported
+without separate validation.
 
 ```bash
 export ANDROID_NDK_HOME=/path/to/android-ndk
