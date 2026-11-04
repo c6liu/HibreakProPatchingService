@@ -10,6 +10,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("build_release", ROOT / "tools/build-release.py")
+assert SPEC is not None and SPEC.loader is not None
 build_release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(build_release)
 
@@ -19,6 +20,12 @@ class ReleaseBuildTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix="release-build-test-")
         self.addCleanup(self.tmp.cleanup)
         self.work = Path(self.tmp.name)
+        environment = mock.patch.dict(build_release.os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for name in ("VENDOR", "AOSP_HEADERS", "ANDROID_NDK_HOME", "SECILC",
+                     "APK_RELEASE_CERT_SHA256", "APK_SIGNER_JAR"):
+            build_release.os.environ.pop(name, None)
         self.gsi = self.work / "input.img"
         self.apk = self.work / "base.apk"
         self.vendor = self.work / "vendor.img"
@@ -80,7 +87,7 @@ class ReleaseBuildTests(unittest.TestCase):
         self.assertIn("HiBreakPro-xrz-v2-test.img", manifest["outputs"])
         self.assertEqual(commands[4][1], str(ROOT / "tools/add-ir-capture-to-gsi.py"))
 
-    def test_source_apk_is_opt_in_and_records_source_inputs(self):
+    def test_explicit_source_apk_records_source_inputs(self):
         output_root = self.work / "source-builds"
         commands = []
         with mock.patch.object(sys, "argv", [
@@ -103,7 +110,9 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertIn(f"apk_source:{path}", manifest["inputs"])
 
     def test_exactly_one_apk_source_is_required_before_creating_build_directory(self):
-        for extra in ([], [str(self.apk), "--source-apk"]):
+        for extra in ([str(self.apk), "--source-apk"],
+                      [str(self.apk), "--built-apk", str(self.apk)],
+                      ["--source-apk", "--built-apk", str(self.apk)]):
             with self.subTest(extra=extra):
                 output_root = self.work / "unused-builds"
                 with mock.patch.object(sys, "argv", [
@@ -113,6 +122,105 @@ class ReleaseBuildTests(unittest.TestCase):
                     build_release.main()
                 self.assertEqual(result.exception.code, 2)
                 self.assertFalse(output_root.exists())
+
+    def test_default_builds_source_apk(self):
+        commands = []
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--output-root", str(self.work / "default"),
+        ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
+
+    def test_default_automates_all_stages_with_environment_inputs(self):
+        commands = []
+        environments = []
+        build = self.fake_build(commands)
+
+        def run(command, env, **kwargs):
+            environments.append(env)
+            return build(command, **kwargs)
+
+        with mock.patch.dict(build_release.os.environ, {
+            "VENDOR": str(self.vendor), "AOSP_HEADERS": str(self.headers),
+            "ANDROID_NDK_HOME": str(self.work / "ndk"), "SECILC": "/custom/secilc",
+        }), mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--ir", "--xrz",
+            "--output-root", str(self.work / "all-stages"),
+        ]), mock.patch.object(subprocess, "run", side_effect=run):
+            build_release.main()
+        self.assertEqual(len(commands), 6)
+        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
+        for command in commands[-2:]:
+            self.assertEqual(command[command.index("--secilc") + 1], "/custom/secilc")
+            self.assertEqual(command[command.index("--vendor-image") + 1], str(self.vendor))
+        self.assertEqual(environments[0]["AOSP_HEADERS"], str(self.headers))
+        self.assertEqual(environments[0]["ANDROID_NDK_HOME"], str(self.work / "ndk"))
+        self.assertEqual(commands[-1][2], commands[-2][3])
+
+    def test_reuses_signed_apk_and_passes_overlay_tools(self):
+        commands = []
+        environments = []
+        build = self.fake_build(commands)
+
+        def run(command, env, **kwargs):
+            environments.append(env)
+            if command[0] == "java":
+                commands.append(command)
+                return subprocess.CompletedProcess(command, 0)
+            return build(command, **kwargs)
+
+        signer = self.work / "signer.jar"
+        signer.write_bytes(b"signer")
+        output_root = self.work / "reuse"
+        with mock.patch.dict(build_release.os.environ, {
+            "APK_SIGNER_JAR": str(signer), "APK_RELEASE_CERT_SHA256": "AB:" * 31 + "AB",
+        }), mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--built-apk", str(self.apk),
+            "--ir", "--xrz", "--vendor-image", str(self.vendor),
+            "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+            "--secilc", "/custom/secilc", "--output-root", str(output_root),
+        ]), mock.patch.object(subprocess, "run", side_effect=run):
+            build_release.main()
+        self.assertIn("--onlyVerify", commands[0])
+        self.assertIn("AB" * 32, commands[0])
+        self.assertFalse(any("build-apk.sh" in arg or "build-source-apk.sh" in arg
+                             for command in commands for arg in command))
+        for command in commands[-2:]:
+            self.assertEqual(command[command.index("--secilc") + 1], "/custom/secilc")
+        self.assertEqual(environments[0]["ANDROID_NDK_HOME"], str(self.work / "ndk"))
+        directory = next(output_root.iterdir())
+        self.assertEqual((directory / "HiBreakEink-release.apk").read_bytes(), b"apk")
+        manifest = json.loads((directory / "manifest.json").read_text())
+        self.assertTrue(manifest["options"]["reuse_built_apk"])
+        self.assertEqual(manifest["inputs"]["built_apk"]["sha256"], build_release.sha256(self.apk))
+
+    def test_failed_apk_verification_stops_before_image_build(self):
+        signer = self.work / "signer.jar"
+        signer.write_bytes(b"signer")
+        with mock.patch.dict(build_release.os.environ, {"APK_SIGNER_JAR": str(signer)}), \
+                mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--built-apk", str(self.apk),
+                    "--output-root", str(self.work / "failed"),
+                ]), mock.patch.object(subprocess, "run",
+                                      side_effect=subprocess.CalledProcessError(1, ["java"])) as run, \
+                self.assertRaises(SystemExit):
+            build_release.main()
+        self.assertEqual(run.call_count, 1)
+
+    def test_bad_built_apk_inputs_fail_before_creating_build_directory(self):
+        for path, fingerprint in ((self.work / "missing.apk", ""),
+                                  (self.apk, "invalid")):
+            with self.subTest(path=path, fingerprint=fingerprint):
+                output = self.work / "unused"
+                with mock.patch.dict(build_release.os.environ, {
+                    "APK_RELEASE_CERT_SHA256": fingerprint,
+                }), mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--built-apk", str(path),
+                    "--output-root", str(output),
+                ]), self.assertRaises(SystemExit) as result:
+                    build_release.main()
+                self.assertEqual(result.exception.code, 2)
+                self.assertFalse(output.exists())
 
     def test_ir_header_path_is_passed_to_build_command_environment(self):
         output_root = self.work / "builds"

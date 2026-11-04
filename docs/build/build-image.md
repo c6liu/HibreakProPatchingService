@@ -10,6 +10,17 @@ timestamped directory under `build/`, retains its intermediates, writes a
 `manifest.json` with input/output checksums, and never flashes:
 
 ```bash
+python3 tools/build-release.py "$BASE"
+```
+
+By default this **builds and signs the experimental source APK**, compiles the
+daemon, and creates the release image. Set the [signing variables](signing.md)
+first for release signing; otherwise the APK is debug-signed. Passwords are
+entered only at the signer's terminal prompts.
+
+To keep using the supported pinned upstream APK patching route:
+
+```bash
 python3 tools/build-release.py "$BASE" local/A9AccessibilityService.apk
 ```
 
@@ -17,6 +28,47 @@ Add `--ir --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS"` for the IR
 HAL, and `--xrz` to add the experimental XRZ v2 overlay after the base or IR
 image. IR and XRZ both require the matching stock vendor image. Release signing
 uses the same optional signing environment variables as `build-apk.sh`.
+
+### One command with IR and the property overlay
+
+Set `BASE`, `VENDOR` (the matching raw stock vendor image),
+`ANDROID_NDK_HOME`, `AOSP_HEADERS`, and optionally `SECILC` to your installed
+policy compiler. Then run:
+
+```bash
+python3 tools/build-release.py "$BASE" --ir --xrz
+```
+
+Use a Python interpreter with SETools installed for XRZ; for example, on a host
+where the system Python provides SETools, use `/usr/bin/python3` instead of
+`python3`. The same interpreter runs both overlays.
+
+All paths can also be supplied explicitly:
+
+```bash
+/usr/bin/python3 tools/build-release.py "$BASE" --ir --xrz \
+  --vendor-image "$VENDOR" \
+  --ndk "$ANDROID_NDK_HOME" \
+  --aosp-headers "$AOSP_HEADERS" \
+  --secilc "$SECILC"
+```
+
+This builds the APK, daemon, base image, IR HAL/image, then XRZ v2 in order.
+The compiler selection is passed to **both** overlays. Use the printed final
+image path (or `final_image` in the manifest), not an intermediate image.
+
+To reuse a signed APK you already built, without rebuilding or signing it:
+
+```bash
+/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
+  --ir --xrz
+```
+
+The existing APK is copied unchanged and its signature/alignment verified with
+uber-apk-signer. When `APK_RELEASE_CERT_SHA256` is set, the certificate must
+match it. No keystore password is needed for reuse. The manifest records the
+original APK checksum; it does not claim that current source files produced it.
+Do not combine a positional upstream APK, `--source-apk`, or `--built-apk`.
 
 The manual build below remains supported and exposes each intermediate step.
 
@@ -49,8 +101,8 @@ Do not rebuild on top of a previous XRZ output.
 ## Experimental source-built APK
 
 After installing the [source-APK prerequisites](inputs.md#experimental-source-apk-prerequisites),
-the orchestrator can build from the checked-in Kotlin and resources instead of
-the upstream APK:
+the orchestrator builds from the checked-in Kotlin and resources by default.
+The explicit equivalent remains available:
 
 ```bash
 python3 tools/build-release.py "$BASE" --source-apk

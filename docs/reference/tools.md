@@ -8,7 +8,7 @@ records input/output checksums in a manifest.
 
 | Script | Purpose |
 |--------|---------|
-| [build-release.py](../../tools/build-release.py) | Build a timestamped release directory with optional IR/XRZ stages and a checksum manifest; never flashes |
+| [build-release.py](../../tools/build-release.py) | Unified release build: source APK/signing by default, optional `--built-apk` reuse or positional upstream APK, daemon, IR/XRZ, and checksum manifest; never flashes |
 | [build-apk.sh](../../tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-source-apk.sh](../../tools/build-source-apk.sh) | Experimentally build the checked-in Kotlin/resources with Gradle and the same APK signer |
 | [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
