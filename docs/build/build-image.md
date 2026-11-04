@@ -25,17 +25,28 @@ deleting your only known-working image.
 **Optional IR:** follow [Add IR support to an image](ir-overlay.md) now,
 then return here to select the final image.
 
+**Optional XRZ v2:** follow the [experimental graphics-property overlay](xrz-overlay.md)
+after IR, if included, or directly after the display/AOD base. Set `XRZ_SOURCE`
+to the resulting **pre-XRZ** image. This corrects four property labels and
+restores the stock composer's set permission; it is not a proven crash fix.
+Do not rebuild on top of a previous XRZ output.
+
 ## Select and check the final image
 
 Choose **one**:
 
 ```bash
-# With IR:
+# With XRZ v2 (with or without IR, according to XRZ_SOURCE):
+export IMAGE="$PWD/build/HiBreakPro-xrz-v2-test.img"
+```
+
+```bash
+# With IR, without XRZ:
 export IMAGE="$PWD/build/HiBreakPro-release-ir.img"
 ```
 
 ```bash
-# Without IR:
+# Without IR or XRZ:
 export IMAGE="$PWD/build/HiBreakPro-release-base.img"
 ```
 

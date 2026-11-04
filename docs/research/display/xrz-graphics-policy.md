@@ -1,5 +1,20 @@
 # Stock versus GSI graphics policy
 
+## Current status
+
+The opt-in [XRZ v2 overlay](../../build/xrz-overlay.md) covers four exact
+properties: `vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither`,
+`vendor.xrz.hwc_idle`, and `ro.vendor.xrz.screen_type`. On the tested
+3.1.6/EvoX 11.11 phone, label selection and loaded composer read/set grants
+were confirmed with SELinux enforcing. The short v2 snapshot contained no
+composer crash or framework restart, but actual property publication, panel
+type, and long-term stability remain unverified. It is not a proven fix for
+the [native composer crash](composer-crash.md).
+
+The sections below preserve the v1-to-v2 investigation chronologically.
+
+## Initial host comparison (v1)
+
 Host-side comparison on 2026-11-04 used the backed-up 3.1.6 stock vendor
 and stock system images with the EvoX 11.11 microG release system image.
 No phone was connected for this comparison.
@@ -27,7 +42,7 @@ No phone was connected for this comparison.
   Therefore the user's improved stability with the IR build cannot be
   attributed to forcing recompilation from these hashes alone.
 
-The new overlay only changes three exact property names and is opt-in. The
+The original v1 overlay changed three exact property names and was opt-in. The
 native graphics crash and the report of improved stability remain unresolved:
 actual property writes, new AVCs, and sleep/wake and scrolling behavior must
 be tested on-device before claiming any fix.
@@ -57,9 +72,9 @@ alone do not demonstrate a new runtime regression.
 
 One additional startup mismatch is now directly observed: at 13:34:51.156,
 the composer was denied `set` on `ro.vendor.xrz.screen_type`, still labelled
-`vendor_default_prop`. The current three-property overlay deliberately does
-not cover it. Investigate the stock writer, intended value, and GSI readers
-before extending the overlay; a missing write is not yet a proven crash cause.
+`vendor_default_prop`. The v1 three-property overlay deliberately did not
+cover it. This prompted the writer/reader investigation below; a missing
+write is not a proven crash cause.
 
 Local evidence is in `build/xrz-device-20261104-1343/`, including the loaded
 policy, property metadata, crash/all-buffer logs, SurfaceFlinger snapshot,
@@ -103,8 +118,9 @@ The separate EvoX IR + XRZ v2 image was built and its persisted merged policy
 recompiled successfully. It preserves the same 847 baseline effective allow
 tuples on the relabelled type; composer `set` is still the sole addition.
 All 17 focused IR/XRZ tests and an independent `e2fsck -fn` passed. The v1
-image is rejected as a build input. No v2 flashing or device reboot was
-performed. Existing base-policy neverallow diagnostics remain unchanged.
+image is rejected as a build input. At this build-validation stage no v2
+flashing or device reboot had been performed; the user's subsequent flash is
+recorded below. Existing base-policy neverallow diagnostics remain unchanged.
 
 Native disassembly and framework analysis are kept locally in
 `build/xrz-screen-type-analysis/`, not committed or redistributed.
@@ -133,7 +149,7 @@ and physical display behavior still need user testing.
 
 ## Background: composer property denials
 
-The stock compositor (`hal_graphics_composer_default`) also repeatedly fails to
+Before the XRZ overlay, the stock compositor (`hal_graphics_composer_default`) repeatedly failed to
 set `vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither` and
 `vendor.xrz.hwc_idle`. The GSI labels them `vendor_default_prop`; stock vendor
 policy only allows the versioned `vendor_xrz_prop_31_0`. These denials flood

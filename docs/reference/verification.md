@@ -54,3 +54,16 @@ Check accessibility and overlay permissions again. The popup order is
 Do not assume a successful package install proves mode speed or AOD appearance.
 Test a selected mode, lock/unlock, and inspect the physical panel. See
 [Findings](../research/README.md) for unsupported controls and the boot power-button issue.
+
+## Optional XRZ v2 overlay
+
+If the image includes XRZ v2, follow its
+[label and log checks](../build/xrz-overlay.md). Confirm SELinux remains
+enforcing and check all four exact property labels. Do not interpret blank
+shell `getprop` values as missing properties: the shell lacks read access on
+the inspected build.
+
+The [first v2 device snapshot](../research/display/xrz-graphics-policy.md#first-on-device-v2-check-2026-11-04)
+confirmed the labels and loaded composer permissions, with no retained
+composer crash or framework restart. It did not establish successful property
+writes or stability across repeated sleep/wake and scrolling tests.

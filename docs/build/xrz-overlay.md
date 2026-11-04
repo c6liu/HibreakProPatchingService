@@ -5,8 +5,11 @@ Version 2 of this opt-in experiment targets four observed denied properties:
 `vendor.xrz.hwc_idle`, plus `ro.vendor.xrz.screen_type`. It does not relabel
 the rest of `vendor.xrz.*` or `ro.vendor.xrz.*`, change
 vendor, add a new driver, or disable SELinux. It may affect display behavior;
-**it has not been tested on the phone and is not a proven fix for the native
-composer crash.** Keep the previous system image and a complete backup for
+**v2's active labels and permissions have been checked on one phone, but it
+is not a proven fix for the native composer crash.** The short post-flash
+snapshot showed no composer crash or framework restart; missing startup logs
+and dropped audit events prevent confirmation of successful property writes.
+Keep the previous system image and a complete backup for
 recovery. See [the policy comparison](../research/display/xrz-graphics-policy.md)
 for evidence and limitations.
 
@@ -15,8 +18,8 @@ the target phone, host `secilc`, and the **SETools Python bindings** available
 to the `python3` running the tool (`python3 -c 'import setools'`). It currently
 accepts vendor policy version `31.0` only. That version check and a successful
 preflight do not prove the backup matches the installed firmware. The
-stock 3.1.6/EvoX 11.11 host combination was inspected; other GSIs or firmware
-need separate validation.
+stock 3.1.6/EvoX 11.11 combination was checked on the host and inspected
+read-only on-device; other GSIs or firmware need separate validation.
 
 Apply this **after** the display patcher and, if used, the IR overlay. Use the
 same GSI build already installed on the test phone to make the experiment
@@ -35,7 +38,7 @@ violations are reported, not fixed; Android's runtime-style compilation uses
 `-N` as in the IR preflight.
 
 ```bash
-export XRZ_SOURCE=/path/to/current-system-image.img
+export XRZ_SOURCE=/path/to/pre-xrz-system-image.img
 export VENDOR=/path/to/matching-stock-vendor.img
 export SECILC=/path/to/secilc
 export XRZ_IMAGE=build/HiBreakPro-xrz-v2-test.img
@@ -68,6 +71,23 @@ adb logcat -d -b all -v threadtime > "$D/logcat-all.txt"
 adb logcat -d -b crash -v threadtime > "$D/logcat-crash.txt"
 adb shell dumpsys dropbox --print SYSTEM_RESTART > "$D/system-restarts.txt"
 ```
+
+Check the installed v2 markers and the context chosen for each property:
+
+```bash
+adb shell grep -n hibreak-xrz-graphics-compat-v2 /system/etc/selinux/plat_property_contexts
+adb shell grep -n hibreak-xrz-graphics-compat-v2 /system/etc/selinux/mapping/31.0.cil
+for p in vendor.xrz.fps_limit vendor.xrz.gray_256_dither vendor.xrz.hwc_idle ro.vendor.xrz.screen_type; do
+  printf '%s: ' "$p"
+  adb shell getprop -Z "$p"
+done
+```
+
+Expect each context to be `u:object_r:vendor_xrz_prop:s0`. This checks label
+selection, **not the property value or a successful write**. Ordinary shell
+`getprop` cannot read the relabelled values on the inspected build; blank
+output must not be interpreted as an unset property. Such reads can themselves
+produce shell read AVCs. Do not weaken policy just to expose diagnostic values.
 
 Confirm SELinux is enforcing, compare the four property-set failures and any
 new AVCs, then exercise the same first unlock, sleep/wake, and scrolling

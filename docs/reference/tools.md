@@ -10,6 +10,7 @@ release APK, daemon and patched image in order.
 | [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-tool.sh](../../tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
 | [add-ir-capture-to-gsi.py](../../tools/add-ir-capture-to-gsi.py) | Add the optional IR overlay; release support is HAL-only with `--hal-module`; diagnostics and test apps require opt-in; `--check-only` never packages an image |
+| [add-xrz-compat-to-gsi.py](../../tools/add-xrz-compat-to-gsi.py) | Add experimental XRZ v2 labels for four exact graphics properties and restore composer set access; requires matching vendor, `secilc` and SETools; run after IR on a pre-XRZ image; `--check-only` never packages an image |
 | [build-ir-remote.sh](../../tools/build-ir-remote.sh) | Build the standalone one-button IR test APK; requires the matching ROM overlay |
 | [build-ir-hal.sh](../../tools/build-ir-hal.sh) | Build the experimental single-frame NEC/NECext Consumer IR adapter; opt in with overlay `--hal-module` |
 | [build-ir-api-test.sh](../../tools/build-ir-api-test.sh) | Build an ordinary `ConsumerIrManager` test client; no root or private properties |

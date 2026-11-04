@@ -9,11 +9,12 @@ final image, install it using the [Guide](../../Guide.md).
 4. [Set up APK signing](signing.md)
 5. [Build a release image](build-image.md)
 6. [Add IR support to an image](ir-overlay.md) — *optional*
-7. Select and check the final image — end of [Build a release image](build-image.md#select-and-check-the-final-image)
+7. [Add the XRZ v2 graphics-property overlay](xrz-overlay.md) — *optional, experimental*; after IR if included
+8. Select and check the final image — end of [Build a release image](build-image.md#select-and-check-the-final-image)
 
 Other build topics:
 
-- [Experimental XRZ graphics-property overlay](xrz-overlay.md) — untested on-device fix attempt
+- [Experimental XRZ graphics-property overlay](xrz-overlay.md) — active labels and permissions checked on-device; crash fix unproven
 - [Tests](tests.md) — host tests and opt-in device tests
 
 Details of what each tool does are in [reference/](../README.md#reference--how-things-work),

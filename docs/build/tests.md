@@ -1,5 +1,20 @@
 # Tests
 
+For changes to the IR or XRZ image overlays, the focused host suite is:
+
+```bash
+python3 -m unittest tools.tests.test_ir_overlay tools.tests.test_xrz_compat -v
+```
+
+XRZ tests check exact property selection, permission-preservation guards,
+conditional-rule rejection, image round-trips, source preservation, and
+overwrite/failure cleanup. Real merged-policy validation additionally needs
+the matching vendor image, `secilc`, and SETools; use the
+[XRZ preflight](xrz-overlay.md). Neither host tests nor preflight establish
+on-device property writes or a graphics-crash fix.
+
+For the full host suite:
+
 ```bash
 python3 -m unittest discover -s tools/tests -v
 for script in tools/*.sh tools/display/*.sh; do bash -n "$script"; done
