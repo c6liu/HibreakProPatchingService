@@ -16,9 +16,10 @@ SPEC.loader.exec_module(overlay)
 
 
 class XrzContextTests(unittest.TestCase):
-    PLAT = "# fixture\nvendor. u:object_r:vendor_default_prop:s0\n"
+    PLAT = ("# fixture\nvendor. u:object_r:vendor_default_prop:s0\n"
+            "ro.vendor. u:object_r:vendor_default_prop:s0\n")
 
-    def test_only_three_exact_properties_are_relabelled(self):
+    def test_only_four_exact_properties_are_relabelled(self):
         other = [("vendor", "vendor.radio. u:object_r:vendor_radio_prop:s0\n")]
         updated = overlay.add_property_contexts(self.PLAT, other)
         entries = overlay.parse_contexts("platform", updated)
@@ -27,11 +28,15 @@ class XrzContextTests(unittest.TestCase):
             result = overlay.resolve_context(name, entries)
             self.assertEqual((result.label, result.match, result.value_type),
                              (overlay.XRZ_LABEL, "exact", ("string",)))
-        for name in ("vendor.xrz.global_refresh_mode", "vendor.xrz.hwc_idle_extra"):
+        self.assertEqual(len(overlay.PROPERTIES), 4)
+        self.assertIn("ro.vendor.xrz.screen_type", overlay.PROPERTIES)
+        for name in ("vendor.xrz.global_refresh_mode", "vendor.xrz.hwc_idle_extra",
+                     "ro.vendor.xrz.screen_type_extra", "ro.vendor.xrz.pen_type"):
             self.assertEqual(overlay.resolve_context(name, entries).label, overlay.DEFAULT_LABEL)
         self.assertEqual(overlay.resolve_context("vendor.radio.example", entries).label,
                          "u:object_r:vendor_radio_prop:s0")
         self.assertNotIn("vendor.xrz. u:object_r:vendor_xrz_prop:s0", updated)
+        self.assertIn("# hibreak-xrz-graphics-compat-v2", updated)
 
     def test_longest_prefix_and_exact_matching(self):
         entries = overlay.parse_contexts("fixture", """

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Experimentally restore three Bigme graphics properties in an ext4 GSI."""
+"""Experimentally restore four Bigme graphics properties in an ext4 GSI."""
 
 import argparse
 from collections import defaultdict
@@ -29,12 +29,14 @@ PROPERTIES = (
     "vendor.xrz.fps_limit",
     "vendor.xrz.gray_256_dither",
     "vendor.xrz.hwc_idle",
+    "ro.vendor.xrz.screen_type",
 )
 DEFAULT_LABEL = "u:object_r:vendor_default_prop:s0"
 XRZ_LABEL = "u:object_r:vendor_xrz_prop:s0"
 PLAT_CONTEXTS = "system/etc/selinux/plat_property_contexts"
 MAPPING = "system/etc/selinux/mapping/31.0.cil"
-MARKER = "hibreak-xrz-graphics-compat-v1"
+MARKER_PREFIX = "hibreak-xrz-graphics-compat-"
+MARKER = MARKER_PREFIX + "v2"
 COMPOSER_SET = ("hal_graphics_composer_default", "property_service", "set")
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
@@ -164,8 +166,8 @@ def prepare_compatibility(source, vendor, work, compiler):
     if (work / "version").read_text().strip() != "31.0":
         raise ValueError("This experimental overlay requires stock vendor policy version 31.0")
     mapping = work / "plat-mapping.cil"
-    if MARKER in platform.read_text() or MARKER in mapping.read_text():
-        raise ValueError("XRZ graphics compatibility overlay is already present")
+    if MARKER_PREFIX in platform.read_text() or MARKER_PREFIX in mapping.read_text():
+        raise ValueError("XRZ graphics compatibility overlay is already present; rebuild from the pre-XRZ image")
 
     plat_contexts = image.extract(source, PLAT_CONTEXTS, work / "plat-property-contexts")
     other_contexts = []

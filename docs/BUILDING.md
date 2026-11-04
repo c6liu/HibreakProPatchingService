@@ -330,9 +330,10 @@ The old session-only five-mode/AOD image-update scripts are superseded.
 
 ### Experimental: restore Bigme graphics-property access
 
-This opt-in experiment targets the three observed denied properties:
+Version 2 of this opt-in experiment targets four observed denied properties:
 `vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither`, and
-`vendor.xrz.hwc_idle`. It does not relabel the rest of `vendor.xrz.*`, change
+`vendor.xrz.hwc_idle`, plus `ro.vendor.xrz.screen_type`. It does not relabel
+the rest of `vendor.xrz.*` or `ro.vendor.xrz.*`, change
 vendor, add a new driver, or disable SELinux. It may affect display behavior;
 **it has not been tested on the phone and is not a proven fix for the native
 composer crash.** Keep the previous system image and a complete backup for
@@ -349,8 +350,14 @@ need separate validation.
 
 Apply this **after** the display patcher and, if used, the IR overlay. Use the
 same GSI build already installed on the test phone to make the experiment
-comparable. The tool preserves existing effective SELinux `allow` permissions
-on the three properties and checks that the only additional effective `allow`
+comparable. Start from the **pre-XRZ image**, not the v1 or v2 XRZ output;
+both versions are rejected as inputs. The stock composer obtains screen type
+from a kernel ioctl and publishes it at startup. The overlay permits this
+existing write; it does not supply a guessed panel value or set the read-only
+property from init. Because it is `ro.*`, a normal boot after flashing is needed
+to exercise that startup write; do not restart the composer to test it.
+The tool preserves existing effective SELinux `allow` permissions
+on the four properties and checks that the only additional effective `allow`
 is the stock composer's property-service `set`. It rejects unexpected grants,
 conditional rules it cannot safely compare, new neverallow violations, and
 incompatible property contexts. Existing base GSI/vendor neverallow
@@ -361,7 +368,7 @@ violations are reported, not fixed; Android's runtime-style compilation uses
 export XRZ_SOURCE=/path/to/current-system-image.img
 export VENDOR=/path/to/matching-stock-vendor.img
 export SECILC=/path/to/secilc
-export XRZ_IMAGE=build/HiBreakPro-xrz-test.img
+export XRZ_IMAGE=build/HiBreakPro-xrz-v2-test.img
 
 # Validates the policy and property context; does not create an image.
 python3 tools/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
@@ -392,7 +399,7 @@ adb logcat -d -b crash -v threadtime > "$D/logcat-crash.txt"
 adb shell dumpsys dropbox --print SYSTEM_RESTART > "$D/system-restarts.txt"
 ```
 
-Confirm SELinux is enforcing, compare the three property-set failures and any
+Confirm SELinux is enforcing, compare the four property-set failures and any
 new AVCs, then exercise the same first unlock, sleep/wake, and scrolling
 scenarios. Missing denials alone do not prove that the properties were written:
 the writes may not have occurred or logs may have been rate-limited. Host
