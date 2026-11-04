@@ -1,4 +1,4 @@
-# HiBreak Pro: build and install a patched Android 16 image
+# HiBreak Pro: install a prebuilt or build a patched Android 16 image
 
 This guide is for the **black-and-white Bigme HiBreak Pro (MT6877)** with
 **stock 3.1.6 vendor**. It is **not** for the HiBreak Pro Color.
@@ -30,10 +30,15 @@ See [Findings](docs/FINDINGS.md) for limitations.
 
 ## Choose your route
 
-- **New installation:** follow sections 1 through 8.
+- **Install a prebuilt release:** follow section 1, then
+  [Use a prebuilt release image](#use-a-prebuilt-release-image). For a first
+  installation, continue with section 3's stock backup, section 4, then
+  sections 7 and 8. Skip section 3's IR build inputs and sections 2, 5 and 6.
+- **New installation from your own build:** follow sections 1 through 8.
 - **Only building an image:** follow sections 1, 2, 5 and 6. IR also needs
   the stock vendor image described in section 3. Do not run section 7.
-- **Updating the same GSI:** build, then use [Updating](#updating-the-same-gsi).
+- **Updating the same GSI:** download and check a prebuilt release, or build
+  a new image, then use [Updating](#updating-the-same-gsi).
 - **Moving from EvoX to LineageOS:** use
   [Switching GSIs](#switching-gsis-for-example-evox-to-lineageos), not the
   no-wipe update instructions.
@@ -58,6 +63,29 @@ Keep another copy of the backup on a different drive.
   terminal, set them again.
 
 ### Install host packages
+
+**Prebuilt-release route:** you only need Git, `unzip`, `e2fsck`, ADB and
+fastboot from this project's host packages. Install them using one block:
+
+**Fedora:**
+
+```bash
+sudo dnf install git unzip e2fsprogs android-tools
+```
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt update
+sudo apt install git unzip e2fsprogs adb fastboot
+```
+
+Check `adb version`, `fastboot --version` and `command -v e2fsck unzip git`.
+Then skip the build-only packages and checks below and continue at
+[Get this repository](#get-this-repository). Stock backup still needs the
+separate mtkclient setup in section 3.
+
+**Build-from-source route:**
 
 Choose **one** block for your distribution.
 
@@ -99,6 +127,9 @@ Follow Google's [Linux USB/device setup](https://developer.android.com/studio/ru
 if `adb` reports insufficient permissions. Do not solve that by running all
 builds as root.
 
+Both routes need working USB permissions and current platform-tools; the
+Google links above also apply when installing a prebuilt release.
+
 ### Get this repository
 
 Skip `git clone` if you already have this folder.
@@ -112,6 +143,71 @@ mkdir -p local build
 
 Keep downloaded tools in `local/` and generated files in `build/`.
 Both are ignored by Git.
+
+## Use a prebuilt release image
+
+Download a **patched image from this repository's Releases**, not an upstream
+GSI or the old vbbot APK-source image. You do not need the NDK, APK tools,
+a signing key, or a separately extracted vendor image to install a prebuilt
+release. You still need your own stock backup, the correct installed vendor
+baseline, and an unlocked bootloader.
+
+The pinned example here is **v0.2.0**, asset
+`HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip`; its release notes say it adds IR
+support. Open **Releases** on this repository's GitHub page, select
+**v0.2.0**, expand **Assets**, and save that ZIP in `~/Downloads/`.
+Do not download GitHub's automatic **Source code** archives.
+The stock **3.1.6 / `Bigme_HiBreak_V1.0_20260306`** restriction and known
+limitations at the top of this guide still apply. Read the release notes
+for compatibility and test status; availability of an asset is not proof
+that another firmware baseline is supported.
+
+Check the downloaded **ZIP**, before extracting:
+
+```bash
+cd "$HOME/Downloads"
+printf '%s  %s\n' \
+  'c152c8febc8fcabc3e688dd706e38ca7cb2631de19046bc2ec461c77e8f820e3' \
+  'HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip' | sha256sum -c -
+```
+
+Expect `OK`. This is the ZIP asset's SHA-256 reported by GitHub, not a
+checksum for the extracted image. Stop on a mismatch. For another release,
+use its own asset name and verified checksum, not these pinned values.
+
+Inspect the archive contents, then extract without overwriting existing files:
+
+```bash
+cd "$HOME/HibreakProPatchingService"
+unzip -l "$HOME/Downloads/HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip"
+unzip -n "$HOME/Downloads/HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip" \
+  -d build/release-v0.2.0
+```
+
+Set `IMAGE` to the extracted **system `.img`**, replacing the example
+filename below with the actual path shown in the archive. Do not select
+a ZIP, `boot`, `vendor`, or `super` image. If the system image is itself
+compressed, extract it first. The flashing helper requires raw ext4:
+
+```bash
+export IMAGE="$PWD/build/release-v0.2.0/REPLACE_WITH_SYSTEM_IMAGE_FILENAME.img"
+ls -lh "$IMAGE"
+e2fsck -fn "$IMAGE"
+sha256sum "$IMAGE"
+```
+
+Stop if extraction or the filesystem check fails. If the release supplies
+an explicitly identified raw-image checksum, compare it with this output
+as well. Do not run the patcher or add IR again to an already patched image.
+Keep `IMAGE` set in the terminal used for flashing; set it again if you open
+a new terminal.
+
+**First migration from stock:** back up using section 3 (skip its IR-only
+subsections), unlock using section 4 if needed, then follow sections 7 and 8.
+**Already running the same GSI:** use [Updating](#updating-the-same-gsi).
+**Changing GSI families:** use
+[Switching GSIs](#switching-gsis-for-example-evox-to-lineageos), which wipes
+userdata; do not treat LineageOS-to-EvoX as a no-wipe update.
 
 ## 2. Download the build tools and input images
 
@@ -565,7 +661,11 @@ Remove them separately in Android app settings if no longer needed.
 
 ## Updating the same GSI
 
-Back up personal files. Build a new image using the **same signing key**.
+Back up personal files. Download and check a new prebuilt image using the
+route above, or build one using the **same signing key**. For prebuilt
+updates, check the release's upgrade instructions and signing compatibility;
+do not assume a prebuilt release can update a self-built or differently
+signed image without app-data cleanup or a clean install.
 Set `IMAGE` to that new file. Do not reuse the first-install deletion/wipe
 flags or reflash vbmeta:
 
@@ -588,7 +688,8 @@ system app, so update it through a new image, not `adb install`.
 
 ## Switching GSIs (for example, EvoX to LineageOS)
 
-**Plan to erase all data.** Back up personal files and build the desired GSI.
+**Plan to erase all data.** Back up personal files and download/check a
+prebuilt image, or build the desired GSI.
 If slot A is already prepared, its vbmeta is configured and its stock
 `product`/`system_ext` are already deleted, do not repeat those operations.
 Set `IMAGE` to the new final image, then:
