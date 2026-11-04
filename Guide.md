@@ -151,36 +151,39 @@ a signing key, or a separately extracted vendor image to install a prebuilt
 release. You still need your own stock backup, the correct installed vendor
 baseline, and an unlocked bootloader.
 
-The pinned example here is **v0.2.0**, asset
-`HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip`; its release notes say it adds IR
-support. Open **Releases** on this repository's GitHub page, select
-**v0.2.0**, expand **Assets**, and save that ZIP in `~/Downloads/`.
-Do not download GitHub's automatic **Source code** archives.
+Open **Releases** on this repository's GitHub page and select the release
+you intend to install. Read its release notes for compatibility and test
+status, expand **Assets**, and save the release ZIP asset in `~/Downloads/`.
+Do not download GitHub's automatic **Source code** archives. Each release
+may use a different asset filename and checksum; use the values for the
+specific release you selected, never values copied from an older release.
 The stock **3.1.6 / `Bigme_HiBreak_V1.0_20260306`** restriction and known
-limitations at the top of this guide still apply. Read the release notes
-for compatibility and test status; availability of an asset is not proof
-that another firmware baseline is supported.
+limitations at the top of this guide still apply. Availability of an asset
+is not proof that another firmware baseline is supported.
 
 Check the downloaded **ZIP**, before extracting:
 
 ```bash
 cd "$HOME/Downloads"
-printf '%s  %s\n' \
-  'c152c8febc8fcabc3e688dd706e38ca7cb2631de19046bc2ec461c77e8f820e3' \
-  'HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip' | sha256sum -c -
+ZIP='REPLACE_WITH_EXACT_RELEASE_ASSET_FILENAME.zip'
+SHA256='REPLACE_WITH_GITHUB_REPORTED_ASSET_SHA256'
+printf '%s  %s\n' "$SHA256" "$ZIP" | sha256sum -c -
 ```
 
-Expect `OK`. This is the ZIP asset's SHA-256 reported by GitHub, not a
-checksum for the extracted image. Stop on a mismatch. For another release,
-use its own asset name and verified checksum, not these pinned values.
+Expect `OK`. This checks the ZIP asset, not the extracted image. Stop on a
+mismatch. Do not reuse a checksum from another release; if you cannot obtain
+a verified digest for the selected asset, stop rather than treating an
+unverified value as a successful check.
 
 Inspect the archive contents, then extract without overwriting existing files:
 
 ```bash
 cd "$HOME/HibreakProPatchingService"
-unzip -l "$HOME/Downloads/HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip"
-unzip -n "$HOME/Downloads/HiBreakPro-EvoX-11.11-MICROG-v0.2.0.zip" \
-  -d build/release-v0.2.0
+ZIP='REPLACE_WITH_EXACT_RELEASE_ASSET_FILENAME.zip'
+RELEASE_TAG='REPLACE_WITH_RELEASE_TAG'
+unzip -l "$HOME/Downloads/$ZIP"
+unzip -n "$HOME/Downloads/$ZIP" \
+  -d "build/release-$RELEASE_TAG"
 ```
 
 Set `IMAGE` to the extracted **system `.img`**, replacing the example
@@ -189,7 +192,7 @@ a ZIP, `boot`, `vendor`, or `super` image. If the system image is itself
 compressed, extract it first. The flashing helper requires raw ext4:
 
 ```bash
-export IMAGE="$PWD/build/release-v0.2.0/REPLACE_WITH_SYSTEM_IMAGE_FILENAME.img"
+export IMAGE="$PWD/build/release-REPLACE_WITH_RELEASE_TAG/REPLACE_WITH_SYSTEM_IMAGE_FILENAME.img"
 ls -lh "$IMAGE"
 e2fsck -fn "$IMAGE"
 sha256sum "$IMAGE"
