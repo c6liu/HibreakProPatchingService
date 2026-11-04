@@ -39,8 +39,7 @@ See [Findings](docs/FINDINGS.md) for limitations.
   the stock vendor image described in section 3. Do not run section 7.
 - **Updating the same GSI:** download and check a prebuilt release, or build
   a new image, then use [Updating](#updating-the-same-gsi).
-- **Moving from EvoX to LineageOS:** use
-  [Switching GSIs](#switching-gsis-for-example-evox-to-lineageos), not the
+- **Changing GSI families:** use [Switching GSIs](#switching-gsis), not the
   no-wipe update instructions.
 
 ## 1. Prepare your Linux computer
@@ -205,9 +204,8 @@ a new terminal.
 **First migration from stock:** back up using section 3 (skip its IR-only
 subsections), unlock using section 4 if needed, then follow sections 7 and 8.
 **Already running the same GSI:** use [Updating](#updating-the-same-gsi).
-**Changing GSI families:** use
-[Switching GSIs](#switching-gsis-for-example-evox-to-lineageos), which wipes
-userdata; do not treat LineageOS-to-EvoX as a no-wipe update.
+**Changing GSI families:** use [Switching GSIs](#switching-gsis), which wipes
+userdata; do not treat a change of GSI as a no-wipe update.
 
 ## 2. Download the build tools and input images
 
@@ -220,8 +218,7 @@ installed Android `libhardware` library for this procedure.
 | Android NDK **27.2.12479018 (r27c), Linux** | Google's [NDK installation instructions](https://developer.android.com/studio/projects/install-ndk#specific-version), or [official older downloads](https://github.com/android/ndk/wiki/Unsupported-Downloads) | Normally `~/Android/Sdk/ndk/27.2.12479018` |
 | **apktool 3.0.3** JAR | [Apktool release assets](https://github.com/iBotPeaches/Apktool/releases/tag/v3.0.3) | Save/rename to `local/apktool.jar` |
 | **uber-apk-signer 1.3.0** JAR | [Signer release assets](https://github.com/patrickfav/uber-apk-signer/releases/tag/v1.3.0) | Save/rename to `local/uber-apk-signer.jar` |
-| Recommended Android 16 GSI | [LineageOS for microG publisher](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/) | `~/Downloads/LineageOS-23.2-2026.10.10-microG-gsi.img.xz` |
-| Alternative, previously tested GSI | [Doze-off EvoX releases](https://github.com/Doze-off/EvoX_treble/releases) | `~/Downloads/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` |
+| Recommended Android 16 GSI | [Doze-off EvoX releases](https://github.com/Doze-off/EvoX_treble/releases) | `~/Downloads/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img` |
 | Original E-Ink APK source image | [vbbot's 20250507 release](https://github.com/vbbot/HibreakProPatchingService/releases/tag/20250507), asset `evolution_arm64_bgN-10.5-unofficial-20250507.img.xz` | Download to `~/Downloads/`; extract only the APK below |
 
 On GitHub, expand **Assets** and download the `.jar`, not the source-code
@@ -243,38 +240,24 @@ ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-an
 
 Use **arm64 A/B, raw ext4** images. The patcher does not support EROFS.
 Extract `.xz` archives first; do not pass an archive to the patcher.
-For LineageOS:
-
-```bash
-xz -dk "$HOME/Downloads/LineageOS-23.2-2026.10.10-microG-gsi.img.xz"
-export BASE="$HOME/Downloads/LineageOS-23.2-2026.10.10-microG-gsi.img"
-sha256sum "$BASE"
-```
-
-Expected raw-image SHA-256:
-
-```text
-5347a165c2911f84915fbdd0e14065a7fbc1cbdcd0b6e571387252e6b36769b8
-```
-
-**Alternatively, for the tested EvoX base**, extract its archive if necessary
-and set `BASE` to that image instead:
+For the recommended EvoX base:
 
 ```bash
 export BASE="$HOME/Downloads/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img"
 sha256sum "$BASE"
 ```
 
-Expected raw-image SHA-256:
+Expected raw-image SHA-256 for this pinned EvoX input:
 
 ```text
 d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf
 ```
 
-Use only one `BASE`. Do not continue if its checksum differs from the
-corresponding value. These pinned instructions do not automatically apply
-to newer releases. EvoX's known Kindle download issue is documented in
+These pinned instructions do not automatically apply to newer releases.
+EvoX's known Kindle download issue is documented in
 [Findings](docs/FINDINGS.md#third-party-app-issues).
+
+Do not continue if the checksum differs. Use only one `BASE`.
 
 ### Extract the original E-Ink APK
 
@@ -686,7 +669,7 @@ This preserves userdata; it does not guarantee every upstream GSI update is
 compatible. **Press Power after reboot.** The E-Ink APK is a persistent
 system app, so update it through a new image, not `adb install`.
 
-## Switching GSIs (for example, EvoX to LineageOS)
+## Switching GSIs
 
 **Plan to erase all data.** Back up personal files and download/check a
 prebuilt image, or build the desired GSI.
