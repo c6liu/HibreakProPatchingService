@@ -9,15 +9,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class DeprecationTests(unittest.TestCase):
-    def test_eink_compatibility_wrapper_warns_and_delegates(self):
-        result = subprocess.run(
-            ["bash", ROOT / "tools/add-eink-to-gsi.sh"],
-            capture_output=True, text=True,
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Deprecated: use tools/patch-gsi.sh", result.stderr)
-        self.assertIn("Usage:", result.stderr)
-
     def test_positional_ir_binary_warns_before_input_validation(self):
         with tempfile.TemporaryDirectory(prefix="ir-deprecation-") as directory:
             output = Path(directory) / "output.img"

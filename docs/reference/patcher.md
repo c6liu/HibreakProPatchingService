@@ -100,8 +100,6 @@ The patcher:
    `--release` mode, also omits the project's diagnostic-trigger hooks.
 
 It can replace this workflow's files in an already-patched image, but a clean
-original GSI is preferred. It refuses a conflicting AOSP daemon init file.
-The deprecated `add-eink-to-gsi.sh` entry point prints a warning and delegates
-to this unified patcher for compatibility; separate stage-one/display and
-stage-two/e-ink patch runs are no longer needed.
+original GSI is preferred. It refuses a conflicting AOSP daemon init file;
+separate stage-one/display and stage-two/e-ink patch runs are no longer needed.
 The old session-only five-mode/AOD image-update scripts are superseded.
