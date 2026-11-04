@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tools.hibreak import elf, image
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("ir_overlay", ROOT / "tools/add-ir-capture-to-gsi.py")
@@ -73,7 +75,7 @@ class IrOverlayTests(unittest.TestCase):
             symbols = subprocess.CompletedProcess([], 0, b"1: 0000000000001000 248 OBJECT GLOBAL DEFAULT 8 HMI\n", b"")
             for details, message in ((b"(NEEDED) Shared library: [libunavailable.so]\n", "dependencies"),
                                      (b"(TEXTREL)\n", "text relocations")):
-                with mock.patch.object(overlay, "run", side_effect=[
+                with mock.patch.object(elf.subprocess, "run", side_effect=[
                     symbols, subprocess.CompletedProcess([], 0, details, b""),
                 ]):
                     with self.assertRaisesRegex(ValueError, message):
@@ -85,8 +87,8 @@ class IrOverlayTests(unittest.TestCase):
             return destination
 
         with tempfile.TemporaryDirectory(prefix="ir-release-policy-") as directory, \
-                mock.patch.object(overlay, "extract", side_effect=extract), \
-                mock.patch.object(overlay, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
                 mock.patch.object(overlay.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")):
             platform, contexts, _ = overlay.prepare_policy(
                 Path("base"), Path("vendor"), Path(directory), "secilc", hal=True,
@@ -106,8 +108,8 @@ class IrOverlayTests(unittest.TestCase):
             return destination
 
         with tempfile.TemporaryDirectory(prefix="ir-existing-policy-") as directory, \
-                mock.patch.object(overlay, "extract", side_effect=extract), \
-                mock.patch.object(overlay, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
                 mock.patch.object(overlay.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")):
             args = (Path("base"), Path("vendor"), Path(directory), "secilc")
             with self.assertRaisesRegex(ValueError, "IR policy already present"):
@@ -160,8 +162,8 @@ class IrOverlayTests(unittest.TestCase):
             return destination
 
         with tempfile.TemporaryDirectory(prefix="ir-policy-test-") as directory:
-            with mock.patch.object(overlay, "extract", side_effect=extract), \
-                    mock.patch.object(overlay, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")):
+            with mock.patch.object(image, "extract", side_effect=extract), \
+                    mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")):
                 with mock.patch.object(overlay.subprocess, "run", side_effect=[
                     result(baseline), result(added + baseline),
                 ]) as compile_policy:
@@ -204,7 +206,7 @@ class IrOverlayTests(unittest.TestCase):
                                 "0100644", "u:object_r:system_file:s0", work)
             original = source.read_bytes()
             elf = bytearray(120)
-            elf[:6] = b"\x7fELF\x02\x01"
+            elf[:7] = b"\x7fELF\x02\x01\x01"
             elf[18:20] = b"\xb7\x00"
             elf[32:40] = (64).to_bytes(8, "little")
             elf[54:56] = (56).to_bytes(2, "little")

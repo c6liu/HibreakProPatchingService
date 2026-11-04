@@ -7,184 +7,23 @@ import os
 from pathlib import Path
 import re
 import shutil
-import struct
 import subprocess
 import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY = "system/etc/selinux"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-
-def run(*args):
-    return subprocess.run(args, check=True, capture_output=True)
-
-
-def image_exists(image, path):
-    result = run("debugfs", "-R", f"stat {path}", str(image))
-    return b"Inode:" in result.stdout
-
-
-def extract(image, path, destination):
-    if not image_exists(image, path):
-        raise ValueError(f"Missing image input: {image}:{path}")
-    run("debugfs", "-R", f'dump {path} "{destination}"', str(image))
-    if not destination.is_file():
-        raise ValueError(f"debugfs did not extract {path}")
-    return destination
-
-
-def neverallow_failures(result):
-    if result.returncode == 0:
-        return set()
-    diagnostics = result.stderr.decode(errors="replace")
-    failures = set(re.findall(
-        r"neverallow check failed .*?(?=\nneverallow check failed |\nFailed to generate binary|\Z)",
-        diagnostics, re.S,
-    ))
-    if not failures:
-        raise ValueError(f"Policy compilation failed:\n{diagnostics}")
-    return failures
-
-
-def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diagnostics=False,
-                   allow_existing_ir=False):
-    if remote and not diagnostics:
-        raise ValueError("Remote app policy requires diagnostic service policy")
-    if allow_existing_ir and (remote or hal or diagnostics):
-        raise ValueError("Cannot add another IR overlay when allowing existing IR policy")
-    if not image_exists(source, "system/bin/secilc"):
-        raise ValueError("GSI has no /system/bin/secilc for boot-time policy recompilation")
-    if image_exists(vendor, "/odm/etc/selinux/odm_sepolicy.cil"):
-        raise ValueError("Vendor contains additional ODM policy; this overlay does not support it")
-    version = extract(vendor, "/etc/selinux/plat_sepolicy_vers.txt", work / "version").read_text().strip()
-    if not re.fullmatch(r"\d+\.\d+", version):
-        raise ValueError(f"Invalid vendor policy version: {version!r}")
-    platform = extract(source, f"{POLICY}/plat_sepolicy.cil", work / "plat.cil")
-    text = platform.read_text()
-    if not allow_existing_ir and ("hibreak_ir_capture" in text or "hibreak_ir_hal_file" in text):
-        raise ValueError("IR policy already present; start from an image without this overlay")
-    inputs = [platform]
-    for label, directory, required in (
-        ("plat", POLICY, True),
-        ("ext", "system/system_ext/etc/selinux", False),
-        ("product", "system/product/etc/selinux", False),
-    ):
-        if label != "plat":
-            path = f"{directory}/{'system_ext' if label == 'ext' else label}_sepolicy.cil"
-            if image_exists(source, path):
-                inputs.append(extract(source, path, work / f"{label}.cil"))
-        for suffix in (".cil", ".compat.cil"):
-            path = f"{directory}/mapping/{version}{suffix}"
-            if image_exists(source, path):
-                inputs.append(extract(source, path, work / f"{label}-mapping{suffix}"))
-            elif required and suffix == ".cil":
-                raise ValueError(f"GSI has no mapping for stock vendor policy {version}")
-    for name in ("plat_pub_versioned.cil", "vendor_sepolicy.cil"):
-        inputs.append(extract(vendor, f"/etc/selinux/{name}", work / name))
-    command = [compiler, "-m", "-M", "true", "-G", "-c", "30",
-               *map(str, inputs), "-o", str(work / "validated.policy"),
-               "-f", str(work / "validated.contexts")]
-    baseline = neverallow_failures(subprocess.run(command, capture_output=True))
-    extra = (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text() if diagnostics else ""
-    if remote:
-        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-remote.cil").read_text()
-    if hal:
-        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-hal.cil").read_text()
-    platform.write_text(text + "\n" + extra)
-    modified = neverallow_failures(subprocess.run(command, capture_output=True))
-    added = modified - baseline
-    if added:
-        raise ValueError("IR overlay adds neverallow violations:\n" + "\n".join(sorted(added)))
-    if baseline:
-        print(f"WARNING: base GSI/vendor merge has {len(baseline)} existing neverallow conflicts.")
-        print("The requested policy changes add none; compiling with Android init's runtime -N option.")
-        run(*command, "-N")
-    contexts = extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")
-    if diagnostics:
-        contexts.write_text(contexts.read_text() + "\n" + (ROOT / "tools/ir/hibreak-ir-file-contexts").read_text())
-    if hal:
-        contexts.write_text(contexts.read_text() +
-                            "\n/system/lib64/consumerir\\.hxd\\.so u:object_r:hibreak_ir_hal_file:s0\n")
-    return platform, contexts, inputs
-
-
-def install(image, source, destination, mode, context, work):
-    if image_exists(image, destination):
-        run("debugfs", "-w", "-R", f"rm {destination}", str(image))
-    run("debugfs", "-w", "-R", f'write "{source}" {destination}', str(image))
-    for field, value in (("mode", mode), ("uid", "0"), ("gid", "0")):
-        run("debugfs", "-w", "-R", f"sif {destination} {field} {value}", str(image))
-    label = work / "label"
-    label.write_bytes(context.encode() + b"\0")
-    run("debugfs", "-w", "-R", f'ea_set -f "{label}" {destination} security.selinux', str(image))
-    check = work / "check"
-    check.unlink(missing_ok=True)
-    extract(image, destination, check)
-    if source.read_bytes() != check.read_bytes():
-        raise ValueError(f"Image verification failed: {destination}")
-    stat = run("debugfs", "-R", f"stat {destination}", str(image)).stdout.decode()
-    if context not in stat or f"Mode:  {mode[-4:]}" not in stat or "User:     0   Group:     0" not in stat:
-        raise ValueError(f"Image metadata verification failed: {destination}\n{stat}")
-
-
-def fsck(image, *args):
-    result = subprocess.run(["e2fsck", *args, str(image)], capture_output=True)
-    if result.returncode not in (0, 1):
-        raise ValueError(result.stdout.decode() + result.stderr.decode())
-
-
-def install_app(image, apk, directory, filename, work):
-    if not image_exists(image, directory):
-        run("debugfs", "-w", "-R", f"mkdir {directory}", str(image))
-    for field, value in (("mode", "040755"), ("uid", "0"), ("gid", "0")):
-        run("debugfs", "-w", "-R", f"sif {directory} {field} {value}", str(image))
-    label_file = work / "app-label"
-    label_file.write_bytes(b"u:object_r:system_file:s0\0")
-    run("debugfs", "-w", "-R", f'ea_set -f "{label_file}" {directory} security.selinux', str(image))
-    install(image, apk, f"{directory}/{filename}", "0100644", "u:object_r:system_file:s0", work)
-
-
-def validate_hal_module(path):
-    module = path.read_bytes()
-    if (len(module) < 64 or module[:7] != b"\x7fELF\x02\x01\x01" or
-            module[16:20] != b"\x03\x00\xb7\x00"):
-        raise ValueError("Expected an arm64 little-endian shared HAL module")
-    phoff = struct.unpack_from("<Q", module, 32)[0]
-    phsize, phnum = struct.unpack_from("<HH", module, 54)
-    if phsize != 56 or not phnum or phoff < 64 or phoff + phsize * phnum > len(module):
-        raise ValueError("Invalid HAL ELF program headers")
-    segments = [struct.unpack_from("<IIQQQQQQ", module, phoff + index * phsize)
-                for index in range(phnum)]
-    for kind, flags, offset, virtual, physical, filesz, memsz, alignment in segments:
-        if offset + filesz > len(module) or (kind == 1 and filesz > memsz):
-            raise ValueError("Truncated or invalid HAL ELF segment")
-    loads = [segment for segment in segments if segment[0] == 1]
-    dynamic = [segment for segment in segments if segment[0] == 2]
-    if not loads or not any(segment[1] & 1 for segment in loads) or len(dynamic) != 1:
-        raise ValueError("HAL requires executable LOAD and DYNAMIC segments")
-    if any(segment[0] == 3 for segment in segments):
-        raise ValueError("HAL must be a shared library, not a PIE executable")
-    _, _, offset, virtual, _, size, _, _ = dynamic[0]
-    if not size or size % 16 or not any(
-        load[3] <= virtual and virtual + size <= load[3] + load[5] and
-        offset == load[2] + virtual - load[3] for load in loads
-    ) or not any(struct.unpack_from("<qQ", module, pos)[0] == 0
-                 for pos in range(offset, offset + size, 16)):
-        raise ValueError("Invalid HAL dynamic table")
-    # Use the platform ELF inspector rather than implementing a second dynamic-symbol parser.
-    symbols = run("readelf", "--dyn-syms", "--wide", str(path)).stdout.decode()
-    if not re.search(r"\b(?:248|0xf8)\s+OBJECT\s+GLOBAL\s+DEFAULT\s+[1-9]\d*\s+HMI\s*$",
-                     symbols, re.M):
-        raise ValueError("HAL must export the 248-byte arm64 consumerir HMI object")
-    details = run("readelf", "--dynamic", "--wide", str(path)).stdout.decode()
-    needed = set(re.findall(r"\(NEEDED\).*?\[([^]]+)\]", details))
-    unsupported = needed - {"libc.so", "libdl.so", "liblog.so", "libm.so"}
-    if unsupported:
-        raise ValueError("Unsupported HAL dependencies: " + ", ".join(sorted(unsupported)))
-    if "(TEXTREL)" in details or re.search(r"\(FLAGS\).*TEXTREL", details):
-        raise ValueError("HAL must not contain text relocations")
+from tools.hibreak.elf import validate_hal_module, validate_static_arm64_executable
+from tools.hibreak import image
+from tools.hibreak.image import (
+    POLICY, extract, fsck, image_exists, install, install_app, run,
+)
+from tools.hibreak.policy import (
+    neverallow_failures, prepare_ir_policy as prepare_policy,
+)
 
 
 def main():
@@ -205,6 +44,12 @@ def main():
     if args.binary and args.diagnostics_binary:
         parser.error("Choose either positional binary or --diagnostics-binary, not both")
     args.binary = args.diagnostics_binary or args.binary
+    if args.binary and not args.diagnostics_binary:
+        print(
+            "Deprecated: pass the capture binary with --diagnostics-binary; "
+            "the positional form will be removed in a future release.",
+            file=sys.stderr,
+        )
     if args.remote_apk and not args.binary:
         parser.error("--remote-apk requires --diagnostics-binary")
     if not args.binary and not args.hal_module:
@@ -233,19 +78,10 @@ def main():
     if os.path.lexists(args.output):
         parser.error(f"Refusing to overwrite: {args.output}")
     if args.binary:
-        binary = args.binary.read_bytes()
-        if len(binary) < 20 or binary[:5] != b"\x7fELF\x02" or binary[18:20] != b"\xb7\x00":
-            parser.error("Expected an arm64 ELF capture binary")
-        if len(binary) < 64 or binary[5] != 1:
-            parser.error("Expected a complete little-endian ELF header")
-        phoff = int.from_bytes(binary[32:40], "little")
-        phsize = int.from_bytes(binary[54:56], "little")
-        phnum = int.from_bytes(binary[56:58], "little")
-        if phsize < 56 or not phnum or phoff + phsize * phnum > len(binary):
-            parser.error("Invalid ELF program headers")
-        if any(int.from_bytes(binary[off:off + 4], "little") == 3
-               for off in range(phoff, phoff + phsize * phnum, phsize)):
-            parser.error("Service requires a static executable; rebuild with tools/build-ir-tool.sh")
+        try:
+            validate_static_arm64_executable(args.binary)
+        except ValueError as error:
+            parser.error(str(error))
     with tempfile.TemporaryDirectory(prefix="hibreak-ir-") as directory:
         work = Path(directory)
         if args.hal_module:
@@ -278,15 +114,8 @@ def main():
             digest.update(path.read_bytes())
         digest_file = work / "policy-digest"
         digest_file.write_text(digest.hexdigest() + "\n")
-        # Reserve the output first; cp writes only to the file just created here.
-        fd = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-        os.close(fd)
+        image.copy_and_grow(args.source, args.output, 32 * 1024 * 1024)
         try:
-            run("cp", "--reflink=auto", str(args.source), str(args.output))
-            os.truncate(args.output, args.output.stat().st_size + 32 * 1024 * 1024)
-            fsck(args.output, "-fy")
-            run("resize2fs", str(args.output))
-            fsck(args.output, "-fy", "-E", "unshare_blocks")
             for source, dest, mode, label in (
                 (platform, f"{POLICY}/plat_sepolicy.cil", "0100644", "system_file"),
                 (contexts, f"{POLICY}/plat_file_contexts", "0100644", "system_file"),
@@ -316,15 +145,7 @@ def main():
             if args.api_test_apk:
                 install_app(args.output, args.api_test_apk, "system/app/HiBreakIrApiTest",
                             "HiBreakIrApiTest.apk", work)
-            fsck(args.output, "-fy")
-            run("resize2fs", "-M", str(args.output))
-            header = run("dumpe2fs", "-h", str(args.output)).stdout.decode()
-            blocks = re.search(r"^Block count:\s+(\d+)$", header, re.M)
-            size = re.search(r"^Block size:\s+(\d+)$", header, re.M)
-            if not blocks or not size:
-                raise ValueError("Cannot determine minimized image size")
-            os.truncate(args.output, int(blocks[1]) * int(size[1]))
-            fsck(args.output, "-fn")
+            image.shrink_and_check(args.output)
         except BaseException:
             args.output.unlink()
             raise

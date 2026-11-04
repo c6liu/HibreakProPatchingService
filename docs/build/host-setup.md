@@ -12,7 +12,7 @@ Choose **one** block for your distribution.
 
 ```bash
 sudo dnf install git curl unzip xz python3 gcc make \
-  e2fsprogs binutils secilc java-21-openjdk-devel android-tools
+  e2fsprogs binutils secilc shellcheck java-21-openjdk-devel android-tools
 ```
 
 **Ubuntu 24.04 / Debian with OpenJDK 21 available:**
@@ -20,7 +20,7 @@ sudo dnf install git curl unzip xz python3 gcc make \
 ```bash
 sudo apt update
 sudo apt install git curl unzip xz-utils python3 python3-venv gcc make \
-  e2fsprogs binutils secilc openjdk-21-jdk adb fastboot
+  e2fsprogs binutils secilc shellcheck openjdk-21-jdk adb fastboot
 ```
 
 These provide the C compiler for tests, Java and `keytool` for APK signing,
@@ -36,7 +36,7 @@ java -version
 keytool -help
 adb version
 fastboot --version
-command -v debugfs e2fsck resize2fs dumpe2fs readelf secilc cc
+command -v debugfs e2fsck resize2fs dumpe2fs readelf secilc shellcheck cc
 ```
 
 Java must be 21 or newer. Every tool in the final command should have a path.

@@ -5,6 +5,21 @@ variables. If you opened another one, set `ANDROID_NDK_HOME` and `BASE`
 ([inputs](inputs.md)), the three [signing variables](signing.md) and, for IR,
 `VENDOR` and `AOSP_HEADERS` ([IR inputs](ir-inputs.md)) again.
 
+For a single-command release build, use the orchestrator. It creates a new
+timestamped directory under `build/`, retains its intermediates, writes a
+`manifest.json` with input/output checksums, and never flashes:
+
+```bash
+python3 tools/build-release.py "$BASE" local/A9AccessibilityService.apk
+```
+
+Add `--ir --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS"` for the IR
+HAL, and `--xrz` to add the experimental XRZ v2 overlay after the base or IR
+image. IR and XRZ both require the matching stock vendor image. Release signing
+uses the same optional signing environment variables as `build-apk.sh`.
+
+The manual build below remains supported and exposes each intermediate step.
+
 ```bash
 cd "$HOME/HibreakProPatchingService"
 tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink-release.apk

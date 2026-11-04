@@ -65,11 +65,15 @@ on property:sys.boot_completed=1
 on property:init.svc.surfaceflinger=running
     start hibreak_disable_hwc
 
+# HIBREAK-RELEASE-REMOVE-BEGIN: disable-hwc-diagnostic
 on property:debug.hibreak.disable_hwc=1
     setprop debug.hibreak.disable_hwc 0
     start hibreak_disable_hwc
+# HIBREAK-RELEASE-REMOVE-END: disable-hwc-diagnostic
 
+# HIBREAK-RELEASE-REMOVE-BEGIN: restart-surfaceflinger-diagnostic
 # Manual recovery without root: adb shell setprop debug.hibreak.restart_sf 1
 on property:debug.hibreak.restart_sf=1
     setprop debug.hibreak.restart_sf 0
     restart surfaceflinger
+# HIBREAK-RELEASE-REMOVE-END: restart-surfaceflinger-diagnostic

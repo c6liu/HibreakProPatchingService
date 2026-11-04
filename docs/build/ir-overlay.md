@@ -101,10 +101,10 @@ Development-only opt-ins (omit all from the release command):
   Build with `tools/build-ir-api-test.sh`. Alternatively sideload it only
   on a development device.
 
-The old optional positional `hxd-learn` argument is still accepted as an
-explicit diagnostic opt-in, but new commands should use
-`--diagnostics-binary` to make that intent clear. Do not layer onto v4-v8
-test images to produce a release: start from the clean release base.
+The old optional positional `hxd-learn` argument is deprecated and prints a
+warning; it remains accepted for compatibility. Use `--diagnostics-binary`
+instead. Do not layer onto v4-v8 test images to produce a release: start from
+the clean release base.
 On a previously used development device, an APK installed in userdata
 may remain after changing system images; inspect/uninstall test packages
 separately rather than assuming an update wipes userdata.

@@ -2,10 +2,13 @@
 
 The scripts are developer and maintenance tools. For the supported image
 workflow, follow the [build guide](../build/README.md), which builds the
-release APK, daemon and patched image in order.
+release APK, daemon and patched image in order. The
+[release orchestrator](../../tools/build-release.py) runs the same stages and
+records input/output checksums in a manifest.
 
 | Script | Purpose |
 |--------|---------|
+| [build-release.py](../../tools/build-release.py) | Build a timestamped release directory with optional IR/XRZ stages and a checksum manifest; never flashes |
 | [build-apk.sh](../../tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
 | [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-tool.sh](../../tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
@@ -22,7 +25,9 @@ No tool downloads dependencies, patches vendor, or flashes automatically. A
 flash requires an explicit `--flash`; erasing shared userdata also requires
 `--wipe-data`. See [flashing helper reference](flashing.md) before using the
 flash script. AOSP build modules remain available as an alternative to the
-prebuilt-APK route.
+prebuilt-APK route, but the AOSP module route is currently **unmaintained and
+untested**. The checked-in module definitions and sources are retained for
+reconstruction; use the documented prebuilt-APK path for supported builds.
 
 IR learning is not a supported feature on the tested phone. The capture path
 is a legacy development diagnostic; see the

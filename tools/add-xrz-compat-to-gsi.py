@@ -5,7 +5,6 @@ import argparse
 from collections import defaultdict
 from dataclasses import dataclass
 import hashlib
-import importlib.util
 import os
 from pathlib import Path
 import re
@@ -17,13 +16,11 @@ from typing import Tuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    "hibreak_ir_overlay", ROOT / "tools/add-ir-capture-to-gsi.py",
-)
-if SPEC is None or SPEC.loader is None:
-    raise RuntimeError("Cannot load the shared GSI image and SELinux helpers")
-image = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(image)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.hibreak import image
+from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
 
 PROPERTIES = (
     "vendor.xrz.fps_limit",
@@ -160,7 +157,7 @@ def prepare_compatibility(source, vendor, work, compiler):
             f"SETools Python bindings are required for permission comparisons: {error}"
         ) from error
 
-    platform, _, inputs = image.prepare_policy(
+    platform, _, inputs = prepare_ir_policy(
         source, vendor, work, compiler, allow_existing_ir=True,
     )
     if (work / "version").read_text().strip() != "31.0":
@@ -192,7 +189,7 @@ def prepare_compatibility(source, vendor, work, compiler):
         baseline_policy, "vendor_default_prop", TERuleQuery, RuleNotConditional,
     )
     normal = policy_command(compiler, inputs, work, "normal")
-    baseline_conflicts = image.neverallow_failures(subprocess.run(normal, capture_output=True))
+    baseline_conflicts = neverallow_failures(subprocess.run(normal, capture_output=True))
 
     mapping.write_text(
         mapping.read_text().rstrip("\n")
@@ -207,7 +204,7 @@ def prepare_compatibility(source, vendor, work, compiler):
         platform.read_text().rstrip("\n") + f"\n\n; {MARKER}\n" + "\n".join(rules) + "\n"
     )
 
-    final_conflicts = image.neverallow_failures(subprocess.run(normal, capture_output=True))
+    final_conflicts = neverallow_failures(subprocess.run(normal, capture_output=True))
     added_conflicts = final_conflicts - baseline_conflicts
     if added_conflicts:
         raise ValueError("XRZ overlay adds neverallow violations:\n" + "\n".join(sorted(added_conflicts)))
@@ -262,29 +259,12 @@ def build_image(source, output, files, work):
     )
     if len(files) != len(destinations):
         raise ValueError("Expected exactly four XRZ policy inputs")
-    fd = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-    os.close(fd)
     complete = False
     try:
-        image.run("cp", "--reflink=auto", str(source), str(output))
-        os.truncate(output, output.stat().st_size + 32 * 1024 * 1024)
-        image.fsck(output, "-fy")
-        image.run("resize2fs", str(output))
-        image.fsck(output, "-fy", "-E", "unshare_blocks")
+        image.copy_and_grow(source, output, 32 * 1024 * 1024)
         for file, dest in zip(files, destinations):
             image.install(output, file, dest, "0100644", "u:object_r:system_file:s0", work)
-        image.fsck(output, "-fy")
-        image.run("resize2fs", "-M", str(output))
-        header = image.run("dumpe2fs", "-h", str(output)).stdout.decode()
-        blocks = re.search(r"^Block count:\s+(\d+)$", header, re.M)
-        size = re.search(r"^Block size:\s+(\d+)$", header, re.M)
-        if not blocks or not size:
-            raise ValueError("Cannot determine minimized image size")
-        os.truncate(output, int(blocks[1]) * int(size[1]))
-        check = subprocess.run(["e2fsck", "-fn", str(output)], capture_output=True)
-        if check.returncode:
-            raise ValueError("Final filesystem check failed:\n" +
-                             (check.stdout + check.stderr).decode(errors="replace"))
+        image.shrink_and_check(output, strict_final=True)
         complete = True
     finally:
         if not complete:

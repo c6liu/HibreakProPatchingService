@@ -18,6 +18,8 @@ For the full host suite:
 ```bash
 python3 -m unittest discover -s tools/tests -v
 for script in tools/*.sh tools/display/*.sh; do bash -n "$script"; done
+shellcheck --shell=sh tools/display/*.sh
+shellcheck tools/lib/*.sh
 ```
 
 Tests use disposable ext4 images in `build/`, not a phone. They cover payloads,
