@@ -5,7 +5,7 @@ tools for the **Bigme HiBreak Pro (black-and-white, MT6877)**.
 The working configuration uses the **stock vendor**, not the HiBreak Pro
 Color HWC shim.
 
-## Using a LineageOS Treble GSI
+## Using an EvoX Treble GSI
 
 **Start with the [install guide](Guide.md).** It covers backup, unlocking,
 first install, setup and updates. [Building and flashing](docs/BUILDING.md)
@@ -20,17 +20,17 @@ has the details for building the app, daemon and patched image.
   and failed approaches.
 - [HiBreak Pro IR investigation](docs/HIBREAK_PRO_IR.md): HXD019 and Android
   IR interfaces, APK codec analysis, and ROM-side HAL integration constraints.
-- [LineageOS for microG GSI releases](https://sourceforge.net/projects/lineageos-4-microg/files/GSI/16/):
-  recommended input `LineageOS-23.2-2026.10.10-microG-gsi.img` (Android 16).
-- [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases): previous
-  input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`. 
+- [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases):
+  recommended GSI input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`.
+- [Prebuilt patched EvoX release](https://github.com/c6liu/HibreakProPatchingService/releases/tag/v0.2.0):
+  download the release asset and follow the prebuilt route in [Guide.md](Guide.md#use-a-prebuilt-release-image).
 - [Original HiBreak release](https://github.com/vbbot/HibreakProPatchingService/releases/tag/20250507):
   source of the prebuilt APK used by the offline APK patcher.
 
 The display fixes have worked with both LineageOS 23.2 and EvoX 11.11 on one
-device with stock 3.1.6 vendor. The fully patched LineageOS image has not yet
-been checked on the device. This is not a guarantee for other firmware, GSIs,
-or the Pro Color.
+device with stock 3.1.6 vendor. Ordinary-app NEC IR has been tested on EvoX.
+The fully patched LineageOS image has not yet been checked on the device.
+These results are not a guarantee for other firmware, GSIs, or the Pro Color.
 Some app controls remain unsupported. Back up the exact stock firmware first.
 **Do not use the Hisense A9 system-image patcher unchanged.**
 
