@@ -31,6 +31,8 @@ Overview and order: [build/README.md](build/README.md).
 
 - [tested-baseline.md](reference/tested-baseline.md) — supported firmware/GSI inputs and scope
 - [app-and-daemon.md](reference/app-and-daemon.md) — APK changes, controls, sysfs paths, limitations
+- [settings.md](reference/settings.md) — user-visible button, refresh, popup and AOD settings
+- [tools.md](reference/tools.md) — repository scripts and safety notes
 - [patcher.md](reference/patcher.md) — `patch-gsi.sh` options, ADB/USB/root defaults, release mode
 - [flashing.md](reference/flashing.md) — `flash-system.sh` behavior and flash errors
 - [verification.md](reference/verification.md) — post-install checks and APK override fixes

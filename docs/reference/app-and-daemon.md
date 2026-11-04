@@ -2,7 +2,7 @@
 
 What the patched E-Ink app and native daemon contain. Build them with
 [Build a release image](../build/build-image.md); user-visible settings are
-summarized in the [project README](../../README.md#settings).
+summarized in the [settings reference](settings.md).
 
 The APK gains five modes, the in-layout toolbar, the AOD inversion switch,
 screen-on DPAD button actions, an opt-in video-refresh popup toggle, and per-app
