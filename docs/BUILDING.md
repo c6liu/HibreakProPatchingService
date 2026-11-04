@@ -15,11 +15,13 @@ d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf  EvoX-11.11-GSI
 
 Use **arm64 A/B, ext4**. Extract compressed images first. Android sparse
 images need `simg2img`; EROFS is not supported by this patcher or the tested
-stock kernel. The script requires a TrebleDroid `vndk.rc` using the existing
-`phhsu_daemon` domain. It does not add a new SELinux policy or disable SELinux.
-The current patcher does not install an IR HAL or add `ctrl_device` access;
-standard Android IR transmission through the HXD019 driver is not included
-by default. A separate experimental, NEC-only adapter is described below.
+stock kernel. The display patcher requires a TrebleDroid `vndk.rc` using the
+existing `phhsu_daemon` domain. It does not add a new SELinux policy or disable
+SELinux. The optional IR and XRZ overlays below add scoped policy changes; they
+do not disable SELinux. The display patcher does not install an IR HAL or add
+`ctrl_device` access; standard Android IR transmission through the HXD019
+driver is not included by default. A separate experimental, NEC-only adapter
+is described below.
 See the [IR compatibility investigation](HIBREAK_PRO_IR.md) for the APK
 analysis and ROM integration. Learning did not work on the tested phone:
 button and no-button captures matched. Do not treat capture as a supported
@@ -325,6 +327,77 @@ original GSI is preferred. It refuses a conflicting AOSP daemon init file.
 The old `add-eink-to-gsi.sh` entry point delegates to this unified patcher;
 separate stage-one/display and stage-two/e-ink patch runs are no longer needed.
 The old session-only five-mode/AOD image-update scripts are superseded.
+
+### Experimental: restore Bigme graphics-property access
+
+This opt-in experiment targets the three observed denied properties:
+`vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither`, and
+`vendor.xrz.hwc_idle`. It does not relabel the rest of `vendor.xrz.*`, change
+vendor, add a new driver, or disable SELinux. It may affect display behavior;
+**it has not been tested on the phone and is not a proven fix for the native
+composer crash.** Keep the previous system image and a complete backup for
+recovery. See [the policy comparison](FINDINGS.md#stock-versus-gsi-graphics-policy)
+for evidence and limitations.
+
+The tool requires a raw GSI system image, the raw stock vendor image matching
+the target phone, host `secilc`, and the **SETools Python bindings** available
+to the `python3` running the tool (`python3 -c 'import setools'`). It currently
+accepts vendor policy version `31.0` only. That version check and a successful
+preflight do not prove the backup matches the installed firmware. The
+stock 3.1.6/EvoX 11.11 host combination was inspected; other GSIs or firmware
+need separate validation.
+
+Apply this **after** the display patcher and, if used, the IR overlay. Use the
+same GSI build already installed on the test phone to make the experiment
+comparable. The tool preserves existing effective SELinux `allow` permissions
+on the three properties and checks that the only additional effective `allow`
+is the stock composer's property-service `set`. It rejects unexpected grants,
+conditional rules it cannot safely compare, new neverallow violations, and
+incompatible property contexts. Existing base GSI/vendor neverallow
+violations are reported, not fixed; Android's runtime-style compilation uses
+`-N` as in the IR preflight.
+
+```bash
+export XRZ_SOURCE=/path/to/current-system-image.img
+export VENDOR=/path/to/matching-stock-vendor.img
+export SECILC=/path/to/secilc
+export XRZ_IMAGE=build/HiBreakPro-xrz-test.img
+
+# Validates the policy and property context; does not create an image.
+python3 tools/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
+  --vendor-image "$VENDOR" --secilc "$SECILC" --check-only
+
+# Creates a separate image only after preflight. Existing outputs are refused.
+python3 tools/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
+  --vendor-image "$VENDOR" --secilc "$SECILC"
+sha256sum "$XRZ_IMAGE"
+```
+
+The tool never flashes or accesses a phone. It copies the system image and
+changes its platform policy, 31.0 mapping, property contexts, and policy-cache
+digest; it reads but does not include or modify vendor. Follow section 4 and
+the [same-GSI update instructions](../Guide.md#updating-the-same-gsi) if you
+choose to test it. An ordinary update to the **same** prepared GSI does not
+need a data wipe, logical-partition deletion, or another vbmeta flash.
+
+Collect comparable logs before and after the update, using separate new output
+directories. The diagnostics can contain personal data; review before sharing:
+
+```bash
+D=build/xrz-before  # use build/xrz-after for the second capture
+tools/collect-diagnostics.sh "$D"
+adb shell getenforce > "$D/selinux-mode.txt"
+adb logcat -d -b all -v threadtime > "$D/logcat-all.txt"
+adb logcat -d -b crash -v threadtime > "$D/logcat-crash.txt"
+adb shell dumpsys dropbox --print SYSTEM_RESTART > "$D/system-restarts.txt"
+```
+
+Confirm SELinux is enforcing, compare the three property-set failures and any
+new AVCs, then exercise the same first unlock, sleep/wake, and scrolling
+scenarios. Missing denials alone do not prove that the properties were written:
+the writes may not have occurred or logs may have been rate-limited. Host
+policy checks also cannot prove that the device selected the intended
+contexts, or that its display behavior and stability improved.
 
 ## 4. Flash only after preparing recovery
 

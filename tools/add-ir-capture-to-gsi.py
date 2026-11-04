@@ -48,9 +48,12 @@ def neverallow_failures(result):
     return failures
 
 
-def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diagnostics=False):
+def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diagnostics=False,
+                   allow_existing_ir=False):
     if remote and not diagnostics:
         raise ValueError("Remote app policy requires diagnostic service policy")
+    if allow_existing_ir and (remote or hal or diagnostics):
+        raise ValueError("Cannot add another IR overlay when allowing existing IR policy")
     if not image_exists(source, "system/bin/secilc"):
         raise ValueError("GSI has no /system/bin/secilc for boot-time policy recompilation")
     if image_exists(vendor, "/odm/etc/selinux/odm_sepolicy.cil"):
@@ -60,7 +63,7 @@ def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diag
         raise ValueError(f"Invalid vendor policy version: {version!r}")
     platform = extract(source, f"{POLICY}/plat_sepolicy.cil", work / "plat.cil")
     text = platform.read_text()
-    if "hibreak_ir_capture" in text or "hibreak_ir_hal_file" in text:
+    if not allow_existing_ir and ("hibreak_ir_capture" in text or "hibreak_ir_hal_file" in text):
         raise ValueError("IR policy already present; start from an image without this overlay")
     inputs = [platform]
     for label, directory, required in (
@@ -96,7 +99,7 @@ def prepare_policy(source, vendor, work, compiler, remote=False, hal=False, diag
         raise ValueError("IR overlay adds neverallow violations:\n" + "\n".join(sorted(added)))
     if baseline:
         print(f"WARNING: base GSI/vendor merge has {len(baseline)} existing neverallow conflicts.")
-        print("IR overlay adds none; compiling with Android init's runtime -N option.")
+        print("The requested policy changes add none; compiling with Android init's runtime -N option.")
         run(*command, "-N")
     contexts = extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")
     if diagnostics:

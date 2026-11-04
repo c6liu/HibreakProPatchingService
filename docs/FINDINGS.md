@@ -614,6 +614,40 @@ reverted.
   provider, or disabling it as passkey provider, are the workarounds. This is
   a credential-provider issue, not specific to EvoX.
 
+## Stock versus GSI graphics policy
+
+Host-side comparison on 2026-11-04 used the backed-up 3.1.6 stock vendor
+and stock system images with the EvoX 11.11 microG release system image.
+No phone was connected for this comparison.
+
+- Stock platform property contexts label `vendor.xrz.*`,
+  `persist.vendor.xrz.*`, `ro.vendor.xrz.*`, and `pm.boot.*` as
+  `vendor_xrz_prop`. The stock vendor policy version is `31.0` and grants
+  `hal_graphics_composer_default` read and property-service `set` on the
+  versioned `vendor_xrz_prop_31_0` attribute.
+- The EvoX GSI lacks that type's mapping in its `31.0.cil` and labels the
+  three observed graphics properties through generic `vendor_default_prop`.
+  Adding only the missing mapping and labels would deny existing reads for
+  203 domains and existing property sets for four domains on this build.
+- A host-only experiment with the new
+  [XRZ compatibility overlay](../tools/add-xrz-compat-to-gsi.py) preserves
+  all 847 baseline effective `allow` permission tuples on those exact three
+  properties and adds only the composer's property-service `set`. It adds
+  no new neverallow violations to this merge. The EvoX/vendor merge already
+  reports 1,750 parsed neverallow diagnostics; the experiment does not fix them.
+  These checks do not prove the phone loads the intended policy or contexts.
+- The vendor's precompiled platform-policy digest begins `0a8c1705`; the
+  display-only EvoX image's digest begins `223c0e9a` and the IR-enabled
+  image's begins `294e6f90`. Under the standard Android init cache check,
+  even the display-only image's mismatch should cause policy recompilation.
+  Therefore the user's improved stability with the IR build cannot be
+  attributed to forcing recompilation from these hashes alone.
+
+The new overlay only changes three exact property names and is opt-in. The
+native graphics crash and the report of improved stability remain unresolved:
+actual property writes, new AVCs, and sleep/wake and scrolling behavior must
+be tested on-device before claiming any fix.
+
 ## Reproducibility and script locations
 
 The working display scripts now live under [tools/display](../tools/display).

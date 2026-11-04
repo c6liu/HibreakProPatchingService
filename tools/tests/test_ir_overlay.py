@@ -97,6 +97,26 @@ class IrOverlayTests(unittest.TestCase):
             self.assertIn("hibreak_ir_hal_file", platform.read_text())
             self.assertIn("consumerir", contexts.read_text())
 
+    def test_existing_ir_policy_can_be_read_but_not_overlaid_again(self):
+        def extract(_image, path, destination):
+            content = "31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n"
+            if path.endswith("plat_sepolicy.cil"):
+                content = "(type hibreak_ir_hal_file)\n"
+            destination.write_text(content)
+            return destination
+
+        with tempfile.TemporaryDirectory(prefix="ir-existing-policy-") as directory, \
+                mock.patch.object(overlay, "extract", side_effect=extract), \
+                mock.patch.object(overlay, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(overlay.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")):
+            args = (Path("base"), Path("vendor"), Path(directory), "secilc")
+            with self.assertRaisesRegex(ValueError, "IR policy already present"):
+                overlay.prepare_policy(*args)
+            platform, _, _ = overlay.prepare_policy(*args, allow_existing_ir=True)
+            self.assertIn("(type hibreak_ir_hal_file)", platform.read_text())
+            with self.assertRaisesRegex(ValueError, "Cannot add another IR overlay"):
+                overlay.prepare_policy(*args, hal=True, allow_existing_ir=True)
+
     def test_release_requires_explicit_feature_and_diagnostic_opt_in(self):
         for options in ([], ["--remote-apk", "remote.apk"]):
             with self.subTest(options=options), mock.patch.object(
