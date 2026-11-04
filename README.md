@@ -8,17 +8,18 @@ Color HWC shim.
 ## Using an EvoX Treble GSI
 
 **Start with the [install guide](Guide.md).** It covers backup, unlocking,
-first install, setup and updates. [Building and flashing](docs/BUILDING.md)
-has the details for building the app, daemon and patched image.
+first install, setup and updates. The [build guide](docs/build/README.md)
+covers building the app, daemon and patched image. All documentation is
+indexed in [docs/](docs/README.md).
 
 > **Press Power after every restart.** Every time the phone restarts or powers
 > up, press Power once right after the Bigme logo flashes, otherwise it can go
 > back to powered-off. This is a known issue and is not fixed.
 
-- [Findings and troubleshooting](docs/FINDINGS.md): tested hardware/software,
+- [Research notes](docs/research/README.md): tested hardware/software,
   display fixes, stock mode research, AOD, boot/power evidence, limitations,
   and failed approaches.
-- [HiBreak Pro IR investigation](docs/HIBREAK_PRO_IR.md): HXD019 and Android
+- [HiBreak Pro IR investigation](docs/research/ir/README.md): HXD019 and Android
   IR interfaces, APK codec analysis, and ROM-side HAL integration constraints.
 - [EvoX releases](https://github.com/Doze-off/EvoX_treble/releases):
   recommended GSI input `EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img`.
@@ -56,7 +57,7 @@ logs, and local tools belong in git-ignored `local/` and `build/`. AOSP build
 modules remain available as an alternative to the prebuilt-APK route.
 IR learning is not a supported feature on the tested phone; the earlier
 capture path is a legacy development diagnostic only. See the
-[investigation summary](docs/HIBREAK_PRO_IR.md#historical-diagnostic-results-v1-v6-not-release-features).
+[investigation summary](docs/research/ir/historical-diagnostics.md).
 
 ## Default button mappings
 

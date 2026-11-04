@@ -39,7 +39,7 @@ fi
 EXPECTED=7e45b54372dd21070cbfbb33f0c0b19bb0aea57382d2e6bab92896db747d6ed7
 ACTUAL="$(sha256sum "$1" | cut -d ' ' -f 1)"
 [ "$ACTUAL" = "$EXPECTED" ] || {
-    echo "Unsupported base APK ($ACTUAL). See docs/BUILDING.md for the tested input." >&2
+    echo "Unsupported base APK ($ACTUAL). See docs/build/inputs.md for the tested input." >&2
     exit 1
 }
 mkdir -p "$ROOT/build"
