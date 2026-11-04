@@ -3,13 +3,20 @@
 Follow these pages in order. Building never flashes a phone; when you have a
 final image, install it using the [Guide](../../Guide.md).
 
+The [unified entry point](build-image.md) is `tools/build-release.py`.
+It builds/signs the source APK automatically, then builds the daemon and image.
+IR and XRZ are optional flags; `--built-apk` reuses a signed APK without
+rebuilding it. Source builds remain experimental despite being the CLI default.
+To use the validated patched-APK route, supply the pinned upstream APK as the
+second positional argument.
+
 1. [Set up a build computer](host-setup.md)
-2. [Download build tools and input images](inputs.md) — NDK, apktool, signer, GSI, base APK
-3. [Prepare IR build inputs](ir-inputs.md) — *IR only*: matching stock vendor image, AOSP headers
+2. [Download build tools and input images](inputs.md) — NDK, signer, GSI; Gradle/SDK for source builds, apktool/base APK for upstream patching
+3. [Prepare IR build inputs](ir-inputs.md) — matching stock vendor image for IR or XRZ; AOSP headers for IR
 4. [Set up APK signing](signing.md)
 5. [Build a release image](build-image.md)
-6. [Add IR support to an image](ir-overlay.md) — *optional*
-7. [Add the XRZ v2 graphics-property overlay](xrz-overlay.md) — *optional, experimental*; after IR if included
+6. [Add IR support to an image](ir-overlay.md) — *optional manual alternative* to `--ir`; do not reapply to the builder's IR output
+7. [Add the XRZ v2 graphics-property overlay](xrz-overlay.md) — *optional manual alternative* to `--xrz`; do not reapply to the builder's XRZ output
 8. Select and check the final image — end of [Build a release image](build-image.md#select-and-check-the-final-image)
 
 Other build topics:

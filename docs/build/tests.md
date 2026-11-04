@@ -1,5 +1,18 @@
 # Tests
 
+For changes to the unified release entry point or APK build flow:
+
+```bash
+python3 -m unittest tools.tests.test_build_release tools.tests.test_source_apk -v
+```
+
+The orchestration tests mock expensive build commands. They cover default
+source builds, explicit source/upstream selection, unchanged signed-APK reuse,
+certificate verification failures, IR-to-XRZ ordering, environment defaults,
+and forwarding NDK/header/compiler paths. They do not compile a real policy
+or prove device compatibility. APK artifact inspection is opt-in as described
+below; without `HIBREAK_SOURCE_APK`, that test class is skipped.
+
 For changes to the IR or XRZ image overlays, the focused host suite is:
 
 ```bash

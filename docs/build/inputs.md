@@ -5,6 +5,18 @@ For the supported patched-APK procedure, you do not need a full AOSP build,
 Gradle, an emulator, CMake, or a separately installed Android `libhardware`
 library. The experimental source-APK route has additional requirements below.
 
+Choose the APK route before downloading inputs:
+
+| Release-builder selection | APK prerequisites |
+|---------------------------|-------------------|
+| No APK argument, or `--source-apk` (default) | Gradle, Android SDK, JDK, and uber-apk-signer; see [source prerequisites](#experimental-source-apk-prerequisites) |
+| `--built-apk /path/to/signed.apk` | Already built signed APK, Java, and uber-apk-signer for verification; no Gradle or upstream APK extraction |
+| Positional `local/A9AccessibilityService.apk` | Pinned upstream APK, apktool, Java, and uber-apk-signer |
+
+Every image build still needs the GSI and NDK to compile the daemon.
+IR additionally needs [HAL headers and matching vendor](ir-inputs.md);
+XRZ needs matching vendor, `secilc`, and SETools in the selected Python.
+
 | What | Where to get it | Where it goes |
 |------|-----------------|---------------|
 | Android NDK **27.2.12479018 (r27c), Linux** | Google's [NDK installation instructions](https://developer.android.com/studio/projects/install-ndk#specific-version), or [official older downloads](https://github.com/android/ndk/wiki/Unsupported-Downloads) | Normally `~/Android/Sdk/ndk/27.2.12479018` |
@@ -53,6 +65,8 @@ Do not continue if the checksum differs. Use only one `BASE`.
 
 ## Extract the original E-Ink APK
 
+Skip this section for default source builds and `--built-apk` reuse.
+
 **Do not flash the old vbbot image.** It is only an APK source.
 
 ```bash
@@ -68,7 +82,7 @@ Expected APK SHA-256:
 7e45b54372dd21070cbfbb33f0c0b19bb0aea57382d2e6bab92896db747d6ed7
 ```
 
-The builder rejects other APKs. If a file is already extracted, skip the
+The upstream APK patcher rejects other APKs. If a file is already extracted, skip the
 extraction command rather than overwriting it.
 
 ## Why only this APK is accepted
@@ -101,5 +115,6 @@ gradle --version
 Accept the Android SDK licenses when prompted. Gradle resolves its plugin and
 AndroidX/Material dependencies from Google Maven and Maven Central, so the
 first build requires network access. It may also install missing SDK components.
-See [Build a release image](build-image.md) for the opt-in commands and the
+This is the unified release builder's default route. See
+[Build a release image](build-image.md) for commands, APK reuse, and the
 device-validation limitations.

@@ -42,6 +42,12 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 - [Build guide](docs/build/README.md): ordered instructions for building an
   image from source.
 
+The [unified release builder](docs/build/build-image.md) builds and signs the
+source APK, compiles the daemon, and creates a new image. Add `--ir --xrz` for
+the IR HAL and experimental graphics-property overlay, or use `--built-apk`
+to reuse an already signed APK. Source-APK device parity remains unverified;
+the pinned upstream APK patching route is still available.
+
 The tools do not patch vendor or flash automatically. Flashing is a dry run
 unless explicitly requested; a data wipe requires an explicit option and
 erases shared userdata. Large inputs, generated images, logs, and local tools

@@ -62,3 +62,17 @@ Moving an already-flashed debug-signed system app to the release certificate
 requires a fresh migration plan; test on a disposable device before publishing.
 The experimental source-APK builder uses this same signer and configuration;
 it does not use Gradle's separate debug signing key.
+
+## Unified release builds and APK reuse
+
+`python3 tools/build-release.py "$BASE"` builds and signs the source APK
+automatically. Export all three release-key variables in that same terminal
+before starting it. Signing remains interactive; never put passwords in the
+release command or a configuration file.
+
+With `--built-apk /path/to/signed.apk`, the builder does not rebuild or re-sign
+the APK. It verifies its signature/alignment and, if `APK_RELEASE_CERT_SHA256`
+is set, requires that fingerprint. Only the public fingerprint is needed for
+this mode; the keystore and alias are not used and no password is requested.
+Without an expected fingerprint, verification does not establish that the APK
+uses your release key.

@@ -72,6 +72,8 @@ Do not combine a positional upstream APK, `--source-apk`, or `--built-apk`.
 
 The manual build below remains supported and exposes each intermediate step.
 
+## Manual upstream-APK build
+
 ```bash
 cd "$HOME/HibreakProPatchingService"
 tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink-release.apk
@@ -123,7 +125,12 @@ route for release images until the [device checks](tests.md) have passed.
 
 ## Select and check the final image
 
-Choose **one**:
+For the unified builder, set `IMAGE` to its printed **Final image** path in
+the new timestamped directory. The manifest's `final_image` names that same
+file. Keep the manifest with the image; intermediate base/IR images are not
+the final output when later stages were requested.
+
+For the manual commands above, choose **one**:
 
 ```bash
 # With XRZ v2 (with or without IR, according to XRZ_SOURCE):
