@@ -163,6 +163,15 @@ class SettingsResourceTests(unittest.TestCase):
                           "CameraLiveRefresh.kt").read_text()
         self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
 
+    def test_camera_live_refresh_preference_updates_the_active_overlay(self):
+        root = ET.parse(SOURCE).getroot()
+        cameras = [node for node in root.iter() if node.get(APP + "key") == "camera_live_refresh"]
+        self.assertEqual(len(cameras), 1)
+        self.assertEqual(cameras[0].get(APP + "defaultValue"), "true")
+        service = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                   "A9AccessibilityService.kt").read_text()
+        self.assertIn('"camera_live_refresh" -> cameraLiveRefresh?.update()', service)
+
     def test_app_picker_uses_standard_preference_layout(self):
         settings = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
                     "AppLaunchSettings.kt").read_text()
@@ -242,11 +251,15 @@ class PatchedApkSettingsTests(unittest.TestCase):
         source = ET.parse(SOURCE).getroot()
         actual = {node.get(APP + "key"): node.attrib for node in root.iter()
                   if node.get(APP + "key")}
+        source_keys = {node.get(APP + "key") for node in source.iter() if node.get(APP + "key")}
+        self.assertEqual(set(actual), source_keys)
         for node in source.iter():
             key = node.get(APP + "key")
             if key:
                 self.assertEqual(actual[key], node.attrib)
         self.assertIn("camera_live_refresh", actual)
+        self.assertEqual(sum(node.get(APP + "key") == "camera_live_refresh"
+                             for node in root.iter()), 1)
         refresh_manager = (self.decoded /
                            "smali/com/lmqr/ha9_comp_service/RefreshModeManager.smali").read_text()
         self.assertIn('const-string v1, "1"', refresh_manager)

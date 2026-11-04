@@ -45,7 +45,7 @@ object AppLaunchSettings {
                 title = "App to launch"
                 order = actionPreference.order + 1
                 dialogTitle = "Choose an app to launch"
-                entries = if (apps.isEmpty()) {
+                this.entries = if (apps.isEmpty()) {
                     arrayOf("No launchable apps found")
                 } else {
                     apps.map { it.second }.toTypedArray()

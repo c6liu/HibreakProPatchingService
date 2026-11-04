@@ -28,9 +28,35 @@ and format rejection, and flashing safeguards. Settings resource tests also
 check category order and dependencies. When the tested base APK and apktool
 are present in `local/` (or `APKTOOL_JAR` is set), APK tests decode, patch and
 assemble the settings UI; otherwise those APK tests are skipped.
+
+To inspect an already built experimental source APK, run:
+
+```bash
+ANDROID_HOME="$HOME/Android/Sdk" \
+HIBREAK_SOURCE_APK="$PWD/build/HiBreakEink-source-experimental.apk" \
+  python3 -m unittest tools.tests.test_source_apk -v
+```
+
+This requires apktool and Android build tools 36.0.0. It checks the compiled
+manifest, boot receiver's hidden-API reference, exclusion of the compile-only
+stub, settings resources, version, and signature. It does not access a device.
+Optionally set `HIBREAK_PATCHED_APK` to the supported patched APK to compare
+their permissions, component contracts, preferences, refresh/action choices,
+shared popup controls, and signing certificates. The certificate check expects
+both APKs to use the same key. The patched APK retains hidden legacy AOD view
+IDs which are intentionally absent from the source layout.
+Before considering the source route for release, separately test on the target
+device: boot-time service activation, settings and preference migration,
+per-app modes, both side keys (including screen-off gestures and app launch),
+quick settings, display controls, and AOD/video-refresh behavior. Check upgrades
+with the intended signing certificate as well. The source APK has not yet
+passed those parity checks.
+
 To additionally check all four DPAD action dispatches, popup inflation and
 video-switch setup, and screen-off/on receiver execution on a connected Android
 device, run `HIBREAK_ADB_TESTS=1 python3 -m unittest tools.tests.test_apk_settings`.
+These existing instrumentation tests exercise the **patched** APK, not the
+source-built APK.
 This opt-in check needs the APK signer too. It installs a disposable,
 uniquely named instrumentation package using the patched classes and resources,
 with a mock command runner and preferences for popup tests. It does not replace

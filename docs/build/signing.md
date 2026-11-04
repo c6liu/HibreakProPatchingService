@@ -60,3 +60,5 @@ passwords. Use this same key for every future A9 build. Changing the
 certificate may cause Android to reject an update or reset the app's data.
 Moving an already-flashed debug-signed system app to the release certificate
 requires a fresh migration plan; test on a disposable device before publishing.
+The experimental source-APK builder uses this same signer and configuration;
+it does not use Gradle's separate debug signing key.

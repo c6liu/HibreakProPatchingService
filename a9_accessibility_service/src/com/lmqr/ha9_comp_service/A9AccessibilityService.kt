@@ -422,6 +422,8 @@ class A9AccessibilityService : AccessibilityService(),
                 sharedPreferences?.let { updateAodInvert(it) }
             }
 
+            "camera_live_refresh" -> cameraLiveRefresh?.update()
+
             "close_status_bar" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
             }

@@ -441,17 +441,6 @@ replace(service, '''    :not_aod_invert
     return-void
     :not_camera_live_refresh
     if-eqz p2, :cond_6''')
-def camera_preference(root):
-    app = "{http://schemas.android.com/apk/res-auto}"
-    category = root.find("PreferenceCategory[@%stitle='EInk Service Settings']" % app)
-    category.insert(0, ET.Element("SwitchPreferenceCompat", {
-        app + "defaultValue": "true", app + "key": "camera_live_refresh",
-        app + "summary": "Keep the camera preview updating on the E-Ink screen while a camera is open",
-        app + "title": "Keep camera preview live",
-    }))
-
-
-xml(prefs, camera_preference)
 print("Patched camera preview keep-alive.")
 
 # Keep the legacy view IDs for the prebuilt accessor, but never show unsupported AOD controls.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a release image from the pinned APK/GSI inputs without flashing a device."""
+"""Build a release image from a GSI and an APK without flashing a device."""
 
 import argparse
 from datetime import datetime, timezone
@@ -29,10 +29,34 @@ def require_input(parser, path, name):
         parser.error(f"Missing {name}: {path}")
 
 
+def source_apk_inputs(parser):
+    files = [
+        ROOT / "settings.gradle.kts",
+        ROOT / "build.gradle.kts",
+        ROOT / "gradle.properties",
+        ROOT / "a9_accessibility_service/build.gradle.kts",
+        ROOT / "a9_accessibility_service/AndroidManifest.xml",
+        ROOT / "tools/android-system-api-stubs/build.gradle.kts",
+        ROOT / "tools/build-source-apk.sh",
+        ROOT / "tools/lib/build-common.sh",
+    ]
+    for path in files:
+        require_input(parser, path, "source APK build input")
+    for name in ("a9_accessibility_service/src", "a9_accessibility_service/res",
+                 "a9_accessibility_service/standalone", "tools/android-system-api-stubs/src"):
+        directory = ROOT / name
+        if not directory.is_dir():
+            parser.error(f"Missing source APK input directory: {directory}")
+        files.extend(path for path in directory.rglob("*") if path.is_file())
+    return {f"apk_source:{path.relative_to(ROOT)}": path for path in sorted(files)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("gsi", type=Path, help="Raw ext4 A/B GSI image")
-    parser.add_argument("apk", type=Path, help="Pinned upstream A9 APK input")
+    parser.add_argument("apk", type=Path, nargs="?", help="Pinned upstream A9 APK input")
+    parser.add_argument("--source-apk", action="store_true",
+                        help="Use the experimental source-built APK instead of a pinned APK")
     parser.add_argument("--vendor-image", type=Path,
                         help="Matching stock vendor image; required for IR or XRZ")
     parser.add_argument("--aosp-headers", type=Path,
@@ -44,7 +68,15 @@ def main():
     args = parser.parse_args()
 
     require_input(parser, args.gsi, "GSI image")
-    require_input(parser, args.apk, "base APK")
+    if args.source_apk:
+        if args.apk is not None:
+            parser.error("Do not supply a base APK with --source-apk")
+        apk_inputs = source_apk_inputs(parser)
+    else:
+        if args.apk is None:
+            parser.error("A base APK is required unless --source-apk is selected")
+        require_input(parser, args.apk, "base APK")
+        apk_inputs = {"base_apk": args.apk.resolve()}
     if args.ir or args.xrz:
         if args.vendor_image is None:
             parser.error("--vendor-image is required for --ir or --xrz")
@@ -70,8 +102,11 @@ def main():
     apk = build_dir / "HiBreakEink-release.apk"
     daemon = build_dir / "a9_eink_server-release"
     base = build_dir / "HiBreakPro-release-base.img"
+    apk_command = (["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)]
+                   if args.source_apk else
+                   ["bash", str(ROOT / "tools/build-apk.sh"), str(apk_inputs["base_apk"]), str(apk)])
     commands = [
-        ["bash", str(ROOT / "tools/build-apk.sh"), str(args.apk.resolve()), str(apk)],
+        apk_command,
         ["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)],
         ["bash", str(ROOT / "tools/patch-gsi.sh"), str(args.gsi.resolve()),
          str(base), str(apk), str(daemon), "--release"],
@@ -95,7 +130,7 @@ def main():
         ])
         current = xrz_image
 
-    input_files = {"gsi": args.gsi.resolve(), "base_apk": args.apk.resolve()}
+    input_files = {"gsi": args.gsi.resolve(), **apk_inputs}
     if args.vendor_image:
         input_files["vendor_image"] = args.vendor_image.resolve()
     if args.ir:
@@ -113,6 +148,8 @@ def main():
         "outputs": {},
         "final_image": str(current),
     }
+    if args.source_apk:
+        manifest["options"]["source_apk"] = True
 
     try:
         child_environment = os.environ.copy()

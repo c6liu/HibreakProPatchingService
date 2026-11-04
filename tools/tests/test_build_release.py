@@ -35,6 +35,8 @@ class ReleaseBuildTests(unittest.TestCase):
             commands.append(command)
             if command[0] == "bash" and command[1].endswith("build-apk.sh"):
                 output = Path(command[3])
+            elif command[0] == "bash" and command[1].endswith("build-source-apk.sh"):
+                output = Path(command[2])
             elif command[0] == "bash" and command[1].endswith("build-daemon.sh"):
                 output = Path(command[2])
             elif command[0] == "bash" and command[1].endswith("patch-gsi.sh"):
@@ -77,6 +79,40 @@ class ReleaseBuildTests(unittest.TestCase):
         self.assertIn("HiBreakPro-release-ir.img", manifest["outputs"])
         self.assertIn("HiBreakPro-xrz-v2-test.img", manifest["outputs"])
         self.assertEqual(commands[4][1], str(ROOT / "tools/add-ir-capture-to-gsi.py"))
+
+    def test_source_apk_is_opt_in_and_records_source_inputs(self):
+        output_root = self.work / "source-builds"
+        commands = []
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--source-apk",
+            "--output-root", str(output_root),
+        ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+
+        self.assertEqual(len(commands), 3)
+        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
+        manifest = json.loads((next(output_root.iterdir()) / "manifest.json").read_text())
+        self.assertTrue(manifest["options"]["source_apk"])
+        self.assertNotIn("base_apk", manifest["inputs"])
+        source = ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/BootReceiver.kt"
+        key = f"apk_source:{source.relative_to(ROOT)}"
+        self.assertEqual(manifest["inputs"][key]["sha256"], build_release.sha256(source))
+        for path in ("settings.gradle.kts", "a9_accessibility_service/build.gradle.kts",
+                     "a9_accessibility_service/standalone/AndroidManifest.xml",
+                     "tools/android-system-api-stubs/src/main/java/android/os/SystemProperties.java"):
+            self.assertIn(f"apk_source:{path}", manifest["inputs"])
+
+    def test_exactly_one_apk_source_is_required_before_creating_build_directory(self):
+        for extra in ([], [str(self.apk), "--source-apk"]):
+            with self.subTest(extra=extra):
+                output_root = self.work / "unused-builds"
+                with mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), *extra,
+                    "--output-root", str(output_root),
+                ]), self.assertRaises(SystemExit) as result:
+                    build_release.main()
+                self.assertEqual(result.exception.code, 2)
+                self.assertFalse(output_root.exists())
 
     def test_ir_header_path_is_passed_to_build_command_environment(self):
         output_root = self.work / "builds"

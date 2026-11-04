@@ -53,8 +53,10 @@ class SettingsActivity : AppCompatActivity() {
                     apps.addPreference(PerAppRefreshPreference(context).apply {
                         key = "package:${app.activityInfo.packageName}"
                         title = app.loadLabel(pm)
-                        entries = arrayOf("Use default") + resources.getTextArray(R.array.refresh_options)
-                        entryValues = arrayOf("-1") + resources.getTextArray(R.array.refresh_values)
+                        entries = arrayOf<CharSequence>("Use default") +
+                            resources.getTextArray(R.array.refresh_options)
+                        entryValues = arrayOf<CharSequence>("-1") +
+                            resources.getTextArray(R.array.refresh_values)
                         summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
                         setDefaultValue("-1")
                     })

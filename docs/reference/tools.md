@@ -10,6 +10,7 @@ records input/output checksums in a manifest.
 |--------|---------|
 | [build-release.py](../../tools/build-release.py) | Build a timestamped release directory with optional IR/XRZ stages and a checksum manifest; never flashes |
 | [build-apk.sh](../../tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
+| [build-source-apk.sh](../../tools/build-source-apk.sh) | Experimentally build the checked-in Kotlin/resources with Gradle and the same APK signer |
 | [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-tool.sh](../../tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
 | [add-ir-capture-to-gsi.py](../../tools/add-ir-capture-to-gsi.py) | Add the optional IR overlay; release support is HAL-only with `--hal-module`; diagnostics and test apps require opt-in; `--check-only` never packages an image |
@@ -21,8 +22,10 @@ records input/output checksums in a manifest.
 | [flash-system.sh](../../tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
 | [collect-diagnostics.sh](../../tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
 
-No tool downloads dependencies, patches vendor, or flashes automatically. A
-flash requires an explicit `--flash`; erasing shared userdata also requires
+The experimental Gradle source builder resolves dependencies and can install
+missing SDK components; the other tools do not download dependencies. No tool
+patches vendor or flashes automatically. A flash requires an explicit `--flash`;
+erasing shared userdata also requires
 `--wipe-data`. See [flashing helper reference](flashing.md) before using the
 flash script. AOSP build modules remain available as an alternative to the
 prebuilt-APK route, but the AOSP module route is currently **unmaintained and

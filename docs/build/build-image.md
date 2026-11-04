@@ -46,6 +46,29 @@ to the resulting **pre-XRZ** image. This corrects four property labels and
 restores the stock composer's set permission; it is not a proven crash fix.
 Do not rebuild on top of a previous XRZ output.
 
+## Experimental source-built APK
+
+After installing the [source-APK prerequisites](inputs.md#experimental-source-apk-prerequisites),
+the orchestrator can build from the checked-in Kotlin and resources instead of
+the upstream APK:
+
+```bash
+python3 tools/build-release.py "$BASE" --source-apk
+```
+
+Do not pass a base APK with `--source-apk`. The manifest identifies this option
+and records checksums of the source and build files. To build just the APK:
+
+```bash
+tools/build-source-apk.sh build/HiBreakEink-source-experimental.apk
+```
+
+Both commands use the same signing variables and overwrite safeguards as the
+patched-APK route. With no signing variables they use a debug certificate.
+This route is **experimental**: host checks do not establish device behavior or
+complete parity with the patched APK. Keep using the supported patched-APK
+route for release images until the [device checks](tests.md) have passed.
+
 ## Select and check the final image
 
 Choose **one**:

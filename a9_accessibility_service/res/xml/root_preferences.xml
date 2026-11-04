@@ -114,6 +114,12 @@
     <PreferenceCategory app:order="2" app:title="EInk Service Settings">
         <SwitchPreferenceCompat
             app:defaultValue="true"
+            app:key="camera_live_refresh"
+            app:summary="Keep the camera preview updating on the E-Ink screen while a camera is open"
+            app:title="Keep camera preview live" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
             app:key="aod_invert"
             app:summary="Show the Always-On Display as dark content on a white background"
             app:title="Invert colours on Always-On Display" />

@@ -15,6 +15,7 @@ final image, install it using the [Guide](../../Guide.md).
 Other build topics:
 
 - [Experimental XRZ graphics-property overlay](xrz-overlay.md) — active labels and permissions checked on-device; crash fix unproven
+- [Experimental source-built APK](inputs.md#experimental-source-apk-prerequisites) — standalone Gradle build; device parity unverified
 - [Tests](tests.md) — host tests and opt-in device tests
 
 Details of what each tool does are in [reference/](../README.md#reference--how-things-work),

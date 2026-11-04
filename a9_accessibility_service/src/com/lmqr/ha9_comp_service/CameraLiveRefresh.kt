@@ -66,7 +66,7 @@ class CameraLiveRefresh(private val context: Context) : CameraManager.Availabili
     private fun windowManager() =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    private fun update() {
+    fun update() {
         val cameraEnabled = PreferenceManager.getDefaultSharedPreferences(context)
             .getBoolean("camera_live_refresh", true)
         val shouldRefresh = screenOn &&

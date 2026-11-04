@@ -31,31 +31,36 @@ hibreak_ndk_bin() {
     done
 }
 
-hibreak_build_and_sign_apk() {
-    local apktool="$1" signer="$2" app="$3" unsigned="$4" signed_dir="$5" output="$6"
-    shift 6
+hibreak_validate_apk_signing() {
     local keystore="${1:-}" alias="${2:-}" cert="${3:-}"
-    local normalized_cert
-    local -a signed_apks
-
-    hibreak_require_file "$apktool" || return
-    hibreak_require_file "$signer" || return
-    hibreak_refuse_overwrite "$output" || return
-    java -jar "$apktool" b "$app" -o "$unsigned" || return
     if [ -n "$keystore" ] || [ -n "$alias" ] || [ -n "$cert" ]; then
         [ -n "$keystore" ] && [ -n "$alias" ] && [ -n "$cert" ] || {
             echo "Set APK_RELEASE_KEYSTORE, APK_RELEASE_KEY_ALIAS, and APK_RELEASE_CERT_SHA256 together." >&2
             return 1
         }
         hibreak_require_file "$keystore" || return
-        normalized_cert="${cert//:/}"
+        local normalized_cert="${cert//:/}"
         [[ "$normalized_cert" =~ ^[[:xdigit:]]{64}$ ]] || {
             echo "APK_RELEASE_CERT_SHA256 must be a 64-digit SHA-256 certificate fingerprint." >&2
             return 1
         }
+    fi
+}
+
+hibreak_sign_apk() {
+    local signer="$1" unsigned="$2" signed_dir="$3" output="$4"
+    shift 4
+    local keystore="${1:-}" alias="${2:-}" cert="${3:-}"
+    local -a signed_apks
+
+    hibreak_require_file "$signer" || return
+    hibreak_require_file "$unsigned" || return
+    hibreak_refuse_overwrite "$output" || return
+    hibreak_validate_apk_signing "$keystore" "$alias" "$cert" || return
+    if [ -n "$keystore" ]; then
         echo "Signing with release alias '$alias'; enter keystore/key passwords at the signer prompts."
         java -jar "$signer" -a "$unsigned" --ks "$keystore" --ksAlias "$alias" \
-            --verifySha256 "$normalized_cert" -o "$signed_dir" || return
+            --verifySha256 "${cert//:/}" -o "$signed_dir" || return
     else
         java -jar "$signer" -a "$unsigned" -o "$signed_dir" || return
     fi
@@ -64,6 +69,20 @@ hibreak_build_and_sign_apk() {
         echo "Expected exactly one verified signed APK in $signed_dir." >&2
         return 1
     }
-    cp "${signed_apks[0]}" "$output"
+    dd if="${signed_apks[0]}" of="$output" bs=1M conv=excl status=none || {
+        echo "Cannot create signed APK without overwriting: $output" >&2
+        return 1
+    }
     sha256sum "$output"
+}
+
+hibreak_build_and_sign_apk() {
+    local apktool="$1" signer="$2" app="$3" unsigned="$4" signed_dir="$5" output="$6"
+    shift 6
+
+    hibreak_require_file "$apktool" || return
+    hibreak_require_file "$signer" || return
+    hibreak_refuse_overwrite "$output" || return
+    java -jar "$apktool" b "$app" -o "$unsigned" || return
+    hibreak_sign_apk "$signer" "$unsigned" "$signed_dir" "$output" "$@"
 }

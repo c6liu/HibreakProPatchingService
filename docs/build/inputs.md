@@ -1,8 +1,9 @@
 # Download build tools and input images
 
 Use the original publishers below, not repackaged executables from forums.
-You do not need a full AOSP build, Gradle, an emulator, CMake, or a separately
-installed Android `libhardware` library for this procedure.
+For the supported patched-APK procedure, you do not need a full AOSP build,
+Gradle, an emulator, CMake, or a separately installed Android `libhardware`
+library. The experimental source-APK route has additional requirements below.
 
 | What | Where to get it | Where it goes |
 |------|-----------------|---------------|
@@ -77,7 +78,28 @@ R8-generated smali and resource layouts, not arbitrary A9 APK versions.
 Patching a newer APK needs porting and validating those edits. Stock Bigme
 xSettings is **not** a drop-in replacement; it depends on the stock framework.
 
-The checked-in Kotlin/resources are the source implementation. Offline APK
-rebuilding uses the tested upstream APK plus [patch-apk.py](../../tools/patch-apk.py)
-because this repository is an AOSP module, not a standalone Gradle project.
-Do not expect arbitrary Kotlin edits to be picked up by the APK patcher.
+The checked-in Kotlin/resources are also buildable with the experimental
+standalone Gradle project below. The supported APK patcher instead uses the
+tested upstream APK plus [patch-apk.py](../../tools/patch-apk.py); arbitrary
+Kotlin edits are not picked up by that patcher.
+
+## Experimental source-APK prerequisites
+
+The source route does not use the upstream APK or apktool, but still needs
+uber-apk-signer. Install Gradle 9.8.2, a JDK, and an Android SDK with platform
+35 and build tools 36.0.0. The source build was tested on Linux with Gradle
+9.8.2 and JDK 27; the Android Gradle Plugin version is pinned to 9.5.0.
+For example, with the Android CLI:
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+android --sdk "$ANDROID_HOME" sdk install platforms/android-35
+android --sdk "$ANDROID_HOME" sdk install build-tools/36.0.0
+gradle --version
+```
+
+Accept the Android SDK licenses when prompted. Gradle resolves its plugin and
+AndroidX/Material dependencies from Google Maven and Maven Central, so the
+first build requires network access. It may also install missing SDK components.
+See [Build a release image](build-image.md) for the opt-in commands and the
+device-validation limitations.
