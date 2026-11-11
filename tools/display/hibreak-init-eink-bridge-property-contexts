@@ -1,0 +1,2 @@
+sys.hibreak.eink_bridge.auto_refresh u:object_r:hibreak_eink_bridge_prop:s0 exact enum 0 1
+sys.hibreak.eink_bridge.anti_flicker u:object_r:hibreak_eink_bridge_prop:s0 exact enum 0 1

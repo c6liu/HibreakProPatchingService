@@ -1,0 +1,11 @@
+on property:sys.hibreak.eink_bridge.auto_refresh=0
+    write /sys/kernel/debug/eink_debug/clean_a2 0
+
+on property:sys.hibreak.eink_bridge.auto_refresh=1
+    write /sys/kernel/debug/eink_debug/clean_a2 1
+
+on property:sys.hibreak.eink_bridge.anti_flicker=0
+    write /sys/kernel/debug/eink_debug/anti_flicker 0
+
+on property:sys.hibreak.eink_bridge.anti_flicker=1
+    write /sys/kernel/debug/eink_debug/anti_flicker 1

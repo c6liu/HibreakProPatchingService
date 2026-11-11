@@ -1,0 +1,30 @@
+# Host-only candidate bridge. Keep destination property labels and grants unchanged.
+on property:sys.hibreak.request.refresh_mode=180
+    setprop vendor.xrz.global_refresh_mode 180
+
+on property:sys.hibreak.request.refresh_mode=178
+    setprop vendor.xrz.global_refresh_mode 178
+
+on property:sys.hibreak.request.refresh_mode=2147483825
+    setprop vendor.xrz.global_refresh_mode 2147483825
+
+on property:sys.hibreak.request.refresh_mode=179
+    setprop vendor.xrz.global_refresh_mode 179
+
+on property:sys.hibreak.request.refresh_mode=183
+    setprop vendor.xrz.global_refresh_mode 183
+
+on property:sys.hibreak.request.aod_invert=true
+    setprop persist.sys.hibreak.aod_invert true
+
+on property:sys.hibreak.request.aod_invert=false
+    setprop persist.sys.hibreak.aod_invert false
+
+on property:sys.hibreak.request.linevibrator_type=*
+    setprop sys.linevibrator_type ${sys.hibreak.request.linevibrator_type}
+
+on property:sys.hibreak.request.linevibrator_touch=*
+    setprop sys.linevibrator_touch ${sys.hibreak.request.linevibrator_touch}
+
+on property:sys.hibreak.request.wakeup_on_volume=*
+    setprop sys.wakeup_on_volume ${sys.hibreak.request.wakeup_on_volume}

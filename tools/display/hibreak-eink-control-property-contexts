@@ -1,0 +1,5 @@
+sys.hibreak.request.refresh_mode u:object_r:hibreak_eink_control_prop:s0 exact enum 180 178 2147483825 179 183
+sys.hibreak.request.aod_invert u:object_r:hibreak_eink_control_prop:s0 exact enum true false
+sys.hibreak.request.linevibrator_type u:object_r:hibreak_eink_control_prop:s0 exact int
+sys.hibreak.request.linevibrator_touch u:object_r:hibreak_eink_control_prop:s0 exact int
+sys.hibreak.request.wakeup_on_volume u:object_r:hibreak_eink_control_prop:s0 exact int

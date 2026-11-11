@@ -36,12 +36,42 @@ Do not add `--diagnostics-binary`, `--remote-apk`, or `--api-test-apk` to a
 normal release build. Development opt-ins are described in
 [Overlay details](#overlay-details-and-development-options).
 
-The policy preflight may report existing GSI/vendor neverallow conflicts.
-It rejects new conflicts introduced by the overlay; existing conflicts are
-not proof that the upstream ROM is production-ready. SELinux remains enforcing.
+The policy preflight counts both ordinary `neverallow` and extended-permission
+`neverallowx` conflicts (such as ioctl restrictions). It rejects new conflicts
+of either kind introduced by the overlay. Existing conflicts are not fixed;
+compilation uses Android init's runtime `-N` option to skip these assertions.
+This does not disable runtime SELinux enforcement or prove that the upstream
+ROM is production-ready.
 
 Then continue at
 [Select and check the final image](build-image.md#select-and-check-the-final-image).
+
+### Host-only baseline reduction experiment (2026-11-11)
+
+The EvoX 11.11 microG 20260920 GSI with stock 3.1.6 vendor policy has
+1,750 ordinary and 24 extended-permission diagnostics: **1,774 total**.
+Separate extracted-policy candidates produced these results without changing
+either image:
+
+| PHH grant removal | Allow rules removed | Ordinary | Extended | Total |
+| --- | ---: | ---: | ---: | ---: |
+| None (baseline) | 0 | 1,750 | 24 | 1,774 |
+| Broad `phhsu_daemon` property-service set | 1 | 1,262 | 24 | 1,286 |
+| Above plus broad hardware-service access | 3 | 941 | 24 | 965 |
+| All ordinary-diagnostic-identified PHH `phhsu_daemon` grants | 70 | 371 | 15 | 386 |
+
+Only selected `allow` statements were removed; assertions, type declarations,
+other domains' grants, and permissive-domain declarations were unchanged.
+All candidates compiled with `-N`, but none compiled successfully with
+assertion checking enabled. These are diagnostic counts, not independent
+vulnerability counts, and the candidates have not been tested on a phone.
+
+The upstream system-ext policy already declares `phhsu_daemon` permissive.
+Leaving that declaration intact means removing its explicit grants is not
+equivalent to restricting its runtime access. Conversely, making it enforcing
+would require a separately reviewed root permission set and device regression
+tests. These reductions are **not automatically applied by the image builder**;
+they demonstrate a feasible cleanup direction, not a hardened release policy.
 
 ## Overlay details and development options
 

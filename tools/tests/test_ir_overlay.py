@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tools.hibreak import elf, image
+from tools.hibreak import elf, image, policy
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -137,6 +137,60 @@ class IrOverlayTests(unittest.TestCase):
             overlay.neverallow_failures(subprocess.CompletedProcess([], 1, b"", (failure + "\nFailed to generate binary").encode())),
             {failure},
         )
+
+    def test_neverallow_and_neverallowx_diagnostics_are_separate(self):
+        ordinary = "neverallow check failed at plat.cil:1\n  (neverallow a b (file (read)))\n"
+        extended = "neverallowx check failed at plat.cil:2\n  (neverallowx a b (ioctl chr_file (0x5412)))\n"
+        for failures in ([extended], [ordinary, extended], [extended, ordinary],
+                         [ordinary, extended, ordinary]):
+            with self.subTest(failures=failures):
+                result = subprocess.CompletedProcess(
+                    [], 255, b"",
+                    ("\n".join(failures) + "\nFailed to generate binary\n").encode(),
+                )
+                self.assertEqual(policy.neverallow_failures(result), set(failures))
+        for ending in ("", "\n", "\n\nFailed to generate binary\n"):
+            result = subprocess.CompletedProcess([], 255, b"", (extended.rstrip("\n") + ending).encode())
+            self.assertEqual(policy.neverallow_failures(result), {extended})
+
+    def test_policy_rejects_new_extended_permission_conflicts(self):
+        ordinary = b"neverallow check failed at plat.cil:1\n  (neverallow a b (file (read)))\n"
+        extended = b"neverallowx check failed at plat.cil:2\n  (neverallowx a b (ioctl chr_file (0x5412)))\n"
+
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        for baseline, modified in ((b"", extended), (ordinary, ordinary + b"\n" + extended),
+                                   (extended, extended + b"\n" + ordinary)):
+            with self.subTest(baseline=baseline), tempfile.TemporaryDirectory() as directory, \
+                    mock.patch.object(image, "extract", side_effect=extract), \
+                    mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                    mock.patch.object(policy.subprocess, "run", side_effect=[
+                        subprocess.CompletedProcess([], 255 if baseline else 0, b"", baseline),
+                        subprocess.CompletedProcess([], 255, b"", modified),
+                    ]), mock.patch.object(image, "run") as runtime_compile:
+                with self.assertRaisesRegex(ValueError, "IR overlay adds neverallow violations"):
+                    policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc")
+                runtime_compile.assert_not_called()
+
+    def test_existing_extended_permission_conflicts_use_runtime_compile(self):
+        extended = b"neverallowx check failed at plat.cil:2\n  (neverallowx a b (ioctl chr_file (0x5412)))\n"
+
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(policy.subprocess, "run", return_value=subprocess.CompletedProcess([], 255, b"", extended)), \
+                mock.patch.object(image, "run") as runtime_compile, \
+                mock.patch("builtins.print") as output:
+            policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc")
+            runtime_compile.assert_called_once()
+            self.assertEqual(runtime_compile.call_args.args[-1], "-N")
+            self.assertIn("1 existing neverallow/neverallowx conflicts", output.call_args_list[0].args[0])
 
     def test_service_is_explicit_unprivileged_and_fixed(self):
         rc = (ROOT / "tools/ir/hibreak-ir-capture.rc").read_text()

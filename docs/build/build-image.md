@@ -70,6 +70,92 @@ Do not combine `--source-apk` and `--built-apk`. Positional APK inputs are rejec
 
 The manual build below remains supported and exposes each intermediate step.
 
+### Experimental property-only refresh test
+
+Add `--experimental-property-only-refresh` to build a separate test image.
+Only the daemon's refresh-mode write to `eink_debug/global_mode` is omitted;
+it still sets `vendor.xrz.global_refresh_mode`, and Auto Refresh and
+Anti-Shake retain their existing debugfs writes. Normal builds are unchanged.
+The option is recorded in the manifest. This is not an enforcing-domain
+migration or a proven equivalent refresh path. The image is never flashed
+by the build command.
+
+Keep a working image and recovery path before testing. Compare all five modes
+(especially HD_256), app switching, sleep/wake, and Auto Refresh/Anti-Shake
+against the working image. `adb logcat -s a9EinkService:I '*:S'` shows
+`Property-only refresh test: requested ...` when a property request succeeds
+and an error if setting it fails; that log confirms neither composer receipt
+nor physical panel behavior. See the [investigation](../reference/verification.md#debugfs-alternative-investigation-2026-11-11).
+
+### Experimental property-only Auto Refresh test
+
+Add `--experimental-property-only-auto-refresh` to replace the daemon's
+`clean_a2` write with `vendor.xrz.auto_clean_enabled=0/1`. It can be combined
+with `--experimental-property-only-refresh`. Anti-Shake still uses its
+original debugfs path; normal builds are unchanged. The manifest records
+each experiment separately. This does not migrate the daemon to an enforcing
+domain, and the property is not proven equivalent to `clean_a2` on this device.
+The user reported that Auto Refresh did not seem to work in the 2026-11-11
+device test, despite successful property requests. Do not use this experiment
+as a replacement for the existing control.
+
+Keep the previous working image and recovery path. Compare Auto Refresh on
+and off in the same apps and refresh modes against the previous image, including
+app changes and sleep/wake. Look for changes in ghosting and cleaning; absence
+of visible differences alone does not establish equivalence. The daemon log
+`Property-only auto-refresh test: requested ...` confirms a property set, not
+composer receipt or panel behavior. Failures are logged as
+`Failed to set vendor.xrz.auto_clean_enabled=...`.
+See the [Color comparison](../reference/verification.md#hibreak-pro-color-comparison-2026-11-11).
+
+### Experimental init e-ink bridge
+
+This separate experiment starts from the byte-identical tested
+IR/XRZ/PHH-reduced image with property-only refresh (SHA-256
+`e04bb8354ffcf2a999945bc83fe1d834caa1c131bfe3574353d1939134ee70e2`).
+It builds a new daemon and has init write the two existing Auto Refresh and
+Anti-Shake nodes using fixed `0`/`1` requests. It does not change the default
+release builder or migrate the daemon out of `phhsu_daemon`.
+
+```bash
+/usr/bin/python3 tools/add-eink-init-bridge-to-gsi.py \
+  "$TESTED_IMAGE" "$NEW_TEST_IMAGE" \
+  --vendor-image "$VENDOR" --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
+```
+
+The tool refuses to overwrite an image or manifest and never flashes. Keep
+the previous working image and recovery path. After boot, observe
+`adb logcat -b all -s a9EinkService:I init:I '*:S'` while testing toggles,
+rapid changes, repeated settings, app changes and sleep/wake. Daemon request
+success is not hardware-write acknowledgement; init logs failed actions.
+Compare actual panel behavior against the previous image. SELinux remains
+enforcing globally, but `phhsu_daemon` remains permissive.
+
+### Experimental PHH grant reduction
+
+Add `--experimental-phh-reduction` to apply the exact 70-grant host experiment
+after all other overlays. It requires `--vendor-image` and `--secilc`, accepts
+only the byte-identical EvoX 11.11 20260920 system-ext policy, and rejects a
+merge that does not produce 371 ordinary plus 15 extended conflicts.
+The final image remains `HiBreakPro-release.img`; the manifest explicitly
+records the experimental option and reduction-tool checksum.
+
+```bash
+/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
+  --ir --xrz --experimental-phh-reduction \
+  --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS" \
+  --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
+```
+
+Default builds are unchanged. This removes substantial root permissions,
+including daemon entrypoint access, but preserves the upstream permissive
+`phhsu_daemon` declaration. It is **not hardening**, still requires `-N`,
+and has not been device-validated. Keep your working image and recovery path;
+do not make this domain enforcing without reviewing its required grants.
+See the [host experiment](ir-overlay.md#host-only-baseline-reduction-experiment-2026-11-11).
+The standalone [overlay tool](../../tools/add-phh-reduction-to-gsi.py)
+also supports `--check-only` without producing an image.
+
 ## Manual source-APK build
 
 ```bash

@@ -68,6 +68,10 @@ class ReleaseBuildTests(unittest.TestCase):
 
         self.assertEqual(len(commands), 6)
         command_names = [Path(command[1]).name for command in commands]
+        daemon_command = next(command for command in commands
+                              if Path(command[1]).name == "build-daemon.sh")
+        self.assertNotIn("--experimental-property-only-refresh", daemon_command)
+        self.assertNotIn("--experimental-property-only-auto-refresh", daemon_command)
         self.assertCountEqual(command_names[:3], [
             "build-source-apk.sh", "build-daemon.sh", "build-ir-hal.sh",
         ])
@@ -95,6 +99,38 @@ class ReleaseBuildTests(unittest.TestCase):
         self.assertFalse(any(build_dir.glob(".release-stages-*")))
         self.assertEqual(ir_command[1], str(ROOT / "tools/add-ir-capture-to-gsi.py"))
 
+    def test_property_only_refresh_is_opt_in_and_recorded(self):
+        output_root = self.work / "property-only-builds"
+        commands = []
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--experimental-property-only-refresh",
+            "--output-root", str(output_root),
+        ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+        daemon_command = next(command for command in commands
+                              if Path(command[1]).name == "build-daemon.sh")
+        self.assertEqual(daemon_command[3:], ["--experimental-property-only-refresh"])
+        manifest = json.loads((next(output_root.iterdir()) / "manifest.json").read_text())
+        self.assertTrue(manifest["options"]["experimental_property_only_refresh"])
+
+    def test_property_only_auto_refresh_combines_and_is_recorded(self):
+        output_root = self.work / "auto-refresh-builds"
+        commands = []
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--experimental-property-only-refresh",
+            "--experimental-property-only-auto-refresh", "--output-root", str(output_root),
+        ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+        daemon_command = next(command for command in commands
+                              if Path(command[1]).name == "build-daemon.sh")
+        self.assertEqual(daemon_command[3:], [
+            "--experimental-property-only-refresh",
+            "--experimental-property-only-auto-refresh",
+        ])
+        manifest = json.loads((next(output_root.iterdir()) / "manifest.json").read_text())
+        self.assertTrue(manifest["options"]["experimental_property_only_refresh"])
+        self.assertTrue(manifest["options"]["experimental_property_only_auto_refresh"])
+
     def test_explicit_source_apk_records_source_inputs(self):
         output_root = self.work / "source-builds"
         commands = []
@@ -120,6 +156,35 @@ class ReleaseBuildTests(unittest.TestCase):
                      "a9_accessibility_service/standalone/AndroidManifest.xml",
                      "tools/android-system-api-stubs/src/main/java/android/os/SystemProperties.java"):
             self.assertIn(f"apk_source:{path}", manifest["inputs"])
+
+    def test_experimental_phh_reduction_runs_last_and_is_recorded(self):
+        for features in ([], ["--ir"], ["--xrz"], ["--ir", "--xrz"]):
+            with self.subTest(features=features):
+                output_root = self.work / ("phh" + "".join(features))
+                commands = []
+                with mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi),
+                    "--vendor-image", str(self.vendor), "--aosp-headers", str(self.headers),
+                    "--experimental-phh-reduction", *features,
+                    "--output-root", str(output_root),
+                ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+                    build_release.main()
+                final_command = commands[-1]
+                self.assertEqual(Path(final_command[1]).name, "add-phh-reduction-to-gsi.py")
+                self.assertEqual(final_command[2], commands[-2][3])
+                self.assertNotEqual(final_command[2], final_command[3])
+                directory = next(output_root.iterdir())
+                manifest = json.loads((directory / "manifest.json").read_text())
+                self.assertTrue(manifest["options"]["experimental_phh_reduction"])
+                self.assertIn("phh_reduction_tool", manifest["inputs"])
+                self.assertEqual(list(directory.glob("*.img")), [Path(manifest["final_image"])])
+
+    def test_experimental_phh_reduction_requires_vendor(self):
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--experimental-phh-reduction",
+        ]), self.assertRaises(SystemExit) as result:
+            build_release.main()
+        self.assertEqual(result.exception.code, 2)
 
     def test_exactly_one_apk_source_is_required_before_creating_build_directory(self):
         for extra in ([str(self.apk)], [str(self.apk), "--source-apk"],

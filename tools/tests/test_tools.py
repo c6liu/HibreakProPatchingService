@@ -467,13 +467,20 @@ class RefreshModeTests(unittest.TestCase):
             (work / "sys/system_properties.h").write_text(
                 "int __system_property_set(const char *, const char *);\n")
             binary = work / "refresh-mode-probe"
-            result = subprocess.run(
-                [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
-                 ROOT / "tools/tests/native/RefreshModeProbe.c", "-o", binary],
-                capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            result = subprocess.run([binary], capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for flags in ([], ["-DHIBREAK_ENFORCING_CANDIDATE"],
+                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH"],
+                          ["-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
+                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH",
+                           "-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
+                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE"]):
+                with self.subTest(flags=flags):
+                    result = subprocess.run(
+                        [compiler, "-Wall", "-Wextra", "-Werror", *flags, "-I", str(work),
+                         ROOT / "tools/tests/native/RefreshModeProbe.c", "-o", binary],
+                        capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    result = subprocess.run([binary], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 class BootWakeTests(unittest.TestCase):

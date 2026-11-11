@@ -105,7 +105,7 @@ def main():
                 context.write_text(context.read_text() + "\n" +
                                    (ROOT / f"tools/ir/hibreak-ir-remote-{suffix}").read_text())
                 remote_contexts.append((context, f"{POLICY}/{name}", "0100644", "system_file"))
-        print("Merged GSI + stock vendor IR policy compiled; no new neverallow conflicts.")
+        print("Merged GSI + stock vendor IR policy compiled; no new neverallow/neverallowx conflicts.")
         if args.check_only:
             return
         # This is a cache-buster for our overlay, not an AOSP build-system hash.

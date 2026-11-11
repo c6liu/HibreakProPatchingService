@@ -15,10 +15,10 @@ def neverallow_failures(result):
     if result.returncode == 0:
         return set()
     diagnostics = result.stderr.decode(errors="replace")
-    failures = set(re.findall(
-        r"neverallow check failed .*?(?=\nneverallow check failed |\nFailed to generate binary|\Z)",
-        diagnostics, re.S,
-    ))
+    failures = {failure.rstrip("\n") + "\n" for failure in re.findall(
+        r"^neverallowx? check failed .*?(?=\nneverallowx? check failed |\nFailed to generate binary|\Z)",
+        diagnostics, re.S | re.M,
+    )}
     if not failures:
         raise ValueError(f"Policy compilation failed:\n{diagnostics}")
     return failures
@@ -76,7 +76,7 @@ def prepare_ir_policy(source, vendor, work, compiler, remote=False, hal=False,
     if added:
         raise ValueError("IR overlay adds neverallow violations:\n" + "\n".join(sorted(added)))
     if baseline:
-        print(f"WARNING: base GSI/vendor merge has {len(baseline)} existing neverallow conflicts.")
+        print(f"WARNING: base GSI/vendor merge has {len(baseline)} existing neverallow/neverallowx conflicts.")
         print("The requested policy changes add none; compiling with Android init's runtime -N option.")
         image.run(*command, "-N")
     contexts = image.extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")

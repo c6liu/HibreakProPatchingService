@@ -32,10 +32,11 @@ to exercise that startup write; do not restart the composer to test it.
 The tool preserves existing effective SELinux `allow` permissions
 on the four properties and checks that the only additional effective `allow`
 is the stock composer's property-service `set`. It rejects unexpected grants,
-conditional rules it cannot safely compare, new neverallow violations, and
+conditional rules it cannot safely compare, new `neverallow` or `neverallowx`
+violations, and
 incompatible property contexts. Existing base GSI/vendor neverallow
-violations are reported, not fixed; Android's runtime-style compilation uses
-`-N` as in the IR preflight.
+violations of both kinds are counted and reported, not fixed; Android's
+runtime-style compilation uses `-N` as in the IR preflight.
 
 ```bash
 export XRZ_SOURCE=/path/to/pre-xrz-system-image.img

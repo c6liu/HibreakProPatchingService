@@ -23,7 +23,44 @@ static const char* kTAG = "a9EinkService";
 #define BUFFER_SIZE 512
 #define HD_256_MODE "2147483825" // 0x800000b1: stock HD with the 256-level flag.
 
+static const char* controlProperty(const char* name) {
+#ifdef HIBREAK_ENFORCING_CANDIDATE
+    static const struct { const char* destination; const char* request; } properties[] = {
+        {"vendor.xrz.global_refresh_mode", "sys.hibreak.request.refresh_mode"},
+        {"persist.sys.hibreak.aod_invert", "sys.hibreak.request.aod_invert"},
+        {"sys.linevibrator_type", "sys.hibreak.request.linevibrator_type"},
+        {"sys.linevibrator_touch", "sys.hibreak.request.linevibrator_touch"},
+        {"sys.wakeup_on_volume", "sys.hibreak.request.wakeup_on_volume"},
+    };
+    for (size_t i = 0; i < sizeof(properties) / sizeof(properties[0]); i++) {
+        if (strcmp(name, properties[i].destination) == 0) return properties[i].request;
+    }
+    LOGE("Unmapped candidate control property: %s", name);
+    return NULL;
+#else
+    return name;
+#endif
+}
+
 void startSideKeyMonitor(void);
+
+void logPolicyPath(const char* path) {
+    struct stat info;
+    if (stat(path, &info) != 0) {
+        LOGE("Policy probe: cannot stat %s: %s", path, strerror(errno));
+        return;
+    }
+    char context[256];
+    ssize_t length = getxattr(path, "security.selinux", context, sizeof(context) - 1);
+    if (length < 0) {
+        LOGE("Policy probe: cannot read label for %s: %s", path, strerror(errno));
+        return;
+    }
+    context[length] = '\0';
+    LOGI("Policy probe: path=%s context=%s uid=%u gid=%u mode=%04o",
+         path, context, (unsigned int)info.st_uid, (unsigned int)info.st_gid,
+         (unsigned int)(info.st_mode & 07777));
+}
 
 static void waitForCommand(pid_t pid) {
     int status;
@@ -139,10 +176,18 @@ void writeToEpdDisplayMode(const char* value) {
 
 // Bigme's stock HWC reads its global e-ink mode from this property (decimal EinkRefreshMode value).
 void applyRefreshMode(const char* value) {
+#ifndef HIBREAK_PROPERTY_ONLY_REFRESH
     writeToEpdDisplayMode(value);
-    if (__system_property_set("vendor.xrz.global_refresh_mode", value) != 0) {
+#endif
+    const char* property = controlProperty("vendor.xrz.global_refresh_mode");
+    if (property != NULL && __system_property_set(property, value) != 0) {
         LOGE("Failed to set vendor.xrz.global_refresh_mode=%s", value);
     }
+#ifdef HIBREAK_PROPERTY_ONLY_REFRESH
+    else if (property != NULL) {
+        LOGI("Property-only refresh test: requested %s=%s", property, value);
+    }
+#endif
 }
 
 static void sendDpadKey(const char* keycode) {
@@ -209,7 +254,35 @@ void setWarmBacklight(const char* brightness) {
     close(fd);
 }
 
+#ifdef HIBREAK_INIT_EINK_BRIDGE
+static void requestEinkControl(const char* property, const char* value) {
+    if (strcmp(value, "0") != 0 && strcmp(value, "1") != 0) {
+        LOGE("Invalid init e-ink bridge value for %s: %s", property, value);
+        return;
+    }
+    if (__system_property_set(property, value) != 0) {
+        LOGE("Failed to request init e-ink bridge %s=%s", property, value);
+    } else {
+        LOGI("Init e-ink bridge requested %s=%s; hardware write is asynchronous", property, value);
+    }
+}
+#endif
+
 void setGlobalAutoRefresh(const char* value) {
+#ifdef HIBREAK_INIT_EINK_BRIDGE
+    requestEinkControl("sys.hibreak.eink_bridge.auto_refresh", value);
+#else
+#ifdef HIBREAK_PROPERTY_ONLY_AUTO_REFRESH
+    if (strcmp(value, "0") != 0 && strcmp(value, "1") != 0) {
+        LOGE("Invalid property-only auto-refresh value: %s", value);
+        return;
+    }
+    if (__system_property_set("vendor.xrz.auto_clean_enabled", value) != 0) {
+        LOGE("Failed to set vendor.xrz.auto_clean_enabled=%s", value);
+    } else {
+        LOGI("Property-only auto-refresh test: requested vendor.xrz.auto_clean_enabled=%s", value);
+    }
+#else
     const char* globalAutoRefreshPath = "/sys/kernel/debug/eink_debug/clean_a2";
     if(!valid_number(value)){
         LOGE("Error writing to %s: Invalid Number\n", globalAutoRefreshPath);
@@ -224,9 +297,14 @@ void setGlobalAutoRefresh(const char* value) {
         LOGE("Error writing to %s: %s\n", globalAutoRefreshPath, strerror(errno));
     }
     close(fd);
+#endif
+#endif
 }
 
 void setAntiFlicker(const char* value) {
+#ifdef HIBREAK_INIT_EINK_BRIDGE
+    requestEinkControl("sys.hibreak.eink_bridge.anti_flicker", value);
+#else
     const char* path = "/sys/kernel/debug/eink_debug/anti_flicker";
     if(!valid_number(value)){
         LOGE("Error writing to %s: Invalid Number\n", path);
@@ -241,6 +319,7 @@ void setAntiFlicker(const char* value) {
         LOGE("Error writing to %s: %s\n", path, strerror(errno));
     }
     close(fd);
+#endif
 }
 
 
@@ -302,7 +381,9 @@ void writeLockscreenProp(const char* value) {
     }
     pid_t pid = fork();
     if (pid == 0) {
-        execl("/system/bin/setprop", "setprop", "sys.linevibrator_type", value, (char *)NULL);
+        const char* property = controlProperty("sys.linevibrator_type");
+        if (property == NULL) _exit(EXIT_FAILURE);
+        execl("/system/bin/setprop", "setprop", property, value, (char *)NULL);
         LOGE("execlp failed: %s", strerror(errno));
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
@@ -319,7 +400,9 @@ void writeMaxBrightnessProp(const char* value) {
     }
     pid_t pid = fork();
     if (pid == 0) {
-        execl("/system/bin/setprop", "setprop", "sys.linevibrator_touch", value, (char *)NULL);
+        const char* property = controlProperty("sys.linevibrator_touch");
+        if (property == NULL) _exit(EXIT_FAILURE);
+        execl("/system/bin/setprop", "setprop", property, value, (char *)NULL);
         LOGE("execlp failed: %s", strerror(errno));
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
@@ -336,7 +419,9 @@ void writeWakeOnVolumeProp(const char* value) {
     }
     pid_t pid = fork();
     if (pid == 0) {
-        execl("/system/bin/setprop", "setprop", "sys.wakeup_on_volume", value, (char *)NULL);
+        const char* property = controlProperty("sys.wakeup_on_volume");
+        if (property == NULL) _exit(EXIT_FAILURE);
+        execl("/system/bin/setprop", "setprop", property, value, (char *)NULL);
         LOGE("execlp failed: %s", strerror(errno));
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
@@ -353,7 +438,8 @@ void setAodInvert(const char* value) {
         return;
     }
     const char* enabled = strcmp(value, "0") == 0 ? "false" : "true";
-    if (__system_property_set("persist.sys.hibreak.aod_invert", enabled) != 0) {
+    const char* property = controlProperty("persist.sys.hibreak.aod_invert");
+    if (property != NULL && __system_property_set(property, enabled) != 0) {
         LOGE("Failed to set persist.sys.hibreak.aod_invert=%s", enabled);
     }
 }
@@ -492,6 +578,21 @@ _Noreturn void setupServer() {
 
 int main(void) {
     signal(SIGHUP, SIG_IGN);
+    char context[256];
+    int context_fd = open("/proc/self/attr/current", O_RDONLY | O_CLOEXEC);
+    if (context_fd < 0) {
+        LOGE("Policy probe: cannot open process context: %s", strerror(errno));
+    } else {
+        ssize_t length = read(context_fd, context, sizeof(context) - 1);
+        if (length < 0) {
+            LOGE("Policy probe: cannot read process context: %s", strerror(errno));
+        } else {
+            context[length] = '\0';
+            LOGI("Policy probe: daemon context=%s uid=%u gid=%u",
+                 context, (unsigned int)getuid(), (unsigned int)getgid());
+        }
+        close(context_fd);
+    }
     startSideKeyMonitor();
     const char* paths[] = {
         "/sys/kernel/debug/eink_debug/global_mode",
@@ -499,6 +600,13 @@ int main(void) {
         "/sys/kernel/debug/eink_debug/anti_flicker",
         "/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light",
         "/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_warm_light",
+        "/dev/input",
+        "/system/bin/a9_eink_server",
+        "/system/bin/settings",
+        "/system/bin/input",
+        "/system/bin/am",
+        "/system/bin/app_process64",
+        "/system/bin/sh",
     };
     for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
         struct stat info;
@@ -507,6 +615,7 @@ int main(void) {
         } else {
             LOGE("Hardware node unavailable: %s: %s", paths[i], strerror(errno));
         }
+        logPolicyPath(paths[i]);
     }
     setupServer();
     return 0;

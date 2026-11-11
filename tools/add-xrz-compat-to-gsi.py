@@ -3,7 +3,6 @@
 
 import argparse
 from collections import defaultdict
-from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
@@ -12,7 +11,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Tuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +19,7 @@ if str(ROOT) not in sys.path:
 
 from tools.hibreak import image
 from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
+from tools.hibreak.properties import parse_contexts, resolve_context, effective_permissions
 
 PROPERTIES = (
     "vendor.xrz.fps_limit",
@@ -36,47 +35,6 @@ MARKER_PREFIX = "hibreak-xrz-graphics-compat-"
 MARKER = MARKER_PREFIX + "v2"
 COMPOSER_SET = ("hal_graphics_composer_default", "property_service", "set")
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-
-
-@dataclass(frozen=True)
-class PropertyContext:
-    name: str
-    label: str
-    match: str
-    value_type: Tuple[str, ...]
-    source: str
-
-
-def parse_contexts(source, text):
-    entries = []
-    for number, line in enumerate(text.splitlines(), 1):
-        fields = line.split("#", 1)[0].split()
-        if not fields:
-            continue
-        if len(fields) < 2:
-            raise ValueError(f"Invalid property context in {source}:{number}")
-        match = fields[2] if len(fields) >= 3 else "prefix"
-        if match not in ("exact", "prefix"):
-            raise ValueError(f"Invalid property match mode in {source}:{number}: {match}")
-        entries.append(PropertyContext(
-            fields[0], fields[1], match, tuple(fields[3:]) or ("string",), source,
-        ))
-    return entries
-
-
-def resolve_context(name, entries):
-    matches = [
-        entry for entry in entries
-        if (entry.match == "exact" and name == entry.name)
-        or (entry.match == "prefix" and name.startswith(entry.name))
-    ]
-    if not matches:
-        raise ValueError(f"No property context matches {name}")
-    best_rank = max((len(entry.name), entry.match == "exact") for entry in matches)
-    best = [entry for entry in matches if (len(entry.name), entry.match == "exact") == best_rank]
-    if len(best) != 1:
-        raise ValueError(f"Ambiguous property contexts for {name}: {[entry.source for entry in best]}")
-    return best[0]
 
 
 def add_property_contexts(plat_text, other_contexts):
@@ -102,23 +60,6 @@ def add_property_contexts(plat_text, other_contexts):
         if result.label != XRZ_LABEL or result.value_type != ("string",):
             raise ValueError(f"New property context does not select the expected type: {name}")
     return updated
-
-
-def effective_permissions(policy, target, query, not_conditional):
-    permissions = set()
-    for rule in query(
-        policy, ruletype=["allow"], target=target,
-    ).results():
-        try:
-            rule.conditional
-        except not_conditional:
-            pass
-        else:
-            raise ValueError(f"Conditional property permission cannot be safely preserved: {rule}")
-        for source in rule.source.expand():
-            permissions.update((str(source), str(rule.tclass), str(permission))
-                               for permission in rule.perms)
-    return permissions
 
 
 def preservation_rules(baseline, mapped):
@@ -246,7 +187,7 @@ def prepare_compatibility(source, vendor, work, compiler):
           f"using {len(rules)} explicit rules.")
     print("For these properties, the only added effective allow is the composer's property_service set.")
     if baseline_conflicts:
-        print(f"WARNING: {len(baseline_conflicts)} existing GSI/vendor neverallow conflicts remain.")
+        print(f"WARNING: {len(baseline_conflicts)} existing GSI/vendor neverallow/neverallowx conflicts remain.")
     return platform, mapping, plat_contexts, digest_file
 
 

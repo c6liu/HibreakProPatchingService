@@ -15,6 +15,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "A9SideKeys", __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "A9SideKeys", __VA_ARGS__)
 
+void logPolicyPath(const char* path);
+
 #ifndef SIDE_KEY_PACKAGE
 #define SIDE_KEY_PACKAGE "com.lmqr.ha9_comp_service"
 #endif
@@ -43,6 +45,7 @@ static int openSideKeys(void) {
             int clock = CLOCK_MONOTONIC;
             if (ioctl(candidate, EVIOCSCLOCKID, &clock) == 0) {
                 LOGI("Monitoring side keys on %s", path);
+                logPolicyPath(path);
                 fd = candidate;
                 break;
             }

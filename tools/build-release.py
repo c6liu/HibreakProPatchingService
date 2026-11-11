@@ -72,6 +72,12 @@ def main():
                         help="Policy compiler for both overlays (default: SECILC or secilc)")
     parser.add_argument("--ir", action="store_true", help="Include the release IR HAL")
     parser.add_argument("--xrz", action="store_true", help="Include experimental XRZ v2 overlay")
+    parser.add_argument("--experimental-phh-reduction", action="store_true",
+                        help="Remove 70 PHH root grants for the exact tested EvoX baseline; not hardening")
+    parser.add_argument("--experimental-property-only-refresh", action="store_true",
+                        help="Test composer property refresh without the daemon global_mode write")
+    parser.add_argument("--experimental-property-only-auto-refresh", action="store_true",
+                        help="Test composer auto-clean property without the daemon clean_a2 write")
     parser.add_argument("--output-root", type=Path, default=ROOT / "build",
                         help="Directory for a new timestamped build (default: build/)")
     args = parser.parse_args()
@@ -84,9 +90,9 @@ def main():
         apk_inputs = {"built_apk": args.built_apk.resolve()}
     else:
         apk_inputs = source_apk_inputs(parser)
-    if args.ir or args.xrz:
+    if args.ir or args.xrz or args.experimental_phh_reduction:
         if args.vendor_image is None:
-            parser.error("--vendor-image is required for --ir or --xrz")
+            parser.error("--vendor-image is required for --ir, --xrz or --experimental-phh-reduction")
         require_input(parser, args.vendor_image, "vendor image")
     if args.ir:
         if args.aosp_headers is None or not args.aosp_headers.is_dir():
@@ -123,9 +129,15 @@ def main():
     final_image = build_dir / "HiBreakPro-release.img"
     stage_directory = tempfile.TemporaryDirectory(prefix=".release-stages-", dir=build_dir)
     stage_dir = Path(stage_directory.name)
-    has_overlays = args.ir or args.xrz
+    has_overlays = args.ir or args.xrz or args.experimental_phh_reduction
     base = stage_dir / "HiBreakPro-release-base.img" if has_overlays else final_image
     parallel_commands = [["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)]]
+    if args.experimental_property_only_refresh:
+        print("WARNING: experimental property-only refresh requested; display behavior is unverified.")
+        parallel_commands[0].append("--experimental-property-only-refresh")
+    if args.experimental_property_only_auto_refresh:
+        print("WARNING: experimental property-only auto-refresh requested; display behavior is unverified.")
+        parallel_commands[0].append("--experimental-property-only-auto-refresh")
     if args.source_apk:
         parallel_commands.append(
             ["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)])
@@ -134,7 +146,7 @@ def main():
          str(base), str(apk), str(daemon), "--release"],
     ]
     current = base
-    ir_image = stage_dir / "HiBreakPro-release-ir.img" if args.xrz else final_image
+    ir_image = stage_dir / "HiBreakPro-release-ir.img" if args.xrz or args.experimental_phh_reduction else final_image
     hal = build_dir / "consumerir.hxd-release.so"
     if args.ir:
         parallel_commands.append(["bash", str(ROOT / "tools/build-ir-hal.sh"), str(hal)])
@@ -144,7 +156,7 @@ def main():
              "--hal-module", str(hal), "--secilc", args.secilc],
         ])
         current = ir_image
-    xrz_image = final_image
+    xrz_image = stage_dir / "HiBreakPro-release-xrz.img" if args.experimental_phh_reduction else final_image
     if args.xrz:
         commands.append([
             sys.executable, str(ROOT / "tools/add-xrz-compat-to-gsi.py"),
@@ -152,6 +164,13 @@ def main():
             "--secilc", args.secilc,
         ])
         current = xrz_image
+    if args.experimental_phh_reduction:
+        print("WARNING: experimental PHH grant reduction requested; root domain remains permissive.")
+        commands.append([
+            sys.executable, str(ROOT / "tools/add-phh-reduction-to-gsi.py"),
+            str(current), str(final_image), "--vendor-image", str(args.vendor_image.resolve()),
+            "--secilc", args.secilc,
+        ])
 
     input_files = {"gsi": args.gsi.resolve(), **apk_inputs}
     if args.vendor_image:
@@ -173,6 +192,16 @@ def main():
     }
     if args.source_apk:
         manifest["options"]["source_apk"] = True
+    if args.experimental_property_only_refresh:
+        manifest["options"]["experimental_property_only_refresh"] = True
+    if args.experimental_property_only_auto_refresh:
+        manifest["options"]["experimental_property_only_auto_refresh"] = True
+    if args.experimental_phh_reduction:
+        manifest["options"]["experimental_phh_reduction"] = True
+        reduction_tool = ROOT / "tools/add-phh-reduction-to-gsi.py"
+        manifest["inputs"]["phh_reduction_tool"] = {
+            "path": str(reduction_tool), "sha256": sha256(reduction_tool),
+        }
     if args.built_apk is not None:
         manifest["options"]["reuse_built_apk"] = True
         if expected_cert:
