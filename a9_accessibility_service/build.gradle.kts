@@ -29,11 +29,17 @@ android {
         named("release") {
             manifest.srcFile("standalone/AndroidManifest.xml")
         }
+        named("test") {
+            kotlin.directories += "test"
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -49,4 +55,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.preference:preference:1.2.1")
     implementation("com.google.android.material:material:1.13.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }

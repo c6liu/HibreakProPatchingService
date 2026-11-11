@@ -25,7 +25,7 @@ indexed in [docs/](docs/README.md).
 - [Prebuilt patched EvoX release](https://github.com/c6liu/HibreakProPatchingService/releases/tag/v0.2.0):
   download the release asset and follow the prebuilt route in [Guide.md](Guide.md#use-a-prebuilt-release-image).
 - [Original HiBreak release](https://github.com/vbbot/HibreakProPatchingService/releases/tag/20250507):
-  source of the prebuilt APK used by the offline APK patcher.
+  historical reference for the original HiBreak integration.
 
 The display fixes have worked with both LineageOS 23.2 and EvoX 11.11 on one
 device with stock 3.1.6 vendor. Ordinary-app NEC IR has been tested on EvoX.
@@ -45,8 +45,9 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 The [unified release builder](docs/build/build-image.md) builds and signs the
 source APK, compiles the daemon, and creates a new image. Add `--ir --xrz` for
 the IR HAL and experimental graphics-property overlay, or use `--built-apk`
-to reuse an already signed APK. Source-APK device parity remains unverified;
-the pinned upstream APK patching route is still available.
+to reuse an already signed source-built APK. APKs are built only from the
+checked-in Kotlin/resources; upstream binary APK patching is no longer supported.
+Source-APK device validation remains required.
 
 The tools do not patch vendor or flash automatically. Flashing is a dry run
 unless explicitly requested; a data wipe requires an explicit option and

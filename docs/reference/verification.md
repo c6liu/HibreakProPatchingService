@@ -3,6 +3,14 @@
 Press Power right after the Bigme logo flashes, wait for boot, open E-Ink Settings and enable the accessibility service and
 draw-over-other-apps permission. Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
+With the accessibility service enabled, fingerprint-sensor F9 events are consumed
+without running a custom-button action. Verify that touching the power button
+does not send F9 to the focused app, while pressing Power still locks/wakes the
+phone and fingerprint unlocking still works. Other F9 input is also consumed.
+Settings and the floating menu use standard Material 3 widgets and system
+dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
+highlighting, all three switches, frontlight sliders, dialogs, and back
+navigation on the physical e-ink panel after updating the source-built APK.
 The "App to launch" row uses the same standard layout as the other settings,
 and appears directly below its action only when "Launch App" is selected.
 On Android 16, noninteractive keys may be dropped before reaching accessibility.

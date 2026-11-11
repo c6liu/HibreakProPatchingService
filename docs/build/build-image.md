@@ -13,21 +13,15 @@ timestamped directory under `build/`, retains its intermediates, writes a
 python3 tools/build-release.py "$BASE"
 ```
 
-By default this **builds and signs the experimental source APK**, compiles the
+By default this **builds and signs the source APK**, compiles the
 daemon, and creates the release image. Set the [signing variables](signing.md)
 first for release signing; otherwise the APK is debug-signed. Passwords are
 entered only at the signer's terminal prompts.
 
-To keep using the supported pinned upstream APK patching route:
-
-```bash
-python3 tools/build-release.py "$BASE" local/A9AccessibilityService.apk
-```
-
 Add `--ir --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS"` for the IR
 HAL, and `--xrz` to add the experimental XRZ v2 overlay after the base or IR
 image. IR and XRZ both require the matching stock vendor image. Release signing
-uses the same optional signing environment variables as `build-apk.sh`.
+uses the same optional signing environment variables as `build-source-apk.sh`.
 
 ### One command with IR and the property overlay
 
@@ -57,7 +51,7 @@ This builds the APK, daemon, base image, IR HAL/image, then XRZ v2 in order.
 The compiler selection is passed to **both** overlays. Use the printed final
 image path (or `final_image` in the manifest), not an intermediate image.
 
-To reuse a signed APK you already built, without rebuilding or signing it:
+To reuse a signed source APK you already built, without rebuilding or signing it:
 
 ```bash
 /usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
@@ -68,15 +62,15 @@ The existing APK is copied unchanged and its signature/alignment verified with
 uber-apk-signer. When `APK_RELEASE_CERT_SHA256` is set, the certificate must
 match it. No keystore password is needed for reuse. The manifest records the
 original APK checksum; it does not claim that current source files produced it.
-Do not combine a positional upstream APK, `--source-apk`, or `--built-apk`.
+Do not combine `--source-apk` and `--built-apk`. Positional APK inputs are rejected.
 
 The manual build below remains supported and exposes each intermediate step.
 
-## Manual upstream-APK build
+## Manual source-APK build
 
 ```bash
 cd "$HOME/HibreakProPatchingService"
-tools/build-apk.sh local/A9AccessibilityService.apk build/HiBreakEink-release.apk
+tools/build-source-apk.sh build/HiBreakEink-release.apk
 tools/build-daemon.sh build/a9_eink_server-release
 ```
 
@@ -100,9 +94,9 @@ to the resulting **pre-XRZ** image. This corrects four property labels and
 restores the stock composer's set permission; it is not a proven crash fix.
 Do not rebuild on top of a previous XRZ output.
 
-## Experimental source-built APK
+## Source-built APK
 
-After installing the [source-APK prerequisites](inputs.md#experimental-source-apk-prerequisites),
+After installing the [source-APK prerequisites](inputs.md#source-apk-prerequisites),
 the orchestrator builds from the checked-in Kotlin and resources by default.
 The explicit equivalent remains available:
 
@@ -110,18 +104,17 @@ The explicit equivalent remains available:
 python3 tools/build-release.py "$BASE" --source-apk
 ```
 
-Do not pass a base APK with `--source-apk`. The manifest identifies this option
+The upstream APK patcher has been removed. The manifest identifies source builds
 and records checksums of the source and build files. To build just the APK:
 
 ```bash
-tools/build-source-apk.sh build/HiBreakEink-source-experimental.apk
+tools/build-source-apk.sh build/HiBreakEink-source.apk
 ```
 
-Both commands use the same signing variables and overwrite safeguards as the
-patched-APK route. With no signing variables they use a debug certificate.
-This route is **experimental**: host checks do not establish device behavior or
-complete parity with the patched APK. Keep using the supported patched-APK
-route for release images until the [device checks](tests.md) have passed.
+Both commands use the same signing variables and overwrite safeguards.
+With no signing variables they use a debug certificate. Host checks do not
+establish physical display behavior; complete the [device checks](tests.md)
+before distributing a release image.
 
 ## Select and check the final image
 

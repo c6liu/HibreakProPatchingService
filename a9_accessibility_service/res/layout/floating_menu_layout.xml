@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="14dp"
-    android:background="@drawable/inset_border_drawable"
+    android:padding="16dp"
+    android:background="@drawable/menu_background"
     android:orientation="vertical">
 
     <LinearLayout
@@ -16,21 +14,23 @@
         android:layout_gravity="center">
 
         <TextView
-            android:layout_marginStart="25dp"
+            android:layout_marginStart="48dp"
             android:layout_weight="1"
             android:id="@+id/refresh_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textAlignment="center"
-            android:textSize="15sp"
-            android:textColor="@color/black"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
             android:text="@string/refresh_mode" />
 
         <ImageView
             android:id="@+id/settings_icon"
-            android:layout_width="25dp"
-            android:layout_height="25dp"
-            android:padding="2dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/title_activity_settings"
+            android:tint="?attr/colorOnSurfaceVariant"
             android:src="@drawable/baseline_settings_24" />
     </LinearLayout>
 
@@ -43,55 +43,55 @@
         android:layout_gravity="center"
         android:padding="5dp">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button1"
             style="@style/MenuButtonStyle"
             android:layout_weight="1"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="5dp"
             android:text="@string/hd" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button2"
             style="@style/MenuButtonStyle"
             android:layout_weight="1"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="5dp"
             android:text="@string/regal" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button3"
             style="@style/MenuButtonStyle"
             android:layout_weight="1"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="5dp"
             android:text="@string/fast" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button4"
             style="@style/MenuButtonStyle"
             android:layout_weight="1"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="5dp"
             android:text="@string/extreme" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button5"
             style="@style/MenuButtonStyle"
             android:layout_weight="1"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="48dp"
             android:text="@string/hyper" />
 
     </LinearLayout>
     
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:orientation="vertical">
 
@@ -99,11 +99,9 @@
             android:id="@+id/frontlight_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:text="@string/frontlight_controls"
             android:textAlignment="center"
-            android:textColor="@color/black"
-            android:textSize="15sp" />
+            android:textAppearance="?attr/textAppearanceTitleMedium" />
 
         <LinearLayout
             android:id="@+id/light_seekbar_container"
@@ -116,15 +114,19 @@
             <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:tint="?attr/colorOnSurfaceVariant"
                 android:src="@drawable/baseline_brightness_high_24_dark" />
 
-            <SeekBar
+            <androidx.appcompat.widget.AppCompatSeekBar
                 android:id="@+id/light_seekbar"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:paddingVertical="10dp"
-                android:thumbTint="@color/black" />
+                android:minHeight="48dp"
+                android:contentDescription="@string/frontlight_controls"
+                android:progressTint="?attr/colorPrimary"
+                android:thumbTint="?attr/colorPrimary" />
         </LinearLayout>
 
         <LinearLayout
@@ -138,22 +140,26 @@
             <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:tint="?attr/colorOnSurfaceVariant"
                 android:src="@drawable/baseline_moon_24" />
 
-            <SeekBar
+            <androidx.appcompat.widget.AppCompatSeekBar
                 android:id="@+id/light_warm_seekbar"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:paddingVertical="10dp"
-                android:thumbTint="@color/black" />
+                android:minHeight="48dp"
+                android:contentDescription="@string/warm_frontlight"
+                android:progressTint="?attr/colorPrimary"
+                android:thumbTint="?attr/colorPrimary" />
 
         </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:orientation="vertical">
 
@@ -162,41 +168,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="5dp"
-            android:layout_weight="1"
             android:text="@string/additional_controls_text"
             android:textAlignment="center"
-            android:textColor="@color/black"
-            android:textSize="15sp" />
+            android:textAppearance="?attr/textAppearanceTitleMedium" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="horizontal">
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/auto_refresh"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Auto Refresh"
-                android:thumbTint="@color/black" />
+                android:minHeight="48dp"
+                android:text="Auto Refresh" />
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/anti_shake"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Anti-Shake"
-                android:thumbTint="@color/black" />
+                android:minHeight="48dp"
+                android:text="Anti-Shake" />
 
         </LinearLayout>
 
-        <Switch
+        <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/video_optimized_refresh"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Video refresh (experimental)"
-            android:thumbTint="@color/black" />
+            android:minHeight="48dp"
+            android:text="Video refresh (experimental)" />
 
     </LinearLayout>
 

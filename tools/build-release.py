@@ -56,12 +56,11 @@ def source_apk_inputs(parser):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("gsi", type=Path, help="Raw ext4 A/B GSI image")
-    parser.add_argument("apk", type=Path, nargs="?", help="Pinned upstream A9 APK input")
     apk_mode = parser.add_mutually_exclusive_group()
     apk_mode.add_argument("--source-apk", action="store_true",
-                          help="Build the experimental APK from checked-in source (default)")
+                          help="Build the APK from checked-in source (default)")
     apk_mode.add_argument("--built-apk", type=Path,
-                          help="Reuse an already signed APK unchanged, without rebuilding")
+                          help="Reuse an already signed source-built APK unchanged, without rebuilding")
     parser.add_argument("--vendor-image", type=Path, default=os.environ.get("VENDOR"),
                         help="Matching stock vendor image; required for IR or XRZ")
     parser.add_argument("--aosp-headers", type=Path, default=os.environ.get("AOSP_HEADERS"),
@@ -75,22 +74,15 @@ def main():
     parser.add_argument("--output-root", type=Path, default=ROOT / "build",
                         help="Directory for a new timestamped build (default: build/)")
     args = parser.parse_args()
-    if args.apk is None and args.built_apk is None:
+    if args.built_apk is None:
         args.source_apk = True
 
     require_input(parser, args.gsi, "GSI image")
-    if args.apk is not None and (args.source_apk or args.built_apk is not None):
-        parser.error("Do not supply a base APK with --source-apk or --built-apk")
     if args.built_apk is not None:
         require_input(parser, args.built_apk, "built APK")
         apk_inputs = {"built_apk": args.built_apk.resolve()}
-    elif args.source_apk:
-        apk_inputs = source_apk_inputs(parser)
-    elif args.apk is not None:
-        require_input(parser, args.apk, "base APK")
-        apk_inputs = {"base_apk": args.apk.resolve()}
     else:
-        parser.error("Select a base APK, --source-apk, or --built-apk")
+        apk_inputs = source_apk_inputs(parser)
     if args.ir or args.xrz:
         if args.vendor_image is None:
             parser.error("--vendor-image is required for --ir or --xrz")
@@ -102,7 +94,7 @@ def main():
             if not (args.aosp_headers / header).is_file():
                 parser.error(f"Missing AOSP header: {args.aosp_headers / header}")
     output_root = args.output_root.resolve()
-    for path in (args.gsi, args.apk, args.built_apk, args.vendor_image,
+    for path in (args.gsi, args.built_apk, args.vendor_image,
                  args.aosp_headers, args.ndk, output_root):
         if path is not None and any(char in str(path) for char in ('"', "\\", "\n", "\r")):
             parser.error(f"Unsupported path characters: {path}")
@@ -135,9 +127,6 @@ def main():
     ]
     if args.source_apk:
         commands.insert(0, ["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)])
-    elif args.built_apk is None:
-        commands.insert(0, ["bash", str(ROOT / "tools/build-apk.sh"),
-                            str(apk_inputs["base_apk"]), str(apk)])
     current = base
     ir_image = build_dir / "HiBreakPro-release-ir.img"
     hal = build_dir / "consumerir.hxd-release.so"

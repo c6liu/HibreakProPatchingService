@@ -37,6 +37,7 @@ class ScreenOffKeyReceiver(private val service: A9AccessibilityService) : Broadc
     }
 
     fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_F9) return true
         if (event.scanCode !in 59..60) return false
         if (event.repeatCount == 0) {
             dispatch(event.scanCode, event.action, event.eventTime, false)

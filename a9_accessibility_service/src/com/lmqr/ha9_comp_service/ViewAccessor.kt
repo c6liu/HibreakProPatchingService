@@ -3,13 +3,8 @@ package com.lmqr.ha9_comp_service
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.Button
-import android.widget.Switch
-import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.TextView
-import android.content.Context
 import android.widget.CompoundButton
-import androidx.core.content.ContextCompat
 
 /**
  * This class replaces the generated data binding class for floating_menu_layout.xml
@@ -22,9 +17,9 @@ class FloatingMenuViewAccessor(val root: View) {
     val button4: Button = root.findViewById(R.id.button4)
     val button5: Button = root.findViewById(R.id.button5)
     
-    val autoRefresh: Switch = root.findViewById(R.id.auto_refresh)
-    val antiShake: Switch = root.findViewById(R.id.anti_shake)
-    val videoOptimizedRefresh: Switch = root.findViewById(R.id.video_optimized_refresh)
+    val autoRefresh: CompoundButton = root.findViewById(R.id.auto_refresh)
+    val antiShake: CompoundButton = root.findViewById(R.id.anti_shake)
+    val videoOptimizedRefresh: CompoundButton = root.findViewById(R.id.video_optimized_refresh)
     
     val settingsIcon: View = root.findViewById(R.id.settings_icon)
     val lightSeekbar: SeekBar = root.findViewById(R.id.light_seekbar)

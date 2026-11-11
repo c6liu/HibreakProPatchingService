@@ -48,9 +48,9 @@ Java must be 21 or newer. Every tool in the final command should have a path.
 - Android platform-tools: `adb`, `fastboot`.
 - Android NDK, tested with **27.2.12479018** (API 30 arm64 compiler).
 - Default source APK builds: Gradle and Android SDK platform/build tools;
-  see [tested source-build prerequisites](inputs.md#experimental-source-apk-prerequisites).
+  see [tested source-build prerequisites](inputs.md#source-apk-prerequisites).
 - [apktool 3.0.3](https://github.com/iBotPeaches/Apktool/releases/tag/v3.0.3)
-  for upstream APK patching and APK inspection tests, not source builds/reuse.
+  for optional APK inspection tests, not source builds/reuse.
 - [uber-apk-signer 1.3.0](https://github.com/patrickfav/uber-apk-signer/releases/tag/v1.3.0).
 - IR/XRZ overlays: `secilc`; XRZ also requires SETools Python bindings in the
   interpreter running the release builder (`python3 -c 'import setools'`).

@@ -16,6 +16,10 @@ import androidx.preference.PreferenceFragmentCompat
 
 class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        theme.applyStyle(
+            com.google.android.material.R.style.ThemeOverlay_Material3_DynamicColors_DayNight,
+            true,
+        )
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
         val toolbar = findViewById<Toolbar>(R.id.settings_toolbar)

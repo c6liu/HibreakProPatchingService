@@ -40,9 +40,7 @@ class ReleaseBuildTests(unittest.TestCase):
     def fake_build(self, commands):
         def run(command, **_kwargs):
             commands.append(command)
-            if command[0] == "bash" and command[1].endswith("build-apk.sh"):
-                output = Path(command[3])
-            elif command[0] == "bash" and command[1].endswith("build-source-apk.sh"):
+            if command[0] == "bash" and command[1].endswith("build-source-apk.sh"):
                 output = Path(command[2])
             elif command[0] == "bash" and command[1].endswith("build-daemon.sh"):
                 output = Path(command[2])
@@ -60,7 +58,7 @@ class ReleaseBuildTests(unittest.TestCase):
         output_root = self.work / "builds"
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), str(self.apk),
+            "build-release.py", str(self.gsi),
             "--vendor-image", str(self.vendor),
             "--aosp-headers", str(self.headers),
             "--ir", "--xrz", "--output-root", str(output_root),
@@ -68,7 +66,7 @@ class ReleaseBuildTests(unittest.TestCase):
             build_release.main()
 
         self.assertEqual(len(commands), 6)
-        self.assertTrue(commands[0][1].endswith("build-apk.sh"))
+        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
         self.assertTrue(commands[1][1].endswith("build-daemon.sh"))
         self.assertTrue(commands[2][1].endswith("patch-gsi.sh"))
         self.assertTrue(commands[3][1].endswith("build-ir-hal.sh"))
@@ -79,7 +77,9 @@ class ReleaseBuildTests(unittest.TestCase):
         self.assertEqual(commands[4][commands[4].index("--vendor-image") + 1], str(self.vendor))
         build_dir = next(output_root.iterdir())
         manifest = json.loads((build_dir / "manifest.json").read_text())
-        self.assertEqual(manifest["options"], {"ir": True, "xrz_v2": True, "release": True})
+        self.assertEqual(manifest["options"], {
+            "ir": True, "xrz_v2": True, "release": True, "source_apk": True,
+        })
         self.assertEqual(Path(manifest["final_image"]).name, "HiBreakPro-xrz-v2-test.img")
         self.assertEqual(manifest["inputs"]["gsi"]["sha256"], build_release.sha256(self.gsi))
         self.assertIn("HiBreakPro-release-base.img", manifest["outputs"])
@@ -110,7 +110,7 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertIn(f"apk_source:{path}", manifest["inputs"])
 
     def test_exactly_one_apk_source_is_required_before_creating_build_directory(self):
-        for extra in ([str(self.apk), "--source-apk"],
+        for extra in ([str(self.apk)], [str(self.apk), "--source-apk"],
                       [str(self.apk), "--built-apk", str(self.apk)],
                       ["--source-apk", "--built-apk", str(self.apk)]):
             with self.subTest(extra=extra):
@@ -183,7 +183,7 @@ class ReleaseBuildTests(unittest.TestCase):
             build_release.main()
         self.assertIn("--onlyVerify", commands[0])
         self.assertIn("AB" * 32, commands[0])
-        self.assertFalse(any("build-apk.sh" in arg or "build-source-apk.sh" in arg
+        self.assertFalse(any("build-source-apk.sh" in arg
                              for command in commands for arg in command))
         for command in commands[-2:]:
             self.assertEqual(command[command.index("--secilc") + 1], "/custom/secilc")
@@ -233,7 +233,7 @@ class ReleaseBuildTests(unittest.TestCase):
             return build(command)
 
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), str(self.apk),
+            "build-release.py", str(self.gsi),
             "--vendor-image", str(self.vendor), "--aosp-headers", str(self.headers),
             "--ir", "--output-root", str(output_root),
         ]), mock.patch.object(subprocess, "run", side_effect=run):
@@ -243,7 +243,7 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_ir_requires_vendor_and_headers_before_creating_build_directory(self):
         output_root = self.work / "unused-builds"
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), str(self.apk),
+            "build-release.py", str(self.gsi),
             "--ir", "--output-root", str(output_root),
         ]), self.assertRaises(SystemExit) as result:
             build_release.main()

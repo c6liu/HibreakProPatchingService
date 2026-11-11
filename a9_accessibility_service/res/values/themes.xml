@@ -1,50 +1,20 @@
 <resources>
-    <!-- Base application theme. -->
-    <style name="Theme.Ha9_comp_service" parent="Theme.AppCompat.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
-    </style>
-
-    <style name="Theme.Ha9_comp_service.Settings" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
+    <style name="Theme.Ha9_comp_service" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
-        <item name="colorPrimary">#FF000000</item>
-        <item name="colorOnPrimary">#FFFFFFFF</item>
-        <item name="colorSecondary">#FF000000</item>
-        <item name="colorOnSecondary">#FFFFFFFF</item>
-        <item name="colorSurface">#FFFFFFFF</item>
-        <item name="colorOnSurface">#FF000000</item>
-        <item name="colorSurfaceVariant">#FFF2F2F2</item>
-        <item name="colorOnSurfaceVariant">#FF222222</item>
-        <item name="colorOutline">#FF5F5F5F</item>
-        <item name="android:colorAccent">#FF000000</item>
-        <item name="colorControlActivated">#FF000000</item>
-        <item name="android:statusBarColor">#FFFFFFFF</item>
-        <item name="android:navigationBarColor">#FFFFFFFF</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
     </style>
 
-    <style name="MenuButtonStyle" parent="Widget.AppCompat.Button.Borderless">
+    <style name="Theme.Ha9_comp_service.Settings" parent="Theme.Ha9_comp_service" />
+
+    <style name="MenuButtonStyle" parent="Widget.Material3.Button.OutlinedButton">
         <item name="android:textSize">12sp</item>
-        <item name="android:background">@drawable/drawable_border_normal</item>
-        <item name="android:paddingHorizontal">0dp</item>
-        <item name="android:paddingVertical">0dp</item>
-        <item name="android:textAlignment">center</item>
-        <item name="compatShadowEnabled">false</item>
-    </style>
-
-    <style name="DayNightSwitchStyle">
-        <item name="android:thumb">@drawable/switch_thumb_selector</item>
-        <item name="android:track">@drawable/switch_track_selector</item>
+        <item name="android:paddingHorizontal">4dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="backgroundTint">@color/menu_button_background</item>
+        <item name="android:textColor">@color/menu_button_text</item>
     </style>
 </resources>

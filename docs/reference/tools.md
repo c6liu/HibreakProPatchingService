@@ -8,9 +8,8 @@ records input/output checksums in a manifest.
 
 | Script | Purpose |
 |--------|---------|
-| [build-release.py](../../tools/build-release.py) | Unified release build: source APK/signing by default, optional `--built-apk` reuse or positional upstream APK, daemon, IR/XRZ, and checksum manifest; never flashes |
-| [build-apk.sh](../../tools/build-apk.sh) | Rebuild the tested prebuilt APK with five modes, toolbar fix, and AOD switch |
-| [build-source-apk.sh](../../tools/build-source-apk.sh) | Experimentally build the checked-in Kotlin/resources with Gradle and the same APK signer |
+| [build-release.py](../../tools/build-release.py) | Unified release build: source APK/signing, optional signed source `--built-apk` reuse, daemon, IR/XRZ, and checksum manifest; never flashes |
+| [build-source-apk.sh](../../tools/build-source-apk.sh) | Build the checked-in Kotlin/resources with Gradle and the APK signer |
 | [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-tool.sh](../../tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
 | [add-ir-capture-to-gsi.py](../../tools/add-ir-capture-to-gsi.py) | Add the optional IR overlay; release support is HAL-only with `--hal-module`; diagnostics and test apps require opt-in; `--check-only` never packages an image |
@@ -22,15 +21,15 @@ records input/output checksums in a manifest.
 | [flash-system.sh](../../tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
 | [collect-diagnostics.sh](../../tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
 
-The experimental Gradle source builder resolves dependencies and can install
+The Gradle source builder resolves dependencies and can install
 missing SDK components; the other tools do not download dependencies. No tool
 patches vendor or flashes automatically. A flash requires an explicit `--flash`;
 erasing shared userdata also requires
 `--wipe-data`. See [flashing helper reference](flashing.md) before using the
 flash script. AOSP build modules remain available as an alternative to the
-prebuilt-APK route, but the AOSP module route is currently **unmaintained and
+standalone Gradle route, but the AOSP module route is currently **unmaintained and
 untested**. The checked-in module definitions and sources are retained for
-reconstruction; use the documented prebuilt-APK path for supported builds.
+reconstruction; use the documented Gradle source path for supported builds.
 
 IR learning is not a supported feature on the tested phone. The capture path
 is a legacy development diagnostic; see the

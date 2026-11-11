@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.net.Uri
@@ -25,6 +24,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.ContextThemeWrapper
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.CompoundButton
@@ -263,7 +263,12 @@ class A9AccessibilityService : AccessibilityService(),
             } ?: run {
 
                 val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-                val inflater = LayoutInflater.from(this)
+                val menuContext = ContextThemeWrapper(this, R.style.Theme_Ha9_comp_service)
+                menuContext.theme.applyStyle(
+                    com.google.android.material.R.style.ThemeOverlay_Material3_DynamicColors_DayNight,
+                    true,
+                )
+                val inflater = LayoutInflater.from(menuContext)
                 val view = inflater.inflate(R.layout.floating_menu_layout, null, false)
 
                 val layoutParams = WindowManager.LayoutParams().apply {
@@ -448,11 +453,11 @@ fun AccessibilityEvent?.letPackageNameClassName(block: (String, String) -> Unit)
 }
 
 fun Button.deselect() {
-    setBackgroundResource(R.drawable.drawable_border_normal)
-    setTextColor(Color.BLACK)
+    isActivated = false
+    isSelected = false
 }
 
 fun Button.select() {
-    setBackgroundResource(R.drawable.drawable_border_pressed)
-    setTextColor(Color.WHITE)
+    isActivated = true
+    isSelected = true
 }

@@ -17,5 +17,6 @@
     <string name="semiopaque">Semiopaque</string>
     <string name="semiclear">Semiclear</string>
     <string name="frontlight_controls">Frontlight Controls</string>
+    <string name="warm_frontlight">Warm Frontlight</string>
     <string name="additional_controls_text">Additional Controls</string>
 </resources>

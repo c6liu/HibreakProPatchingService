@@ -6,12 +6,11 @@ final image, install it using the [Guide](../../Guide.md).
 The [unified entry point](build-image.md) is `tools/build-release.py`.
 It builds/signs the source APK automatically, then builds the daemon and image.
 IR and XRZ are optional flags; `--built-apk` reuses a signed APK without
-rebuilding it. Source builds remain experimental despite being the CLI default.
-To use the validated patched-APK route, supply the pinned upstream APK as the
-second positional argument.
+rebuilding it. APKs are built only from checked-in source; the upstream APK
+patcher has been removed. Device validation remains required.
 
 1. [Set up a build computer](host-setup.md)
-2. [Download build tools and input images](inputs.md) — NDK, signer, GSI; Gradle/SDK for source builds, apktool/base APK for upstream patching
+2. [Download build tools and input images](inputs.md) — NDK, signer, GSI, Gradle/SDK
 3. [Prepare IR build inputs](ir-inputs.md) — matching stock vendor image for IR or XRZ; AOSP headers for IR
 4. [Set up APK signing](signing.md)
 5. [Build a release image](build-image.md)
@@ -22,7 +21,7 @@ second positional argument.
 Other build topics:
 
 - [Experimental XRZ graphics-property overlay](xrz-overlay.md) — active labels and permissions checked on-device; crash fix unproven
-- [Experimental source-built APK](inputs.md#experimental-source-apk-prerequisites) — standalone Gradle build; device parity unverified
+- [Source-built APK](inputs.md#source-apk-prerequisites) — standalone Gradle build; device validation required
 - [Tests](tests.md) — host tests and opt-in device tests
 
 Details of what each tool does are in [reference/](../README.md#reference--how-things-work),

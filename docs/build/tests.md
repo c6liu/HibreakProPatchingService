@@ -1,98 +1,70 @@
 # Tests
 
-For changes to the unified release entry point or APK build flow:
+For source-only APK orchestration, signing, and settings resource changes:
 
 ```bash
-python3 -m unittest tools.tests.test_build_release tools.tests.test_source_apk -v
+python3 -m unittest tools.tests.test_build_release tools.tests.test_source_apk tools.tests.test_apk_settings -v
 ```
 
-The orchestration tests mock expensive build commands. They cover default
-source builds, explicit source/upstream selection, unchanged signed-APK reuse,
-certificate verification failures, IR-to-XRZ ordering, environment defaults,
-and forwarding NDK/header/compiler paths. They do not compile a real policy
-or prove device compatibility. APK artifact inspection is opt-in as described
-below; without `HIBREAK_SOURCE_APK`, that test class is skipped.
+Orchestration tests mock expensive build commands. They cover source builds,
+rejection of positional upstream APK inputs, signed source-APK reuse,
+certificate failures, IR-to-XRZ ordering, environment defaults, and tool paths.
+They do not prove device compatibility. Binary APK patching and its smali
+instrumentation tests have been removed.
 
-For changes to the IR or XRZ image overlays, the focused host suite is:
+## Source-app runtime tests
+
+```bash
+ANDROID_HOME="$HOME/Android/Sdk" gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease
+```
+
+Robolectric tests execute the source classes on Android API 35. They verify F9
+down/up/repeat consumption without gesture dispatch (including absent and
+side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
+in light/dark configurations, and selection of all five refresh modes.
+Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
+Java 27 can build the app but is not supported by this Robolectric/ASM version.
+If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's
+`Test` task launcher separately from the compiler.
+
+## Signed source-APK inspection
+
+```bash
+tools/build-source-apk.sh build/HiBreakEink-source.apk
+ANDROID_HOME="$HOME/Android/Sdk" \
+HIBREAK_SOURCE_APK="$PWD/build/HiBreakEink-source.apk" \
+  python3 -m unittest tools.tests.test_source_apk -v
+```
+
+This opt-in inspection requires apktool and Android build tools 36.0.0.
+It checks the manifest, hidden-API boot reference, compile-only stub exclusion,
+settings resources, version, and signature. Without `HIBREAK_SOURCE_APK`,
+the artifact test class is skipped. It does not access a device.
+
+## Other host tests
 
 ```bash
 python3 -m unittest tools.tests.test_ir_overlay tools.tests.test_xrz_compat -v
-```
-
-XRZ tests check exact property selection, permission-preservation guards,
-conditional-rule rejection, image round-trips, source preservation, and
-overwrite/failure cleanup. Real merged-policy validation additionally needs
-the matching vendor image, `secilc`, and SETools; use the
-[XRZ preflight](xrz-overlay.md). Neither host tests nor preflight establish
-on-device property writes or a graphics-crash fix.
-
-For the full host suite:
-
-```bash
 python3 -m unittest discover -s tools/tests -v
 for script in tools/*.sh tools/display/*.sh; do bash -n "$script"; done
 shellcheck --shell=sh tools/display/*.sh
 shellcheck tools/lib/*.sh
 ```
 
-Tests use disposable ext4 images in `build/`, not a phone. They cover payloads,
-metadata, source preservation, paths with spaces, ADB key handling, overwrite
-and format rejection, and flashing safeguards. Settings resource tests also
-check category order and dependencies. When the tested base APK and apktool
-are present in `local/` (or `APKTOOL_JAR` is set), APK tests decode, patch and
-assemble the settings UI; otherwise those APK tests are skipped.
+Host image tests use disposable ext4 images, not a phone. They check payloads,
+metadata, source preservation, paths, format/overwrite rejection, policy guards,
+and flashing safeguards. Real merged-policy validation needs matching vendor,
+`secilc`, and SETools; see [XRZ preflight](xrz-overlay.md).
 
-To inspect an already built experimental source APK, run:
+## Physical-device verification
 
-```bash
-ANDROID_HOME="$HOME/Android/Sdk" \
-HIBREAK_SOURCE_APK="$PWD/build/HiBreakEink-source-experimental.apk" \
-  python3 -m unittest tools.tests.test_source_apk -v
-```
+Before distributing a source-built image, test boot-time service activation,
+settings/preference migration, per-app refresh modes, both side keys (screen-on
+and screen-off gestures and app launch), quick settings, frontlight controls,
+AOD/video refresh, and fingerprint/F9 handling. Verify Material 3 text contrast,
+switches, sliders, selected-mode highlighting, dialogs, and back navigation in
+both light/dark modes on the physical panel. Check updates with the intended
+signing certificate. See [post-install verification](../reference/verification.md).
 
-This requires apktool and Android build tools 36.0.0. It checks the compiled
-manifest, boot receiver's hidden-API reference, exclusion of the compile-only
-stub, settings resources, version, and signature. It does not access a device.
-Optionally set `HIBREAK_PATCHED_APK` to the supported patched APK to compare
-their permissions, component contracts, preferences, refresh/action choices,
-shared popup controls, and signing certificates. The certificate check expects
-both APKs to use the same key. The patched APK retains hidden legacy AOD view
-IDs which are intentionally absent from the source layout.
-Before considering the source route for release, separately test on the target
-device: boot-time service activation, settings and preference migration,
-per-app modes, both side keys (including screen-off gestures and app launch),
-quick settings, display controls, and AOD/video-refresh behavior. Check upgrades
-with the intended signing certificate as well. The source APK has not yet
-passed those parity checks.
-
-To additionally check all four DPAD action dispatches, popup inflation and
-video-switch setup, and screen-off/on receiver execution on a connected Android
-device, run `HIBREAK_ADB_TESTS=1 python3 -m unittest tools.tests.test_apk_settings`.
-These existing instrumentation tests exercise the **patched** APK, not the
-source-built APK.
-This opt-in check needs the APK signer too. It installs a disposable,
-uniquely named instrumentation package using the patched classes and resources,
-with a mock command runner and preferences for popup tests. It does not replace
-the A9 app or change its saved settings. It also puts the display to sleep and
-verifies that bridged side-key input reaches the gesture mapping, wakes the
-display, and launches the temporary app; the display is awakened during cleanup.
-The temporary package is uninstalled afterward. It checks popup initialization,
-not accessibility-overlay attachment or physical display behavior.
-To include the real physical-key path, connect the phone, set
-`ANDROID_NDK_HOME`, and run:
-
-```bash
-HIBREAK_ADB_TESTS=1 HIBREAK_PHYSICAL_KEY_TESTS=1 \
-  python3 -m unittest tools.tests.test_apk_settings -v
-```
-
-When prompted in the test output, press the top side key once while the display
-is asleep. This compiles and temporarily runs the daemon's input monitor under
-ADB shell, targeting only the disposable test package. The monitor is stopped and
-removed afterward. This verifies physical input delivery, but an image-level
-check is still needed to validate the production daemon's SELinux context.
-The runtime check also verifies Additional Controls migration defaults,
-per-app isolation and persistence, switch rebinding without unintended writes,
-and applying the app's Video Refresh state to the live-refresh manager.
-Device scripts require Android
-and the existing phh policy; host tests cannot verify physical display behavior.
+Neither host tests nor a successful build prove physical display behavior,
+production SELinux input delivery, or boot compatibility.

@@ -2,9 +2,11 @@
 
 The working display scripts now live under [tools/display](../../../tools/display).
 [patch-gsi.sh](../../../tools/patch-gsi.sh) replaces the external display patcher and
-the session-only image updater scripts. [build-apk.sh](../../../tools/build-apk.sh)
-and [patch-apk.py](../../../tools/patch-apk.py) include the previously manual
-standalone, five-mode, toolbar and AOD-switch edits. The NDK build has its own
+the session-only image updater scripts.
+[build-source-apk.sh](../../../tools/build-source-apk.sh) builds the checked-in
+Kotlin/resources. The former binary APK patcher and smali payloads have been
+removed; historical binary-patching validation below does not validate the
+current source build. The NDK build has its own
 checked-in wrapper. No session-state directory or hard-coded home is required.
 
 Large binaries/tools are user-supplied inputs, not source-controlled payloads.
