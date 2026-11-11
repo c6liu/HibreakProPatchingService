@@ -96,6 +96,12 @@ int __system_property_set(const char *name, const char *value) {
 }
 
 void startSideKeyMonitor(void) {}
+#ifdef HIBREAK_SOCKET_AUTH
+int hibreak_authorize_client(int socket_fd) {
+    (void)socket_fd;
+    return 0;
+}
+#endif
 
 #define open probeOpen
 #define write probeWrite

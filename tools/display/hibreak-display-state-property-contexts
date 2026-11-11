@@ -1,0 +1,2 @@
+persist.sys.hibreak.display.aod_inverted u:object_r:hibreak_display_state_prop:s0 exact enum 0 1
+persist.sys.hibreak.display.aod_setup u:object_r:hibreak_display_state_prop:s0 exact enum 0 1

@@ -131,6 +131,61 @@ success is not hardware-write acknowledgement; init logs failed actions.
 Compare actual panel behavior against the previous image. SELinux remains
 enforcing globally, but `phhsu_daemon` remains permissive.
 
+### Experimental enforcing e-ink daemon
+
+The migration overlay is separate from the release builder. It accepts only the
+user-tested init-bridge image (SHA-256
+`5844ef262b47d04cd3df990b3e97e71567a940ff85f8322348a6ce3ee722cdca`)
+and the matching vendor image. It installs an enforcing e-ink daemon domain,
+the existing tested display bridges, exact frontlight labels, and socket peer
+authentication. It does **not** migrate display/AOD helpers or other PHH
+services, and does not retire `phhsu_daemon`.
+
+```bash
+/usr/bin/python3 tools/add-eink-migration-to-gsi.py \
+  "$TESTED_BRIDGE_IMAGE" "$NEW_TEST_IMAGE" \
+  --vendor-image "$VENDOR" --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
+```
+
+The tool refuses to overwrite an image or manifest and never flashes. Keep the
+working bridge image and recovery path. After a separately authorized flash,
+confirm `adb shell getenforce` reports `Enforcing` and
+`adb shell 'ps -AZ | grep a9_eink'` shows `u:r:hibreak_eink:s0`. Check
+`adb logcat -b all -s a9EinkService:V A9SideKeys:V init:I auditd:V '*:S'`
+for rejected socket clients, package-registry errors, init action failures,
+and AVC denials. Exercise both frontlights, all refresh modes, Auto Refresh,
+Anti-Shake, per-app switching, sleep/wake, AOD, custom side keys, DPAD and
+theme settings. The policy and DAC checks do not prove framework authorization
+or physical behavior; request-property success is not a hardware-write
+acknowledgement.
+
+### Experimental enforcing display and AOD helpers
+
+This separate overlay starts from the user-tested Binder-callback e-ink
+daemon image (SHA-256
+`6077c0eee9b37038ac35d5f3b08106aa3280b29073787c41404a72666fbd8bff`):
+
+```bash
+/usr/bin/python3 tools/add-display-migration-to-gsi.py \
+  "$TESTED_EINK_IMAGE" "$NEW_TEST_IMAGE" \
+  --vendor-image "$VENDOR" --secilc "$SECILC"
+```
+
+It moves all five HiBreak display/AOD services into an enforcing
+`hibreak_display` domain. AOD inversion is retained; the migration imports
+existing setup/inversion markers into separate, scoped persistent state
+properties. The existing AOD toggle and original property labels remain
+unchanged. This is a test image, not the default release. It does not migrate
+upstream PHH services or remove `phhsu_daemon`.
+
+The builder never flashes. Keep the prior image and recovery path. After an
+authorized flash, check `adb shell getenforce` and collect
+`adb logcat -b all -s hibreak-display:V auditd:V init:I '*:S'`. Test boot
+display, screen wake, AOD on/off, inversion on doze and restoration on wake,
+and user-enabled inversion. Also retest frontlights, refresh modes and side
+keys. The helpers are short-lived, so their domain may not appear in a later
+process listing; look for `hibreak_display` in AVCs if a helper fails.
+
 ### Experimental PHH grant reduction
 
 Add `--experimental-phh-reduction` to apply the exact 70-grant host experiment

@@ -1,0 +1,10 @@
+; Host-only runtime candidate; the image builder preserves existing sysfs grants.
+(allow hibreak_eink system_data_file (dir (search)))
+(allow hibreak_eink packages_list_file (file (open read getattr)))
+(type hibreak_eink_frontlight)
+(roletype object_r hibreak_eink_frontlight)
+(typeattributeset fs_type (hibreak_eink_frontlight))
+(typeattributeset sysfs_type (hibreak_eink_frontlight))
+(genfscon sysfs "/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light" (u object_r hibreak_eink_frontlight ((s0) (s0))))
+(genfscon sysfs "/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_warm_light" (u object_r hibreak_eink_frontlight ((s0) (s0))))
+(allow hibreak_eink hibreak_eink_frontlight (file (open write)))

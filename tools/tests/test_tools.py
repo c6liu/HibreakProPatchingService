@@ -453,6 +453,75 @@ esac
 
 
 class RefreshModeTests(unittest.TestCase):
+    def test_package_uid_authentication(self):
+        compiler = shutil.which("cc")
+        if compiler is None:
+            self.skipTest("C compiler is needed for daemon client tests")
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / "android").mkdir()
+            (work / "android/log.h").write_text(
+                "#define ANDROID_LOG_ERROR 6\n"
+                "int __android_log_print(int, const char *, const char *, ...);\n")
+            binary = work / "client-auth-probe"
+            result = subprocess.run(
+                [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
+                 ROOT / "tools/tests/native/ClientAuthProbe.c",
+                 ROOT / "a9_eink_daemon/client_auth.c", "-o", binary],
+                capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run([binary], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run(
+                [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
+                 "-Dgetsockopt=probe_getsockopt", "-Dfopen=probe_fopen",
+                 ROOT / "tools/tests/native/ClientSocketProbe.c",
+                 ROOT / "a9_eink_daemon/client_auth.c", "-o", binary],
+                capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run([binary], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_migration_candidate_build_selects_all_tested_routes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            ndk_bin = work / "ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            ndk_bin.mkdir(parents=True)
+            compiler = ndk_bin / "aarch64-linux-android30-clang"
+            compiler.write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGS_FILE"\n'
+                'while [ "$#" -gt 0 ]; do\n'
+                '  if [ "$1" = "-o" ]; then shift; printf binary > "$1"; exit 0; fi\n'
+                '  shift\n'
+                'done\nexit 1\n')
+            compiler.chmod(0o755)
+            strip = ndk_bin / "llvm-strip"
+            strip.write_text("#!/bin/sh\nexit 0\n")
+            strip.chmod(0o755)
+            args_file = work / "args"
+            env = dict(os.environ, ANDROID_NDK_HOME=str(work / "ndk"),
+                       ARGS_FILE=str(args_file))
+            script = ROOT / "tools/build-daemon.sh"
+            output = work / "daemon"
+            result = subprocess.run(["bash", script, output, "--enforcing-migration-candidate"],
+                                    capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            flags = args_file.read_text().splitlines()
+            for flag in ("-DHIBREAK_ENFORCING_CANDIDATE", "-DHIBREAK_PROPERTY_ONLY_REFRESH",
+                         "-DHIBREAK_INIT_EINK_BRIDGE", "-DHIBREAK_SOCKET_AUTH"):
+                self.assertEqual(flags.count(flag), 1)
+            self.assertNotIn("-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH", flags)
+            for option in ("--enforcing-candidate", "--experimental-property-only-refresh",
+                           "--experimental-property-only-auto-refresh",
+                           "--experimental-init-eink-bridge"):
+                with self.subTest(option=option):
+                    result = subprocess.run(
+                        ["bash", script, work / "rejected", "--enforcing-migration-candidate", option],
+                        capture_output=True, text=True, env=env)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("cannot be combined", result.stderr)
+                    self.assertFalse((work / "rejected").exists())
+
     def test_hd_256_reaches_driver_and_property(self):
         compiler = shutil.which("cc")
         if compiler is None:
@@ -472,7 +541,10 @@ class RefreshModeTests(unittest.TestCase):
                           ["-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
                           ["-DHIBREAK_PROPERTY_ONLY_REFRESH",
                            "-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
-                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE"]):
+                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE"],
+                          ["-DHIBREAK_ENFORCING_CANDIDATE",
+                           "-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE",
+                           "-DHIBREAK_SOCKET_AUTH"]):
                 with self.subTest(flags=flags):
                     result = subprocess.run(
                         [compiler, "-Wall", "-Wextra", "-Werror", *flags, "-I", str(work),

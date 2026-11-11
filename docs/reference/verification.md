@@ -136,8 +136,8 @@ property or hardware operation succeeded.
 The socket scaffold allows the existing `priv_app` client to connect and
 marks the daemon `mlstrustedsubject`: the loaded policy's socket `connectto`
 constraint otherwise prevents the categorized app connecting to an s0 daemon.
-This is not package-specific authentication; socket-client authorization
-still needs review before deployment.
+This scaffold alone is not package-specific authentication; the separate
+experimental migration build adds the peer check described below.
 
 Validate only, without image creation or device changes:
 
@@ -152,6 +152,81 @@ into a normal release image:** the bridge, domain transitions, executable
 labels, hardware labels/permissions and framework execution path are not
 fully wired. Normal daemon/release builds keep the existing direct-property
 behavior. The candidate files are not installed by the release builder.
+
+The separate `--enforcing-migration-candidate` daemon build combines those
+request properties with the user-tested property-only refresh and init e-ink
+debugfs bridge routes. The separate host-only
+`tools/display/hibreak-eink-bridge-client.cil` grants the new domain permission
+to send the two bridge requests. Validate this against the tested bridge
+image using `--with-init-bridge`; the full test-image/vendor pair retained
+386 existing diagnostic blocks with no added blocks or changed existing
+bridge-property permissions. The separate migration-image builder adds
+frontlight access, socket authorization and service labelling; none of those
+changes are in normal release builds or have been validated on the device.
+
+The migration daemon obtains `SO_PEERCRED` for each connection and compares the
+peer's Android app ID against `/data/system/packages.list`, rejecting malformed
+registry input, missing packages and shared app IDs. This supports variable
+UIDs and Android users without hard-coding the observed UID. It relies on
+Android protecting that package-manager registry and the installed package's
+identity; registry access fails closed and is logged. SELinux still permits
+other `priv_app` clients to attempt a connection, but their UID must pass this
+check before commands are read. Runtime DAC, app reconnection and peer
+authorization remain to be tested.
+
+The separate candidate labels exactly the two frontlight files and generates
+rules to preserve their baseline effective `sysfs` file permissions before
+adding daemon `open` and `write`. It uses the original synchronous hardware
+writes. The matching vendor, node paths, runtime labels and DAC are still
+device-validation gates; no frontlight or framework behavior is established
+by the host policy checks.
+
+On the full tested bridge image and matching vendor, the combined candidate
+retained all 386 existing diagnostic blocks without additions. The two
+frontlight labels preserved both baseline effective file permissions and
+existing extended file permissions. An opt-in image was built separately and
+its embedded daemon, service, contexts, init bridge and manifest checksum
+were checked.
+
+On 2026-11-11, the user tested that image and reported that both frontlight
+and refresh controls failed. The daemon ran in enforcing `hibreak_eink`;
+its main thread had a long-running `settings put secure
+theme_customization_overlay_packages` child, and a side-key `am broadcast`
+child was also still running. Device audit logs showed `system_server` denied
+Binder `call` to `hibreak_eink`. Since the daemon waits synchronously for its
+theme helper, a stuck helper can prevent subsequent socket commands from
+being processed. The candidate now grants that exact Binder callback; a new
+test image is required to determine whether it resolves the stalls and
+restores the controls. Startup `getattr` denials for hardware probes are
+separate diagnostic reads, not evidence that frontlight writes were denied.
+The user subsequently reported that the Binder-callback test image works.
+No logs or detailed regression matrix accompanied that report, so it does not
+establish that every daemon feature or remaining PHH service was tested.
+
+### Display and AOD helper migration candidate
+
+The separate display overlay moves the five HiBreak helper services from
+`phhsu_daemon` to an enforcing `hibreak_display` domain. Its policy includes
+the SurfaceFlinger and framework service accesses needed by the scripts,
+including Binder callbacks. Host policy checks against the user-tested daemon
+image and matching vendor retained the same 386 diagnostic blocks, without
+claiming the existing policy is neverallow-clean.
+
+The old AOD marker and setup properties resolve to `system_prop`. A direct
+replacement label that preserved all their existing effective permissions
+changed neverallow diagnostics, so it was not used. Instead, the experimental
+overlay keeps those labels intact, reads their legacy values on first use, and
+stores migrated markers in two new exact, enum-typed persistent properties.
+This keeps the existing AOD inversion behavior rather than removing it; the
+normal release scripts remain unchanged. The new image and its embedded
+scripts, policy, property contexts, unchanged daemon, and checksum have been
+verified on the host. Boot, SurfaceFlinger, framework callbacks, AOD
+transitions, and DAC still require device testing.
+
+On 2026-11-11, the user reported that the display and AOD helper migration
+test image works. No logs or detailed regression matrix accompanied the
+report, so it does not independently confirm each individual feature or
+the migration of upstream PHH services.
 
 ### Hardware and framework host investigation
 
@@ -179,6 +254,15 @@ Label changes must preserve reviewed existing behavior and use confirmed
 resolved device paths before they can be packaged. Debugfs access may require
 a different architecture or an upstream policy/device change rather than
 weakening assertions.
+
+On the full init-bridge test image, a subsequent host-only experiment assigned
+the two frontlight paths a dedicated `sysfs_type`, preserved all 248 effective
+generic `sysfs` file-permission tuples (including the 116 otherwise lost), and
+added only init's file `write` permission. All 386 baseline diagnostic blocks
+were unchanged. Device AVCs identified both nodes as generic `sysfs`, but
+shell lacked permission to stat them, so DAC and the runtime behavior of the
+proposed init bridge remain unverified. This policy experiment is not included
+in an image; a property interface and client authorization are still needed.
 
 ### Debugfs alternative investigation (2026-11-11)
 

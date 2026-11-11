@@ -15,6 +15,10 @@
 #include <sys/system_properties.h>
 #include <sys/wait.h>
 
+#ifdef HIBREAK_SOCKET_AUTH
+#include "client_auth.h"
+#endif
+
 static const char* kTAG = "a9EinkService";
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, kTAG, __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, kTAG, __VA_ARGS__))
@@ -551,6 +555,12 @@ _Noreturn void setupServer() {
             continue;
         }
 
+#ifdef HIBREAK_SOCKET_AUTH
+        if (!hibreak_authorize_client(client_sockfd)) {
+            close(client_sockfd);
+            continue;
+        }
+#endif
         while (1) {
             memset(buffer, 0, BUFFER_SIZE);
             ssize_t num_read = read(client_sockfd, buffer, BUFFER_SIZE - 1);

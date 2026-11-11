@@ -2,7 +2,7 @@
 """Host-only validation of e-ink control properties and socket policy; never builds an image."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 import shutil
 import subprocess
@@ -32,6 +32,16 @@ VALUE_TYPES = {
     "sys.hibreak.request.linevibrator_touch": ("int",),
     "sys.hibreak.request.wakeup_on_volume": ("int",),
 }
+BRIDGE_TYPE = "hibreak_eink_bridge_prop"
+BRIDGE_REQUESTS = (
+    "sys.hibreak.eink_bridge.auto_refresh",
+    "sys.hibreak.eink_bridge.anti_flicker",
+)
+FRONTLIGHT_TYPE = "hibreak_eink_frontlight"
+FRONTLIGHT_PATHS = (
+    "/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light",
+    "/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_warm_light",
+)
 
 
 def control_contexts(entries, additions):
@@ -53,7 +63,43 @@ def control_contexts(entries, additions):
     return requests
 
 
-def validate(source, vendor, work, compiler):
+def validate_bridge_contexts(entries):
+    for name in BRIDGE_REQUESTS:
+        entry = resolve_context(name, entries)
+        if (entry.name, entry.label, entry.match, entry.value_type) != (
+            name, f"u:object_r:{BRIDGE_TYPE}:s0", "exact", ("enum", "0", "1")
+        ):
+            raise ValueError(f"Expected tested init bridge property context: {name}")
+
+
+def frontlight_preservation_rules(baseline, candidate):
+    grouped = defaultdict(set)
+    for source, cls, permission in baseline - candidate:
+        if cls != "file":
+            raise ValueError(f"Unexpected frontlight permission class: {cls}")
+        grouped[source].add(permission)
+    return [
+        f"(allow {source} {FRONTLIGHT_TYPE} (file ({' '.join(sorted(permissions))})))"
+        for source, permissions in sorted(grouped.items())
+    ]
+
+
+def extended_file_permissions(policy, target, query, not_conditional):
+    permissions = set()
+    for rule in query(policy, ruletype=["allowxperm"], target=target, tclass=["file"]).results():
+        try:
+            rule.conditional
+        except not_conditional:
+            pass
+        else:
+            raise ValueError(f"Conditional extended sysfs permission cannot be preserved: {rule}")
+        for source in rule.source.expand():
+            permissions.update((str(source), str(rule.xperm_type), permission)
+                               for permission in rule.perms)
+    return permissions
+
+
+def validate(source, vendor, work, compiler, with_init_bridge=False, complete_candidate=False):
     try:
         from setools import SELinuxPolicy, TERuleQuery
         from setools.exception import RuleNotConditional
@@ -85,6 +131,26 @@ def validate(source, vendor, work, compiler):
             raise ValueError(f"Missing property contexts: {img}:{path}")
     additions = (ROOT / "tools/display/hibreak-eink-control-property-contexts").read_text()
     requests = control_contexts(entries, additions)
+    if with_init_bridge:
+        validate_bridge_contexts(entries)
+        bridge_permissions = effective_permissions(
+            baseline_policy, BRIDGE_TYPE, TERuleQuery, RuleNotConditional,
+        )
+    if complete_candidate:
+        if not with_init_bridge:
+            raise ValueError("Complete candidate requires the tested init bridge")
+        sysfs_xperms = extended_file_permissions(
+            baseline_policy, "sysfs", TERuleQuery, RuleNotConditional,
+        )
+        for node in FRONTLIGHT_PATHS:
+            matching = [rule for rule in baseline_policy.genfscons()
+                        if rule.fs == "sysfs" and
+                        (str(rule.path) == node or node.startswith(str(rule.path).rstrip("/") + "/"))]
+            if not matching or str(max(matching, key=lambda rule: len(str(rule.path))).context.type_) != "sysfs":
+                raise ValueError(f"Expected generic sysfs baseline for {node}")
+        sysfs_file = {item for item in effective_permissions(
+            baseline_policy, "sysfs", TERuleQuery, RuleNotConditional,
+        ) if item[1] == "file"}
     destination_types = {
         resolve_context(name, entries).label.split(":")[2]
         for name in DESTINATIONS.values()
@@ -93,8 +159,20 @@ def validate(source, vendor, work, compiler):
         target: effective_permissions(baseline_policy, target, TERuleQuery, RuleNotConditional)
         for target in destination_types
     }
-    platform.write_text(platform.read_text() + "\n" +
-                        (ROOT / "tools/display/hibreak-eink-candidate.cil").read_text())
+    candidate_cil = (ROOT / "tools/display/hibreak-eink-candidate.cil").read_text()
+    if with_init_bridge:
+        candidate_cil += "\n" + (ROOT / "tools/display/hibreak-eink-bridge-client.cil").read_text()
+    if complete_candidate:
+        candidate_cil += "\n" + (ROOT / "tools/display/hibreak-eink-runtime.cil").read_text()
+    platform.write_text(platform.read_text() + "\n" + candidate_cil)
+    if complete_candidate:
+        image.run(*command, "-N")
+        preliminary = SELinuxPolicy(str(work / "candidate.policy"))
+        current_file = {item for item in effective_permissions(
+            preliminary, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
+        ) if item[1] == "file"}
+        rules = frontlight_preservation_rules(sysfs_file, current_file)
+        platform.write_text(platform.read_text() + "\n" + "\n".join(rules) + "\n")
     modified = neverallow_failures(subprocess.run(command, capture_output=True))
     added = modified - baseline
     if added:
@@ -122,6 +200,9 @@ def validate(source, vendor, work, compiler):
                                 target=target, tclass=[cls], perms=[permission]).results()
             if not any(rules):
                 raise ValueError(f"Native candidate lacks {target}:{cls} {permission}")
+    if not any(TERuleQuery(candidate, ruletype=["allow"], source="system_server",
+                           target="hibreak_eink", tclass=["binder"], perms=["call"]).results()):
+        raise ValueError("System server cannot deliver Binder callbacks to the daemon's helpers")
     for target, permissions in baseline_permissions.items():
         actual = effective_permissions(candidate, target, TERuleQuery, RuleNotConditional)
         existing = {permission for permission in actual if permission[0] != "hibreak_eink"}
@@ -148,17 +229,63 @@ def validate(source, vendor, work, compiler):
                                  target=target, tclass=[cls], perms=[permission]).results())
         if bool(grants) != (cls == "unix_stream_socket"):
             raise ValueError(f"Unexpected {source_type}->{target} {permission} grants")
+    for permission in ("read", "write"):
+        if not any(TERuleQuery(candidate, ruletype=["allow"], source="priv_app",
+                               target="hibreak_eink", tclass=["unix_stream_socket"],
+                               perms=[permission]).results()):
+            raise ValueError(f"Candidate socket lacks client {permission} permission")
     control_permissions = effective_permissions(candidate, CONTROL_TYPE, TERuleQuery, RuleNotConditional)
     if ("hibreak_eink", "property_service", "set") not in control_permissions:
         raise ValueError("Daemon cannot set request properties")
+    if with_init_bridge:
+        actual = effective_permissions(candidate, BRIDGE_TYPE, TERuleQuery, RuleNotConditional)
+        if {item for item in actual if item[0] != "hibreak_eink"} != bridge_permissions:
+            raise ValueError("Existing init bridge property permissions changed")
+        writers = {src for src, cls, perm in actual if cls == "property_service" and perm == "set"}
+        if writers != {"init", "phhsu_daemon", "hibreak_eink"}:
+            raise ValueError(f"Unexpected init bridge property writers: {sorted(writers)}")
+    if complete_candidate:
+        actual = {item for item in effective_permissions(
+            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
+        ) if item[1] == "file"}
+        expected = {("hibreak_eink", "file", permission) for permission in ("open", "write")}
+        if sysfs_file - actual or actual - sysfs_file != expected:
+            raise ValueError(f"Unexpected frontlight permissions: lost={sysfs_file - actual}, "
+                             f"added={actual - sysfs_file}")
+        actual_xperms = extended_file_permissions(
+            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
+        )
+        existing_xperms = {item for item in actual_xperms if item[0] != "hibreak_eink"}
+        if existing_xperms != sysfs_xperms:
+            raise ValueError("Existing extended sysfs file permissions changed: "
+                             f"lost={sysfs_xperms - existing_xperms}, "
+                             f"added={existing_xperms - sysfs_xperms}")
+        for node in FRONTLIGHT_PATHS:
+            if not any(rule.fs == "sysfs" and str(rule.path) == node and
+                       str(rule.context.type_) == FRONTLIGHT_TYPE for rule in candidate.genfscons()):
+                raise ValueError(f"Frontlight node label missing: {node}")
+        for target, cls, permissions in (
+            ("system_data_file", "dir", ("search",)),
+            ("packages_list_file", "file", ("open", "read", "getattr")),
+        ):
+            for permission in permissions:
+                if not any(TERuleQuery(candidate, ruletype=["allow"], source="hibreak_eink",
+                                       target=target, tclass=[cls], perms=[permission]).results()):
+                    raise ValueError(f"Candidate cannot access package registry: {target}:{cls} {permission}")
     probe = work / "control-context-probe.cil"
-    probe.write_text(
+    probe_text = (
         f'(filecon "/__hibreak_control_context_probe" file '
         f'(u object_r {CONTROL_TYPE} ((s0) (s0))))\n'
     )
+    if complete_candidate:
+        probe_text += ('(filecon "/__hibreak_exec_context_probe" file '
+                       '(u object_r hibreak_eink_exec ((s0) (s0))))\n')
+    probe.write_text(probe_text)
     image.run(*command, str(probe), "-N")
     if CONTROL_LABEL not in (work / "candidate.contexts").read_text():
         raise ValueError("Compiler did not validate the control-property context")
+    if complete_candidate and "u:object_r:hibreak_eink_exec:s0" not in (work / "candidate.contexts").read_text():
+        raise ValueError("Compiler did not validate the executable context")
     (work / "candidate-property-contexts").write_text(plat_contexts + "\n" + additions)
     print(f"Host control/socket scaffold passed: {len(requests)} scoped request properties; "
           f"{len(modified)} baseline conflicts, zero added "
@@ -166,7 +293,12 @@ def validate(source, vendor, work, compiler):
     print("Destination labels and existing domains' effective permissions preserved; candidate domain enforcing.")
     print("The native core domain inherits read-only system_prop access; no default-property set grant.")
     print("Framework helper execution and binder grants are present; runtime behavior remains unverified.")
+    if with_init_bridge:
+        print("Tested init bridge accepts the candidate domain; existing bridge permissions preserved.")
+    if complete_candidate:
+        print("Frontlight file permissions preserved; package-registry access granted for peer authentication.")
     print("No image created. Hardware access, helper execution and device behavior remain unverified.")
+    return platform, work / "candidate-property-contexts", inputs
 
 
 def main():
@@ -174,6 +306,10 @@ def main():
     parser.add_argument("source", type=Path)
     parser.add_argument("--vendor-image", required=True, type=Path)
     parser.add_argument("--secilc", default="secilc")
+    parser.add_argument("--with-init-bridge", action="store_true",
+                        help="Validate the candidate against an image containing the tested init bridge")
+    parser.add_argument("--complete-candidate", action="store_true",
+                        help="Also validate frontlight and package-registry access")
     args = parser.parse_args()
     for tool in ("debugfs", args.secilc):
         if not tool or not shutil.which(tool):
@@ -185,7 +321,8 @@ def main():
         if any(char in str(path) for char in ('"', "\\", "\n", "\r")):
             parser.error(f"Unsupported path characters: {path}")
     with tempfile.TemporaryDirectory(prefix="hibreak-native-migration-") as directory:
-        validate(args.source, args.vendor_image, Path(directory), args.secilc)
+        validate(args.source, args.vendor_image, Path(directory), args.secilc,
+                 args.with_init_bridge or args.complete_candidate, args.complete_candidate)
 
 
 if __name__ == "__main__":

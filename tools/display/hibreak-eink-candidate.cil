@@ -17,7 +17,7 @@
 (allow hibreak_eink init (process (sigchld)))
 (allow hibreak_eink self (process (fork)))
 (allow hibreak_eink self (unix_stream_socket (create bind listen accept read write getattr getopt setopt shutdown)))
-(allow priv_app hibreak_eink (unix_stream_socket (connectto)))
+(allow priv_app hibreak_eink (unix_stream_socket (connectto read write)))
 (allow hibreak_eink input_device (dir (search read open getattr)))
 (allow hibreak_eink input_device (chr_file (read open getattr ioctl)))
 ; EVIOCGNAME(80), EVIOCSCLOCKID. No key injection or device grab ioctl.
@@ -30,6 +30,7 @@
 (allow hibreak_eink binder_device (chr_file (read write open getattr ioctl map)))
 (allow hibreak_eink servicemanager (binder (call transfer)))
 (allow hibreak_eink system_server (binder (call transfer)))
+(allow system_server hibreak_eink (binder (call)))
 (allow hibreak_eink system_server (fd (use)))
 (allow hibreak_eink activity_service (service_manager (find)))
 (allow hibreak_eink input_service (service_manager (find)))

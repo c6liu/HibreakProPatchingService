@@ -1,0 +1,2 @@
+; Host-only addition for the enforcing daemon and the tested init bridge.
+(allow hibreak_eink hibreak_eink_bridge_prop (property_service (set)))
