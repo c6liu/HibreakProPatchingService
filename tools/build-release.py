@@ -2,6 +2,7 @@
 """Build a release image from a GSI and an APK without flashing a device."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -119,26 +120,31 @@ def main():
 
     apk = build_dir / "HiBreakEink-release.apk"
     daemon = build_dir / "a9_eink_server-release"
-    base = build_dir / "HiBreakPro-release-base.img"
+    final_image = build_dir / "HiBreakPro-release.img"
+    stage_directory = tempfile.TemporaryDirectory(prefix=".release-stages-", dir=build_dir)
+    stage_dir = Path(stage_directory.name)
+    has_overlays = args.ir or args.xrz
+    base = stage_dir / "HiBreakPro-release-base.img" if has_overlays else final_image
+    parallel_commands = [["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)]]
+    if args.source_apk:
+        parallel_commands.append(
+            ["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)])
     commands = [
-        ["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)],
         ["bash", str(ROOT / "tools/patch-gsi.sh"), str(args.gsi.resolve()),
          str(base), str(apk), str(daemon), "--release"],
     ]
-    if args.source_apk:
-        commands.insert(0, ["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)])
     current = base
-    ir_image = build_dir / "HiBreakPro-release-ir.img"
+    ir_image = stage_dir / "HiBreakPro-release-ir.img" if args.xrz else final_image
     hal = build_dir / "consumerir.hxd-release.so"
     if args.ir:
+        parallel_commands.append(["bash", str(ROOT / "tools/build-ir-hal.sh"), str(hal)])
         commands.extend([
-            ["bash", str(ROOT / "tools/build-ir-hal.sh"), str(hal)],
             [sys.executable, str(ROOT / "tools/add-ir-capture-to-gsi.py"),
              str(current), str(ir_image), "--vendor-image", str(args.vendor_image.resolve()),
              "--hal-module", str(hal), "--secilc", args.secilc],
         ])
         current = ir_image
-    xrz_image = build_dir / "HiBreakPro-xrz-v2-test.img"
+    xrz_image = final_image
     if args.xrz:
         commands.append([
             sys.executable, str(ROOT / "tools/add-xrz-compat-to-gsi.py"),
@@ -163,7 +169,7 @@ def main():
             for name, path in input_files.items()
         },
         "outputs": {},
-        "final_image": str(current),
+        "final_image": str(final_image),
     }
     if args.source_apk:
         manifest["options"]["source_apk"] = True
@@ -186,14 +192,23 @@ def main():
             if verification is not None:
                 subprocess.run([*verification, "-a", str(apk)], cwd=ROOT,
                                env=child_environment, check=True)
+        for command in parallel_commands:
+            print(f"Running: {Path(command[1]).name}", flush=True)
+        with ThreadPoolExecutor(max_workers=len(parallel_commands)) as executor:
+            futures = [
+                executor.submit(subprocess.run, command, cwd=ROOT,
+                                env=child_environment, check=True)
+                for command in parallel_commands
+            ]
+            for future in futures:
+                future.result()
         for command in commands:
             print(f"Running: {Path(command[1]).name}", flush=True)
             subprocess.run(command, cwd=ROOT, env=child_environment, check=True)
-        outputs = [apk, daemon, base]
+        outputs = [apk, daemon]
         if args.ir:
-            outputs.extend((hal, ir_image))
-        if args.xrz:
-            outputs.append(xrz_image)
+            outputs.append(hal)
+        outputs.append(final_image)
         for path in outputs:
             if not path.is_file() or path.stat().st_size == 0:
                 raise ValueError(f"Build step did not produce expected output: {path}")
@@ -204,8 +219,10 @@ def main():
         if isinstance(error, subprocess.CalledProcessError):
             raise SystemExit(f"Build command failed with exit status {error.returncode}; partial files remain in {build_dir}")
         raise SystemExit(f"{error}; partial files remain in {build_dir}")
+    finally:
+        stage_directory.cleanup()
 
-    print(f"Final image: {current}")
+    print(f"Final image: {final_image}")
     print(f"Manifest: {manifest_path}")
     print("No device was accessed or flashed.")
 

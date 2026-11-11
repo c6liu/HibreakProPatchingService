@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -66,26 +67,33 @@ class ReleaseBuildTests(unittest.TestCase):
             build_release.main()
 
         self.assertEqual(len(commands), 6)
-        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
-        self.assertTrue(commands[1][1].endswith("build-daemon.sh"))
-        self.assertTrue(commands[2][1].endswith("patch-gsi.sh"))
-        self.assertTrue(commands[3][1].endswith("build-ir-hal.sh"))
-        self.assertTrue(commands[4][1].endswith("add-ir-capture-to-gsi.py"))
-        self.assertTrue(commands[5][1].endswith("add-xrz-compat-to-gsi.py"))
-        self.assertIn("--release", commands[2])
-        self.assertIn("--hal-module", commands[4])
-        self.assertEqual(commands[4][commands[4].index("--vendor-image") + 1], str(self.vendor))
+        command_names = [Path(command[1]).name for command in commands]
+        self.assertCountEqual(command_names[:3], [
+            "build-source-apk.sh", "build-daemon.sh", "build-ir-hal.sh",
+        ])
+        self.assertEqual(command_names[3:], [
+            "patch-gsi.sh", "add-ir-capture-to-gsi.py", "add-xrz-compat-to-gsi.py",
+        ])
+        patch_command, ir_command, _xrz_command = commands[3:]
+        self.assertIn("--release", patch_command)
+        self.assertIn("--hal-module", ir_command)
+        self.assertEqual(ir_command[ir_command.index("--vendor-image") + 1], str(self.vendor))
         build_dir = next(output_root.iterdir())
         manifest = json.loads((build_dir / "manifest.json").read_text())
         self.assertEqual(manifest["options"], {
             "ir": True, "xrz_v2": True, "release": True, "source_apk": True,
         })
-        self.assertEqual(Path(manifest["final_image"]).name, "HiBreakPro-xrz-v2-test.img")
+        self.assertEqual(Path(manifest["final_image"]).name, "HiBreakPro-release.img")
         self.assertEqual(manifest["inputs"]["gsi"]["sha256"], build_release.sha256(self.gsi))
-        self.assertIn("HiBreakPro-release-base.img", manifest["outputs"])
-        self.assertIn("HiBreakPro-release-ir.img", manifest["outputs"])
-        self.assertIn("HiBreakPro-xrz-v2-test.img", manifest["outputs"])
-        self.assertEqual(commands[4][1], str(ROOT / "tools/add-ir-capture-to-gsi.py"))
+        self.assertIn("HiBreakPro-release.img", manifest["outputs"])
+        self.assertNotIn("HiBreakPro-release-base.img", manifest["outputs"])
+        self.assertNotIn("HiBreakPro-release-ir.img", manifest["outputs"])
+        self.assertNotIn("HiBreakPro-xrz-v2-test.img", manifest["outputs"])
+        self.assertTrue((build_dir / "HiBreakPro-release.img").is_file())
+        self.assertEqual([path.name for path in build_dir.glob("*.img")],
+                         ["HiBreakPro-release.img"])
+        self.assertFalse(any(build_dir.glob(".release-stages-*")))
+        self.assertEqual(ir_command[1], str(ROOT / "tools/add-ir-capture-to-gsi.py"))
 
     def test_explicit_source_apk_records_source_inputs(self):
         output_root = self.work / "source-builds"
@@ -97,8 +105,12 @@ class ReleaseBuildTests(unittest.TestCase):
             build_release.main()
 
         self.assertEqual(len(commands), 3)
-        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
-        manifest = json.loads((next(output_root.iterdir()) / "manifest.json").read_text())
+        self.assertIn("build-source-apk.sh", [Path(command[1]).name for command in commands[:2]])
+        build_dir = next(output_root.iterdir())
+        manifest = json.loads((build_dir / "manifest.json").read_text())
+        self.assertEqual(Path(manifest["final_image"]).name, "HiBreakPro-release.img")
+        self.assertEqual([path.name for path in build_dir.glob("*.img")],
+                         ["HiBreakPro-release.img"])
         self.assertTrue(manifest["options"]["source_apk"])
         self.assertNotIn("base_apk", manifest["inputs"])
         source = ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/BootReceiver.kt"
@@ -129,15 +141,19 @@ class ReleaseBuildTests(unittest.TestCase):
             "build-release.py", str(self.gsi), "--output-root", str(self.work / "default"),
         ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
             build_release.main()
-        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
+        self.assertIn("build-source-apk.sh", [Path(command[1]).name for command in commands[:2]])
 
     def test_default_automates_all_stages_with_environment_inputs(self):
         commands = []
         environments = []
         build = self.fake_build(commands)
+        prerequisite_barrier = threading.Barrier(3)
 
         def run(command, env, **kwargs):
             environments.append(env)
+            if Path(command[1]).name in {
+                    "build-source-apk.sh", "build-daemon.sh", "build-ir-hal.sh"}:
+                prerequisite_barrier.wait(timeout=5)
             return build(command, **kwargs)
 
         with mock.patch.dict(build_release.os.environ, {
@@ -149,7 +165,10 @@ class ReleaseBuildTests(unittest.TestCase):
         ]), mock.patch.object(subprocess, "run", side_effect=run):
             build_release.main()
         self.assertEqual(len(commands), 6)
-        self.assertTrue(commands[0][1].endswith("build-source-apk.sh"))
+        self.assertCountEqual(
+            [Path(command[1]).name for command in commands[:3]],
+            ["build-source-apk.sh", "build-daemon.sh", "build-ir-hal.sh"],
+        )
         for command in commands[-2:]:
             self.assertEqual(command[command.index("--secilc") + 1], "/custom/secilc")
             self.assertEqual(command[command.index("--vendor-image") + 1], str(self.vendor))

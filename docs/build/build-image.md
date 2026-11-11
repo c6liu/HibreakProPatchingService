@@ -6,8 +6,10 @@ variables. If you opened another one, set `ANDROID_NDK_HOME` and `BASE`
 `VENDOR` and `AOSP_HEADERS` ([IR inputs](ir-inputs.md)) again.
 
 For a single-command release build, use the orchestrator. It creates a new
-timestamped directory under `build/`, retains its intermediates, writes a
-`manifest.json` with input/output checksums, and never flashes:
+timestamped directory under `build/`, writes a `manifest.json` with
+input/output checksums, and never flashes. Only the final image is retained;
+intermediate stage images are temporary. Independent APK, daemon, and (when
+requested) IR HAL builds run concurrently before image patching:
 
 ```bash
 python3 tools/build-release.py "$BASE"
@@ -47,9 +49,11 @@ All paths can also be supplied explicitly:
   --secilc "$SECILC"
 ```
 
-This builds the APK, daemon, base image, IR HAL/image, then XRZ v2 in order.
-The compiler selection is passed to **both** overlays. Use the printed final
-image path (or `final_image` in the manifest), not an intermediate image.
+This builds the APK and daemon, then applies the requested image stages in
+order. Intermediate stage images are removed after the build, and the final
+image is always named `HiBreakPro-release.img`. The compiler selection is
+passed to **both** overlays. Use the printed final image path (or
+`final_image` in the manifest).
 
 To reuse a signed source APK you already built, without rebuilding or signing it:
 
