@@ -40,11 +40,13 @@ class SettingsActivity : AppCompatActivity() {
 
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            ButtonActionSettings.migrateScreenOffClear(requireContext())
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) {
                 AppLaunchSettings.populate(this)
                 return
             }
+
             setPreferencesFromResource(R.xml.per_app_preferences, null)
             val apps = requireNotNull(findPreference<PreferenceCategory>("per_app_apps"))
             apps.isOrderingAsAdded = false
@@ -65,6 +67,13 @@ class SettingsActivity : AppCompatActivity() {
                         setDefaultValue("-1")
                     })
                 }
+        }
+
+        override fun onResume() {
+            super.onResume()
+            if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) {
+                AppLaunchSettings.refresh(this)
+            }
         }
     }
 

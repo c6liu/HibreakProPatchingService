@@ -77,7 +77,7 @@ class SettingsResourceTests(unittest.TestCase):
                 )
             ])
             self.assertEqual([node.get(APP + "defaultValue") for node in category],
-                             ["clear", "open_menu", "dummy", "clear", "dummy", "dummy"])
+                             ["clear", "open_menu", "dummy", "dummy", "dummy", "dummy"])
 
     def test_supported_controls_and_dependencies(self):
         root = ET.parse(SOURCE).getroot()
@@ -138,18 +138,39 @@ class SettingsResourceTests(unittest.TestCase):
                    "button_mapper/ButtonActionManager.kt").read_text()
         action = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
                   "button_mapper/LaunchAppButtonAction.kt").read_text()
+        shared = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                  "ButtonActionSettings.kt").read_text()
+        picker = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                  "ActionTargetPickerActivity.kt").read_text()
+        launch = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+                  "button_mapper/LaunchTarget.kt").read_text()
         for key in action_keys:
             with self.subTest(action=key):
-                self.assertIn(f'"{key}"', settings)
-                self.assertIn(f'"{key}"', manager)
-        self.assertIn("queryIntentActivities", settings)
+                self.assertIn(f'"{key}"', shared)
+        for source in (settings, manager):
+            self.assertIn("ButtonActionSettings.actionKeys", source)
+        self.assertIn("queryIntentActivities", picker)
         self.assertIn("getLaunchIntentForPackage", action)
         self.assertIn("FLAG_ACTIVITY_NEW_TASK", action)
-        self.assertIn("ActivityNotFoundException", action)
-        self.assertIn("actionPreference.parent", settings)
-        self.assertIn("actionPreference.order + 1", settings)
-        self.assertIn("appPreference.isVisible = newValue == launchActionValue", settings)
+        self.assertIn("ActivityNotFoundException", launch)
+        self.assertIn("LaunchShortcutButtonAction(preferenceKey)", manager)
         self.assertIn("ListPreference.SimpleSummaryProvider.getInstance()", settings)
+
+    def test_screen_off_clear_is_not_offered(self):
+        root = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        entries = root.find("string-array[@name='button_action_entries_screen_off']")
+        values = root.find("string-array[@name='button_action_values_screen_off']")
+        self.assertEqual(len(entries), len(values))
+        self.assertNotIn("clear", [item.text for item in values])
+
+    def test_target_picker_is_internal_and_material3(self):
+        manifest = ET.parse(ROOT / "a9_accessibility_service/AndroidManifest.xml").getroot()
+        picker = manifest.find("application/activity[@android:name='.ActionTargetPickerActivity']",
+                               {"android": ANDROID[1:-1]})
+        self.assertEqual(picker.get(ANDROID + "exported"), "false")
+        layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/action_target_picker.xml").getroot()
+        for tag in ("appbar.MaterialToolbar", "tabs.TabLayout", "textfield.TextInputLayout"):
+            self.assertIsNotNone(layout.find("com.google.android.material." + tag))
 
     def test_video_refresh_toggle_defaults_off_and_is_explicit(self):
         layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()

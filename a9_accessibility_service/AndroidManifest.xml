@@ -50,6 +50,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ActionTargetPickerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
+            android:theme="@style/Theme.Ha9_comp_service.Settings" />
+
         <service
             android:name=".A9AccessibilityService"
             android:exported="true"

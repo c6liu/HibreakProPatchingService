@@ -5,23 +5,9 @@ import androidx.preference.PreferenceManager
 import com.lmqr.ha9_comp_service.command_runners.CommandRunner
 import com.lmqr.ha9_comp_service.command_runners.Commands
 import com.lmqr.ha9_comp_service.RefreshModeManager
+import com.lmqr.ha9_comp_service.ButtonActionSettings
 
 class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: RefreshModeManager) {
-    private val launchAppPreferenceKeys = listOf(
-        "top_single_press_eink_action",
-        "top_double_press_eink_action",
-        "top_long_press_eink_action",
-        "top_single_press_eink_action_screen_off",
-        "top_double_press_eink_action_screen_off",
-        "top_long_press_eink_action_screen_off",
-        "single_press_eink_action",
-        "double_press_eink_action",
-        "long_press_eink_action",
-        "single_press_eink_action_screen_off",
-        "double_press_eink_action_screen_off",
-        "long_press_eink_action_screen_off",
-    )
-
     private val buttonCommands = (mapOf(
         "clear" to ClearScreenButtonAction(commandRunner, refreshModeManager),
         "next_track" to NextTrackButtonAction(),
@@ -35,9 +21,18 @@ class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: Refr
         "dpad_left" to DpadButtonAction(commandRunner, Commands.DPAD_LEFT),
         "dpad_right" to DpadButtonAction(commandRunner, Commands.DPAD_RIGHT),
         "previous_track" to PreviousTrackButtonAction(),
-    ) + launchAppPreferenceKeys.associate { preferenceKey ->
-        "launch_app_$preferenceKey" to LaunchAppButtonAction("launch_app_package_$preferenceKey")
+    ) + ButtonActionSettings.actionKeys.flatMap { preferenceKey ->
+        listOf(
+            "launch_app_$preferenceKey" to LaunchAppButtonAction("launch_app_package_$preferenceKey"),
+            "launch_shortcut_$preferenceKey" to LaunchShortcutButtonAction(preferenceKey),
+        )
     }).withDefault { DummyButtonAction() }
+
+    private fun executeScreenOff(context: Context, key: String) {
+        ButtonActionSettings.migrateScreenOffClear(context)
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context)
+            .getString(key, "dummy")]?.execute(context)
+    }
 
     fun executeLongPress(context: Context){
         buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("long_press_eink_action", "dummy")]?.execute(context)
@@ -52,15 +47,15 @@ class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: Refr
     }
 
     fun executeLongPressScreenOff(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("long_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "long_press_eink_action_screen_off")
     }
 
     fun executeDoublePressScreenOff(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("double_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "double_press_eink_action_screen_off")
     }
 
     fun executeSinglePressScreenOff(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("single_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "single_press_eink_action_screen_off")
     }
     fun executeLongPressTop(context: Context){
         buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_long_press_eink_action", "dummy")]?.execute(context)
@@ -75,14 +70,14 @@ class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: Refr
     }
 
     fun executeLongPressScreenOffTop(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_long_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "top_long_press_eink_action_screen_off")
     }
 
     fun executeDoublePressScreenOffTop(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_double_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "top_double_press_eink_action_screen_off")
     }
 
     fun executeSinglePressScreenOffTop(context: Context){
-        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_single_press_eink_action_screen_off", "dummy")]?.execute(context)
+        executeScreenOff(context, "top_single_press_eink_action_screen_off")
     }    
 }

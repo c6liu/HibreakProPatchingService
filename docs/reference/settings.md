@@ -12,9 +12,50 @@ press opens the E-Ink menu with per-app refresh modes. These mappings can be
 changed in E-Ink Settings. Button mappings are shown **top button first, then
 bottom button**. Available screen-on actions include **Up, Down, Left, and
 Right**, which send Android DPAD key presses to the focused app. Screen-off
-actions remain restricted to media, Clear Screen and Nothing. Screen-on
-actions can be assigned to single, double or long presses. Whether a DPAD key
+actions include media, **Launch App**, **Launch Shortcut**, and Nothing.
+Clear Screen is available only with the screen on. Existing screen-off
+Clear Screen assignments are migrated to Nothing; new installs also default
+to Nothing with the screen off. Actions can be assigned to single, double
+or long presses of either button. Whether a DPAD key
 scrolls or changes focus depends on the foreground app.
+
+### Apps and shortcuts
+
+Select **Launch App** or **Launch Shortcut** to open the Material 3 target
+picker. Its **Apps** and **Shortcuts** tabs include icons, labels, package
+names and search. Choosing a target saves it for that specific gesture;
+Back cancels without changing the existing assignment. Tap **App to launch**
+or **Shortcut to launch** beneath an assigned action to change its target.
+Existing app-launch assignments remain compatible.
+
+The Shortcuts tab supports:
+
+- **Configure shortcut**: apps exposing Android's `ACTION_CREATE_SHORTCUT`
+  configuration flow. Choose an app, configure its shortcut, and confirm.
+  Cancelling configuration keeps the previous assignment.
+  Intent-based shortcuts with primitive/string extras are supported; shortcuts
+  relying on temporary clip data or complex extras are rejected with an
+  explanation rather than saved with missing data.
+- **Launcher shortcut**: enabled static, dynamic and pinned shortcuts exposed
+  through `LauncherApps`, when this app has Android shortcut-host permission.
+  Selected shortcuts are pinned for this app to retain dynamic shortcuts.
+  Android normally reserves this access for the default launcher or a
+  system-authorized shortcut host. The picker explains unavailable access;
+  it does not replace your launcher or grant itself privileges.
+
+Only apps and shortcuts in the current Android profile are shown. Apps must
+expose a supported shortcut; arbitrary internal app screens cannot be listed.
+Removed/disabled shortcuts and revoked permissions can still prevent launches;
+failures are reported rather than silently opening the app's home screen.
+
+App and shortcut actions assigned with the screen off wake the display before
+launching. They do **not** unlock the phone or bypass the keyguard. Android or
+the target app may require unlocking before its content becomes available.
+
+API/design references:
+[Android launcher shortcut access](https://developer.android.com/reference/android/content/pm/LauncherApps),
+[shortcut creation intents](https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_SHORTCUT),
+and [Material 3 app bars](https://m3.material.io/components/app-bars/guidelines).
 
 ## Refresh modes
 
@@ -47,6 +88,9 @@ reset the Additional Controls, Default Refresh Mode, shared mode, or other
 settings.
 
 ## Popup controls
+
+Use the **X** button in the top-right corner to close the popup. The action
+button toggle and outside-tap dismissal remain available.
 
 The popup's **Auto Refresh**, **Anti-Shake**, and **Video refresh
 (experimental)** switches are saved separately for each app and applied

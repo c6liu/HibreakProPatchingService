@@ -22,6 +22,9 @@ class FloatingMenuViewAccessor(val root: View) {
     val videoOptimizedRefresh: CompoundButton = root.findViewById(R.id.video_optimized_refresh)
     
     val settingsIcon: View = root.findViewById(R.id.settings_icon)
+    val closeButton: View = root.findViewById<View>(R.id.close_menu).apply {
+        setOnClickListener { root.visibility = View.GONE }
+    }
     val lightSeekbar: SeekBar = root.findViewById(R.id.light_seekbar)
     val lightWarmSeekbar: SeekBar = root.findViewById(R.id.light_warm_seekbar)
     

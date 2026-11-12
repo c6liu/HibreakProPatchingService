@@ -126,14 +126,12 @@
         <item>dummy</item>
     </string-array>
     <string-array name="button_action_entries_screen_off">
-        <item>Clear Screen</item>
         <item>Previous Track</item>
         <item>Next Track</item>
         <item>Toggle Music</item>
         <item>Nothing</item>
     </string-array>
     <string-array name="button_action_values_screen_off">
-        <item>clear</item>
         <item>previous_track</item>
         <item>next_track</item>
         <item>toggle_music</item>

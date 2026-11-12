@@ -113,6 +113,7 @@ class A9AccessibilityService : AccessibilityService(),
         commandRunner =
             UnixSocketCommandRunner()
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
+        ButtonActionSettings.migrateScreenOffClear(this)
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
         refreshModeManager = RefreshModeManager(
             sharedPreferences,

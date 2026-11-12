@@ -22,7 +22,12 @@ ANDROID_HOME="$HOME/Android/Sdk" gradle --no-daemon :app:testDebugUnitTest :app:
 Robolectric tests execute the source classes on Android API 35. They verify F9
 down/up/repeat consumption without gesture dispatch (including absent and
 side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
-in light/dark configurations, and selection of all five refresh modes.
+in light/dark configurations, overlay close/reopen, and selection of all five
+refresh modes. Action tests cover screen-off Clear Screen migration and
+dispatch rejection, independent shortcut routing for all 12 gestures, bounded
+screen-off wake locks, malformed assignments, searchable app selection,
+shortcut-provider results across activity recreation, and permission-gated
+modern shortcut selection/pinning.
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 Java 27 can build the app but is not supported by this Robolectric/ASM version.
 If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's
@@ -61,11 +66,18 @@ and flashing safeguards. Real merged-policy validation needs matching vendor,
 
 Before distributing a source-built image, test boot-time service activation,
 settings/preference migration, per-app refresh modes, both side keys (screen-on
-and screen-off gestures and app launch), quick settings, frontlight controls,
+and screen-off gestures and app/shortcut launch), quick settings, frontlight controls,
 AOD/video refresh, and fingerprint/F9 handling. Verify Material 3 text contrast,
 switches, sliders, selected-mode highlighting, dialogs, and back navigation in
 both light/dark modes on the physical panel. Check updates with the intended
 signing certificate. See [post-install verification](../reference/verification.md).
+
+For the target picker, verify search and back/cancel, provider configuration,
+uninstalled apps and disabled shortcuts, permission removal, and both locked
+and unlocked screen-off launches. Test a host-authorized installation for
+modern shortcuts, and a normal installation for its explanatory fallback.
+Robolectric's pinned-only shortcut query needs a test shadow; host tests do
+not validate real shortcut-host grants or third-party providers.
 
 Neither host tests nor a successful build prove physical display behavior,
 production SELinux input delivery, or boot compatibility.

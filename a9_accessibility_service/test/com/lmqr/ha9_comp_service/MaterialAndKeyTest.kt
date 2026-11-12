@@ -77,6 +77,10 @@ class MaterialAndKeyTest {
             assertTrue(binding.autoRefresh is MaterialSwitch)
             assertTrue(binding.antiShake is MaterialSwitch)
             assertTrue(binding.videoOptimizedRefresh is MaterialSwitch)
+            assertEquals(context.getString(R.string.close_overlay), binding.closeButton.contentDescription)
+            binding.closeButton.performClick()
+            assertEquals(android.view.View.GONE, binding.root.visibility)
+            binding.root.visibility = android.view.View.VISIBLE
             for ((index, mode) in listOf(
                 RefreshMode.SMOOTH, RefreshMode.CLEAR, RefreshMode.BALANCED, RefreshMode.SPEED, RefreshMode.HYPER
             ).withIndex()) {

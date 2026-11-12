@@ -188,8 +188,12 @@ class SourceApkArtifactTests(unittest.TestCase):
         components = {node.get(ANDROID + "name") for node in application
                       if node.tag in ("activity", "service", "receiver")}
         for name in ("SettingsActivity", "A9AccessibilityService", "BootReceiver",
+                     "ActionTargetPickerActivity",
                      "quick_settings.LaunchSettingsTile", "quick_settings.ClearScreenTile"):
             self.assertIn(f"com.lmqr.ha9_comp_service.{name}", components)
+        picker = next(node for node in application.findall("activity")
+                      if node.get(ANDROID + "name", "").endswith(".ActionTargetPickerActivity"))
+        self.assertEqual(picker.get(ANDROID + "exported"), "false")
         receiver = next(node for node in application.findall("receiver")
                         if node.get(ANDROID + "name", "").endswith(".BootReceiver"))
         actions = {node.get(ANDROID + "name") for node in receiver.findall("intent-filter/action")}
@@ -204,7 +208,8 @@ class SourceApkArtifactTests(unittest.TestCase):
                       "Ljava/lang/String;)Ljava/lang/String;", boot[0].read_text())
         self.assertFalse(list(self.decoded.glob("smali*/android/os/SystemProperties.smali")))
         for name in ("A9AccessibilityService", "SettingsActivity", "AppLaunchSettings",
-                     "PerAppRefreshPreference", "CameraLiveRefresh"):
+                     "PerAppRefreshPreference", "CameraLiveRefresh", "ActionTargetPickerActivity",
+                     "ShortcutAssignment", "ButtonActionSettings"):
             self.assertEqual(len(list(self.decoded.glob(
                 f"smali*/com/lmqr/ha9_comp_service/{name}.smali"))), 1)
         service = next(self.decoded.glob(

@@ -34,7 +34,7 @@
             app:summary="Select an action for single button press when screen is off"
             app:entries="@array/button_action_entries_screen_off"
             app:entryValues="@array/button_action_values_screen_off"
-            app:defaultValue="clear"
+            app:defaultValue="dummy"
             app:dialogTitle="Choose an action for single press when screen is off" />
 
         <ListPreference
@@ -90,7 +90,7 @@
             app:summary="Select an action for single button press when screen is off"
             app:entries="@array/button_action_entries_screen_off"
             app:entryValues="@array/button_action_values_screen_off"
-            app:defaultValue="clear"
+            app:defaultValue="dummy"
             app:dialogTitle="Choose an action for single press when screen is off" />
 
         <ListPreference
