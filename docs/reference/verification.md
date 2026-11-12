@@ -1,5 +1,16 @@
 # Post-install verification
 
+## HiBreak action and overlay update
+
+On 2026-11-11, the user reported that the updated overlay, screen-off actions,
+and app/shortcut assignments work on the HiBreak. ADB subsequently confirmed
+that the active system APK at
+`/system/priv-app/HiBreakEink/HiBreakEink.apk` matches the supplied release APK
+byte-for-byte. This is a successful user-reported device check, not an
+independent exhaustive test of every gesture, shortcut provider, permission
+state, or lock-screen condition; use the remaining checks below for broader
+release validation.
+
 Press Power right after the Bigme logo flashes, wait for boot, open E-Ink Settings and enable the accessibility service and
 draw-over-other-apps permission. Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
@@ -11,8 +22,12 @@ Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
 navigation on the physical e-ink panel after updating the source-built APK.
-The "App to launch" row uses the same standard layout as the other settings,
-and appears directly below its action only when "Launch App" is selected.
+The Apps and Shortcuts picker supports search and preserves the current
+assignment when cancelled. Modern launcher shortcuts require shortcut-host
+access; app-provided shortcut configuration is available independently.
+Screen-off app/shortcut launches wake the display without bypassing the
+lock screen. Screen-off Clear Screen is removed, with existing assignments
+migrated to Nothing. The overlay's top-right X closes it.
 On Android 16, noninteractive keys may be dropped before reaching accessibility.
 The root daemon therefore monitors the HiBreak's `mtk-kpd` side-key events without
 grabbing the input device and forwards them to a receiver restricted to senders

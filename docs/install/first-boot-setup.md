@@ -4,12 +4,18 @@
 2. Open **E-Ink Settings**, enable its accessibility service and allow
    **Display over other apps**.
 3. Double-press the E-Ink button to open the refresh menu:
-   **HD, Regal, Fast, Extreme, Hyper**.
+   **HD, Regal, Fast, Extreme, Hyper**. Use the **X** in the top-right to
+   close the overlay.
 4. Optional settings:
    - Choose separate single/double/long-press actions for the top and bottom
-     buttons. To launch an app, choose **Launch App**, then its target in
-     **App to launch** directly below. Screen-off launches wake the display
-     but do not bypass the lock screen.
+     buttons. Choose **Launch App** or **Launch Shortcut**, then select a
+     target in the Apps or Shortcuts picker. Search to narrow the list; Back
+     cancels without changing the assignment. Apps that provide
+     `ACTION_CREATE_SHORTCUT` can configure a shortcut. Modern launcher
+     shortcuts appear only when Android grants shortcut-host access.
+     Clear Screen is screen-on only; old screen-off Clear Screen assignments
+     are changed to Nothing. Screen-off app and shortcut launches wake the
+     display but do not unlock the phone or bypass the lock screen.
    - Choose per-app refresh modes or enable **Disable Per-App Refresh Mode**
      for one shared mode.
    - Set AOD inversion. Video refresh is experimental and opt-in per app.

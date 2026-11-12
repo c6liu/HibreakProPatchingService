@@ -64,6 +64,12 @@ and flashing safeguards. Real merged-policy validation needs matching vendor,
 
 ## Physical-device verification
 
+The user reported that the 2026-11-11 HiBreak update's overlay close control,
+screen-off action choices, and app/shortcut assignments work. ADB confirmed
+that the active system APK matches the supplied release APK. This does not
+replace testing every gesture, shortcut-provider implementation, lock-screen
+state, or display condition.
+
 Before distributing a source-built image, test boot-time service activation,
 settings/preference migration, per-app refresh modes, both side keys (screen-on
 and screen-off gestures and app/shortcut launch), quick settings, frontlight controls,
