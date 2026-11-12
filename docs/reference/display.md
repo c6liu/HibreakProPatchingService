@@ -43,8 +43,9 @@ adb shell su 0 service call SurfaceFlinger 1008 i32 1
 ```
 
 Do not use that recipe unchanged on a rootless GSI: `su` is absent. The
-checked-in init services run as **uid 0**, in existing
-`u:r:phhsu_daemon:s0`. Running the earlier service as shell produced
+checked-in init services run as **uid 0**, in the enforcing
+`u:r:hibreak_display:s0` domain in the default release. The base compatibility
+image uses `u:r:phhsu_daemon:s0` instead. Running the earlier service as shell produced
 `Parcel(Error: ... "Operation not permitted")` even with exit status 0.
 The script inspects the Parcel reply, retries for 30 seconds and logs failure.
 Do not interpret a successful shell exit alone as a successful Binder call.

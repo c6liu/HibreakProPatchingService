@@ -21,3 +21,13 @@
 8. **Assuming a stock fallback slot protects data:** userdata is shared. Earlier
    slot A also had mismatched boot/dtbo after an incomplete OTA; this was a
    device-specific recovery issue, not a reason to copy boot images blindly.
+9. **Property-only Auto Refresh:** the user reported that this experiment did
+   not work on the tested phone. The working default instead uses the init
+   debugfs bridge; its asynchronous request is not a hardware-write
+   acknowledgement. This is separate from property-only refresh-mode
+   selection, which the user reported working.
+10. **Initial enforcing daemon without the Binder callback grant:** the daemon
+    stalled on a framework helper and frontlight/refresh controls failed.
+    Adding the specific `system_server` Binder callback grant produced a test
+    image the user reported working. See the
+    [migration investigation](../../reference/verification.md#migration-investigation-history).

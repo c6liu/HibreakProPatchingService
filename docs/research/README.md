@@ -6,6 +6,30 @@ establish support for the HiBreak Pro Color or every vendor revision.
 Current, actionable conclusions live in [reference/](../README.md#reference--how-things-work);
 these pages keep the dated evidence behind them.
 
+## Recent findings (2026-11-11)
+
+- Property-only refresh-mode selection was reported working, but the
+  property-only Auto Refresh experiment was not. The tested init bridge for
+  Auto Refresh and Anti-Shake worked and is now the default. Bridge requests
+  are asynchronous and do not acknowledge a successful hardware write.
+- The user reported that the enforcing e-ink daemon image worked after the
+  specific `system_server` Binder callback grant was added. The separate
+  enforcing display/AOD helper image was also reported working, with AOD
+  inversion retained. These reports are not a complete feature-by-feature
+  regression matrix. See the [migration investigation](../reference/verification.md#migration-investigation-history).
+- For the tested EvoX/stock-vendor merge, the 70-grant PHH reduction leaves
+  371 ordinary and 15 extended neverallow diagnostic blocks. The combined
+  release policy added none, but `phhsu_daemon` remains permissive; this is
+  not a claim that upstream PHH services are migrated or hardened.
+- The release builder now patches one working image and validates the combined
+  policy, file contents and metadata, and filesystem before publication.
+  Necessary intermediate policy compilations are retained. The tested host
+  build took about 106 seconds versus 465 seconds for an earlier per-stage
+  build with the same GSI, vendor, and reused APK; timings are host-specific.
+  The resulting 21 changed files matched the strict image in content and
+  metadata. Host verification is not a new device test. See
+  [reproducibility](display/reproducibility.md) and the [build guide](../build/build-image.md).
+
 ## Display, boot and apps
 
 - [composer-crash.md](display/composer-crash.md) — vendor composer `processImage` SIGSEGV and soft restart

@@ -2,7 +2,8 @@
 
 ## Current status
 
-The opt-in [XRZ v2 overlay](../../build/xrz-overlay.md) covers four exact
+The [XRZ v2 overlay](../../build/xrz-overlay.md), enabled by default for the
+tested release inputs, covers four exact
 properties: `vendor.xrz.fps_limit`, `vendor.xrz.gray_256_dither`,
 `vendor.xrz.hwc_idle`, and `ro.vendor.xrz.screen_type`. On the tested
 3.1.6/EvoX 11.11 phone, label selection and loaded composer read/set grants

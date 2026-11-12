@@ -15,10 +15,37 @@ ignored `build/`. Original external copies are retained as historical backups,
 not required by any current tool. Experimental third-party shim sources and
 stock firmware backups are deliberately not copied into the supported path.
 
-Validation: full APK decode/patch/rebuild/sign, strict NDK compile, synthetic
-ext4 integration tests, and a complete original-EvoX-to-patched-image run.
-The resulting image passed `e2fsck` and embedded-file verification.
-The consolidated image and its wake-only default have **not been flashed**.
+## Recent build and migration evidence (2026-11-11)
+
+The user reported that separate test images for the init e-ink bridge, the
+enforcing daemon (after the Binder callback fix), and enforcing display/AOD
+helpers worked. The reports did not include a complete regression matrix.
+The [verification history](../../reference/verification.md#migration-investigation-history)
+distinguishes the initial failures from the later reported results.
+
+The default release builder now uses those migrations on the pinned EvoX
+system and stock 3.1.6 vendor inputs. It prepares one private working ext4
+image, compiles the intermediate policies needed for XRZ and frontlight
+permission preservation, then validates the combined policy, file contents,
+labels, permissions, and filesystem. `--strict-verification` retains the
+per-stage checks; other feature combinations use per-stage verification.
+The merged policy retains 386 existing assertion diagnostic blocks and
+`phhsu_daemon` remains permissive.
+
+On the tested host, a no-flash combined build using a previously signed APK
+took about 106 seconds, compared with about 465 seconds for the previous
+per-stage build. A strict build also completed. Comparison of 21 changed
+files found matching contents, modes, owners and SELinux labels between the
+combined and strict outputs; the removed files were absent. This comparison
+does not prove device behavior or whole-image identity. A subsequent build
+using the reorganized script paths also passed its host checks. No device was
+flashed as part of these build comparisons.
+
+Earlier work used APK decode/patch/rebuild/sign and produced a separate
+consolidated wake-only image. Those historical binary-APK results do not
+validate the current source-built APK or imply that particular image was
+flashed. Current commands and signing instructions are in the
+[build guide](../../build/build-image.md).
 
 ## References
 

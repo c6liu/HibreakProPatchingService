@@ -14,12 +14,13 @@ d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf  EvoX-11.11-GSI
 Use **arm64 A/B, ext4**. Extract compressed images first. Android sparse
 images need `simg2img`; EROFS is not supported by this patcher or the tested
 stock kernel. The display patcher requires a TrebleDroid `vndk.rc` using the
-existing `phhsu_daemon` domain. It does not add a new SELinux policy or disable
-SELinux. The optional [IR](../build/ir-overlay.md) and [XRZ](../build/xrz-overlay.md) overlays add scoped policy changes; they
-do not disable SELinux. The display patcher does not install an IR HAL or add
-`ctrl_device` access; standard Android IR transmission through the HXD019
-driver is not included by default. A separate experimental, NEC-only adapter
-is described in [Android IR adapter](ir-adapter.md).
+existing `phhsu_daemon` domain. The standalone display patcher does not add
+a new SELinux policy or install an IR HAL. The default release builder also
+applies the [IR](../build/ir-overlay.md) and [XRZ](../build/xrz-overlay.md)
+overlays and migrates the HiBreak daemon and display helpers to enforcing
+domains; it does not disable SELinux. Standard Android IR transmission
+through the HXD019 driver is included in that default build via the NEC-only
+adapter described in [Android IR adapter](ir-adapter.md).
 See the [IR compatibility investigation](../research/ir/README.md) for the APK
 analysis and ROM integration. Learning did not work on the tested phone:
 button and no-button captures matched. Do not treat capture as a supported
@@ -28,7 +29,7 @@ standalone CLI and privileged capture/test-app paths are legacy, opt-in
 development diagnostics; the HAL-only release does not install them. See
 the [historical diagnostic results](../research/ir/historical-diagnostics.md).
 The optional TCL test app is a fixed-command diagnostic, not a general
-remote. The opt-in [NEC ROM adapter](ir-adapter.md#experimental-standard-android-nec-adapter)
+remote. The [NEC ROM adapter](ir-adapter.md#experimental-standard-android-nec-adapter)
 accepts single-frame NEC/NECext requests through ConsumerIrManager
 (38000 Hz and, since v8, the app's 38222 Hz nominal alias);
 it rejects other protocols, repeat sequences, and frequencies. It is not
