@@ -93,7 +93,7 @@ def prepare_release_files(display_rc, eink_rc, work):
     return work / "hibreak-display-release.rc", work / "a9_eink_gsi-release.rc"
 
 
-def patch_image(source, output, apk, daemon, key, release, keep_root):
+def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=True):
     build = ROOT / "build"
     build.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="gsi.", dir=build) as temp:
@@ -173,6 +173,8 @@ def patch_image(source, output, apk, daemon, key, release, keep_root):
             if key is not None:
                 put(output, key, "adb_keys", "0100644", "u:object_r:adb_keys_file:s0", work)
             validate_patched_image(output, key, release, keep_root)
+            if not finalize:
+                return
             fsck_fix(output, "-fy")
             image.run("resize2fs", "-M", str(output))
             header = image.run("dumpe2fs", "-h", str(output)).stdout.decode()

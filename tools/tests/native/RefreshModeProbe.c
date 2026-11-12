@@ -85,7 +85,6 @@ int __system_property_set(const char *name, const char *value) {
     const char *aod = "persist.sys.hibreak.aod_invert";
 #endif
     assert(strcmp(name, refresh) == 0 || strcmp(name, aod) == 0 ||
-           strcmp(name, "vendor.xrz.auto_clean_enabled") == 0 ||
            strcmp(name, "sys.hibreak.eink_bridge.auto_refresh") == 0 ||
            strcmp(name, "sys.hibreak.eink_bridge.anti_flicker") == 0);
     assert(strlen(name) < sizeof(propertyName));
@@ -142,14 +141,6 @@ int main(void) {
         assert(strcmp(propertyValue, i % 2 == 0 ? "0" : "1") == 0);
         continue;
 #endif
-#ifdef HIBREAK_PROPERTY_ONLY_AUTO_REFRESH
-        if (i < 2) {
-            assert(writes == previousWrites);
-            assert(strcmp(propertyName, "vendor.xrz.auto_clean_enabled") == 0);
-            assert(strcmp(propertyValue, i == 0 ? "0" : "1") == 0);
-            continue;
-        }
-#endif
         assert(writes == previousWrites + 1);
         assert(strcmp(driverPath, controlPaths[i]) == 0);
         assert(strcmp(driverValue, i % 2 == 0 ? "0" : "1") == 0);
@@ -163,16 +154,6 @@ int main(void) {
     propertyFailure = 0;
     processCommand("au_br2");
     assert(strstr(lastLog, "Invalid init e-ink bridge value") != NULL);
-    propertyFailure = 1;
-#endif
-#ifdef HIBREAK_PROPERTY_ONLY_AUTO_REFRESH
-    processCommand("au_br1");
-    assert(strstr(lastLog, "Failed to set vendor.xrz.auto_clean_enabled=1") != NULL);
-    propertyFailure = 0;
-    int beforeInvalid = writes;
-    processCommand("au_br2");
-    assert(writes == beforeInvalid);
-    assert(strstr(lastLog, "Invalid property-only auto-refresh value: 2") != NULL);
     propertyFailure = 1;
 #endif
     processCommand("c");

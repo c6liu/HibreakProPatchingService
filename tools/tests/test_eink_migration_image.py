@@ -1,15 +1,10 @@
-import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location(
-    "eink_migration_image", ROOT / "tools/add-eink-migration-to-gsi.py",
-)
-overlay = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(overlay)
+from tools.hibreak import eink_migration as overlay
 
 
 class EinkMigrationImageTests(unittest.TestCase):

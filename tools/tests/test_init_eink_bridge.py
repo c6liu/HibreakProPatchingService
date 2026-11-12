@@ -1,13 +1,13 @@
-import importlib.util
 from pathlib import Path
 import re
+import sys
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("init_eink_bridge", ROOT / "tools/add-eink-init-bridge-to-gsi.py")
-bridge = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(bridge)
+from tools.hibreak import eink_bridge as bridge
 
 
 class InitEinkBridgeTests(unittest.TestCase):
@@ -37,6 +37,34 @@ class InitEinkBridgeTests(unittest.TestCase):
         self.assertNotIn("(typepermissive", cil)
         for node in bridge.NODES:
             self.assertIn(f'(genfscon debugfs "{node}"', cil)
+
+    def test_compiled_policy_checks_permissions_and_node_labels(self):
+        baseline = {("system_server", "file", "read")}
+        permissions = {
+            "hibreak_eink_bridge_debugfs": baseline | {
+                ("init", "file", "open"), ("init", "file", "write")},
+            "hibreak_eink_bridge_prop": {
+                ("init", "property_service", "set"),
+                ("phhsu_daemon", "property_service", "set")},
+        }
+        nodes = [SimpleNamespace(fs="debugfs", path=node,
+                                 context=SimpleNamespace(type_="hibreak_eink_bridge_debugfs"))
+                 for node in bridge.NODES]
+        policy = SimpleNamespace(genfscons=lambda: nodes)
+        query = mock.Mock(return_value=SimpleNamespace(results=lambda: [object()]))
+        modules = {"setools": SimpleNamespace(TERuleQuery=query),
+                   "setools.exception": SimpleNamespace(RuleNotConditional=Exception)}
+        with mock.patch.dict(sys.modules, modules), \
+                mock.patch.object(bridge, "effective_permissions",
+                                  side_effect=lambda _policy, target, *_args: permissions[target]):
+            bridge.validate_bridge_policy(policy, baseline)
+            permissions["hibreak_eink_bridge_prop"].add(("untrusted_app", "property_service", "set"))
+            with self.assertRaisesRegex(ValueError, "Unexpected bridge property writers"):
+                bridge.validate_bridge_policy(policy, baseline)
+            permissions["hibreak_eink_bridge_prop"].remove(("untrusted_app", "property_service", "set"))
+            nodes.pop()
+            with self.assertRaisesRegex(ValueError, "Bridge node label missing"):
+                bridge.validate_bridge_policy(policy, baseline)
 
 
 if __name__ == "__main__":

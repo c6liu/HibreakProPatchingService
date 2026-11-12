@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.hibreak import image
-from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
+from tools.hibreak.policy import compile_pair, neverallow_failures, prepare_ir_policy
 from tools.hibreak.properties import parse_contexts, resolve_context, effective_permissions
 
 PROPERTIES = (
@@ -89,7 +89,23 @@ def policy_command(compiler, inputs, work, name):
     ]
 
 
-def prepare_compatibility(source, vendor, work, compiler):
+def validate_xrz_policy(policy, baseline):
+    from setools import TERuleQuery
+    from setools.exception import RuleNotConditional
+
+    final_type = policy.lookup_type("vendor_xrz_prop")
+    attributes = {str(attribute) for attribute in final_type.attributes()}
+    if not {"property_type", "vendor_xrz_prop_31_0"} <= attributes:
+        raise ValueError("The mapped XRZ type is not a versioned SELinux property type")
+    final = effective_permissions(policy, "vendor_xrz_prop", TERuleQuery, RuleNotConditional)
+    if baseline - final or final - baseline != {COMPOSER_SET}:
+        raise ValueError(
+            f"Property permissions differ from the expected result: "
+            f"lost={sorted(baseline - final)}, gained={sorted(final - baseline)}"
+        )
+
+
+def prepare_compatibility(source, vendor, work, compiler, *, parallel_compile=False):
     try:
         from setools import SELinuxPolicy, TERuleQuery
         from setools.exception import RuleNotConditional
@@ -98,8 +114,10 @@ def prepare_compatibility(source, vendor, work, compiler):
             f"SETools Python bindings are required for permission comparisons: {error}"
         ) from error
 
+    diagnostics = []
     platform, _, inputs = prepare_ir_policy(
-        source, vendor, work, compiler, allow_existing_ir=True,
+        source, vendor, work, compiler, allow_existing_ir=True, diagnostics_out=diagnostics,
+        parallel_compile=parallel_compile,
     )
     if (work / "version").read_text().strip() != "31.0":
         raise ValueError("This experimental overlay requires stock vendor policy version 31.0")
@@ -130,7 +148,7 @@ def prepare_compatibility(source, vendor, work, compiler):
         baseline_policy, "vendor_default_prop", TERuleQuery, RuleNotConditional,
     )
     normal = policy_command(compiler, inputs, work, "normal")
-    baseline_conflicts = neverallow_failures(subprocess.run(normal, capture_output=True))
+    baseline_conflicts = diagnostics[0]
 
     mapping.write_text(
         mapping.read_text().rstrip("\n")
@@ -145,30 +163,25 @@ def prepare_compatibility(source, vendor, work, compiler):
         platform.read_text().rstrip("\n") + f"\n\n; {MARKER}\n" + "\n".join(rules) + "\n"
     )
 
-    final_conflicts = neverallow_failures(subprocess.run(normal, capture_output=True))
-    added_conflicts = final_conflicts - baseline_conflicts
-    if added_conflicts:
-        raise ValueError("XRZ overlay adds neverallow violations:\n" + "\n".join(sorted(added_conflicts)))
     context_probe = work / "xrz-context-check.cil"
     context_probe.write_text(
         '(filecon "/__hibreak_xrz_context_check" file '
         '(u object_r vendor_xrz_prop ((s0) (s0))))\n'
     )
     final_command = policy_command(compiler, [*inputs, context_probe], work, "final")
-    image.run(*final_command, "-N")
+    if parallel_compile:
+        final_conflicts = compile_pair(normal, [*final_command, "-N"])
+    else:
+        final_conflicts = neverallow_failures(subprocess.run(normal, capture_output=True))
+    added_conflicts = final_conflicts - baseline_conflicts
+    if added_conflicts:
+        raise ValueError("XRZ overlay adds neverallow violations:\n" + "\n".join(sorted(added_conflicts)))
+    if not parallel_compile:
+        image.run(*final_command, "-N")
     if XRZ_LABEL not in (work / "final.contexts").read_text():
         raise ValueError("The compiler did not validate the XRZ property context")
     final_policy = SELinuxPolicy(str(work / "final.policy"))
-    final_type = final_policy.lookup_type("vendor_xrz_prop")
-    attributes = {str(attribute) for attribute in final_type.attributes()}
-    if not {"property_type", "vendor_xrz_prop_31_0"} <= attributes:
-        raise ValueError("The mapped XRZ type is not a versioned SELinux property type")
-    final = effective_permissions(final_policy, "vendor_xrz_prop", TERuleQuery, RuleNotConditional)
-    if baseline - final or final - baseline != {COMPOSER_SET}:
-        raise ValueError(
-            f"Property permissions differ from the expected result: "
-            f"lost={sorted(baseline - final)}, gained={sorted(final - baseline)}"
-        )
+    validate_xrz_policy(final_policy, baseline)
 
     digest = hashlib.sha256()
     for path in inputs:

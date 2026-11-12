@@ -5,6 +5,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -119,6 +120,102 @@ class IrOverlayTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Cannot add another IR overlay"):
                 overlay.prepare_policy(*args, hal=True, allow_existing_ir=True)
 
+    def test_unchanged_policy_is_not_compiled_twice(self):
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        with tempfile.TemporaryDirectory(prefix="ir-policy-reuse-") as directory, \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(overlay.subprocess, "run",
+                                  return_value=subprocess.CompletedProcess([], 0, b"", b"")) as compiler:
+            diagnostics = []
+            overlay.prepare_policy(Path("base"), Path("vendor"), Path(directory), "secilc",
+                                   allow_existing_ir=True, diagnostics_out=diagnostics)
+            self.assertEqual(compiler.call_count, 1)
+            self.assertEqual(diagnostics, [set()])
+
+    def test_extract_policy_inputs_does_not_compile_or_modify_policy(self):
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        with tempfile.TemporaryDirectory(prefix="ir-policy-inputs-") as directory, \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(policy.subprocess, "run") as compiler:
+            platform, inputs = policy.extract_policy_inputs(Path("base"), Path("vendor"), Path(directory))
+            self.assertEqual([path.name for path in inputs], [
+                "plat.cil", "plat-mapping.cil", "plat-mapping.compat.cil",
+                "ext.cil", "ext-mapping.cil", "ext-mapping.compat.cil",
+                "product.cil", "product-mapping.cil", "product-mapping.compat.cil",
+                "plat_pub_versioned.cil", "vendor_sepolicy.cil",
+            ])
+            self.assertEqual(platform.read_text(), "# fixture\n")
+            compiler.assert_not_called()
+
+    def test_parallel_policy_compile_uses_independent_outputs(self):
+        baseline = b"neverallow check failed at plat.cil:1\n  (neverallow a b (file (read)))\n"
+        barrier = threading.Barrier(2)
+        paths = []
+
+        def extract(_image, path, destination):
+            destination.write_text("31.0\n" if path.endswith("plat_sepolicy_vers.txt") else "# fixture\n")
+            return destination
+
+        def checked(command, **_kwargs):
+            paths.append(command[command.index("-o") + 1])
+            barrier.wait(timeout=10)
+            return subprocess.CompletedProcess(command, 255, b"", baseline)
+
+        def runtime(*command):
+            paths.append(command[command.index("-o") + 1])
+            self.assertEqual(command[-1], "-N")
+            Path(command[command.index("-o") + 1]).write_bytes(b"compiled")
+            Path(command[command.index("-f") + 1]).write_bytes(b"contexts")
+            barrier.wait(timeout=10)
+            return subprocess.CompletedProcess(command, 0)
+
+        with tempfile.TemporaryDirectory(prefix="ir-policy-parallel-") as directory, \
+                mock.patch.object(image, "extract", side_effect=extract), \
+                mock.patch.object(image, "image_exists", side_effect=lambda _image, path: not path.startswith("/odm/")), \
+                mock.patch.object(policy.subprocess, "run", side_effect=checked), \
+                mock.patch.object(image, "run", side_effect=runtime):
+            diagnostics = []
+            policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc",
+                                     allow_existing_ir=True, parallel_compile=True,
+                                     diagnostics_out=diagnostics)
+            self.assertEqual(diagnostics, [{baseline.decode()}])
+            self.assertEqual((Path(directory) / "validated.policy").read_bytes(), b"compiled")
+            self.assertEqual((Path(directory) / "validated.contexts").read_bytes(), b"contexts")
+            self.assertEqual(len(set(paths)), 2)
+
+    def test_compile_pair_runs_both_checks_concurrently(self):
+        barrier = threading.Barrier(2)
+        seen = []
+        failure = b"neverallow check failed at plat.cil:1\n  (neverallow a b (file (read)))\n"
+        command = ["secilc", "input.cil", "-o", "policy", "-f", "contexts"]
+
+        def checked(args, **_kwargs):
+            seen.append(args)
+            barrier.wait(timeout=10)
+            return subprocess.CompletedProcess(args, 255, b"", failure)
+
+        def runtime(*args):
+            seen.append(args)
+            barrier.wait(timeout=10)
+            return subprocess.CompletedProcess(args, 0)
+
+        with mock.patch.object(policy.subprocess, "run", side_effect=checked), \
+                mock.patch.object(image, "run", side_effect=runtime):
+            self.assertEqual(policy.compile_pair(command), {failure.decode()})
+        checked_args = next(args for args in seen if args[-1] != "-N")
+        runtime_args = next(args for args in seen if args[-1] == "-N")
+        self.assertEqual(checked_args[checked_args.index("-o") + 1], "policy.checked")
+        self.assertEqual(checked_args[checked_args.index("-f") + 1], "contexts.checked")
+        self.assertEqual(runtime_args[runtime_args.index("-o") + 1], "policy")
+
     def test_release_requires_explicit_feature_and_diagnostic_opt_in(self):
         for options in ([], ["--remote-apk", "remote.apk"]):
             with self.subTest(options=options), mock.patch.object(
@@ -171,7 +268,8 @@ class IrOverlayTests(unittest.TestCase):
                         subprocess.CompletedProcess([], 255, b"", modified),
                     ]), mock.patch.object(image, "run") as runtime_compile:
                 with self.assertRaisesRegex(ValueError, "IR overlay adds neverallow violations"):
-                    policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc")
+                    policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc",
+                                             diagnostics=True)
                 runtime_compile.assert_not_called()
 
     def test_existing_extended_permission_conflicts_use_runtime_compile(self):
@@ -187,7 +285,10 @@ class IrOverlayTests(unittest.TestCase):
                 mock.patch.object(policy.subprocess, "run", return_value=subprocess.CompletedProcess([], 255, b"", extended)), \
                 mock.patch.object(image, "run") as runtime_compile, \
                 mock.patch("builtins.print") as output:
-            policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc")
+            diagnostics = []
+            policy.prepare_ir_policy(Path("base"), Path("vendor"), Path(directory), "secilc",
+                                     diagnostics_out=diagnostics)
+            self.assertEqual(diagnostics, [{extended.decode()}])
             runtime_compile.assert_called_once()
             self.assertEqual(runtime_compile.call_args.args[-1], "-N")
             self.assertIn("1 existing neverallow/neverallowx conflicts", output.call_args_list[0].args[0])
@@ -222,12 +323,14 @@ class IrOverlayTests(unittest.TestCase):
                     result(baseline), result(added + baseline),
                 ]) as compile_policy:
                     with self.assertRaisesRegex(ValueError, "IR overlay adds neverallow violations"):
-                        overlay.prepare_policy(Path("gsi"), Path("vendor"), Path(directory), "secilc")
+                        overlay.prepare_policy(Path("gsi"), Path("vendor"), Path(directory), "secilc",
+                                               diagnostics=True)
                     self.assertEqual(compile_policy.call_count, 2)
                 with mock.patch.object(overlay.subprocess, "run", side_effect=[
                     result(baseline), result(baseline), subprocess.CompletedProcess([], 0, b"", b""),
                 ]) as compile_policy:
-                    overlay.prepare_policy(Path("gsi"), Path("vendor"), Path(directory), "secilc")
+                    overlay.prepare_policy(Path("gsi"), Path("vendor"), Path(directory), "secilc",
+                                           diagnostics=True)
                     self.assertEqual(compile_policy.call_count, 3)
                     self.assertIn("-N", compile_policy.call_args.args[0])
 

@@ -49,6 +49,15 @@ def fsck(image, *args):
         raise ValueError(result.stdout.decode() + result.stderr.decode())
 
 
+def check_final_filesystem(image):
+    result = subprocess.run(["e2fsck", "-fn", str(image)], capture_output=True)
+    if result.returncode:
+        raise ValueError(
+            "Final filesystem check failed:\n" +
+            (result.stdout + result.stderr).decode(errors="replace")
+        )
+
+
 def install_app(image, apk, directory, filename, work):
     ensure_directory(image, directory, "u:object_r:system_file:s0", work)
     install(image, apk, f"{directory}/{filename}", "0100644", "u:object_r:system_file:s0", work)
@@ -93,11 +102,6 @@ def shrink_and_check(image, strict_final=False):
         raise ValueError("Cannot determine minimized image size")
     os.truncate(image, int(blocks[1]) * int(size[1]))
     if strict_final:
-        result = subprocess.run(["e2fsck", "-fn", str(image)], capture_output=True)
-        if result.returncode:
-            raise ValueError(
-                "Final filesystem check failed:\n" +
-                (result.stdout + result.stderr).decode(errors="replace")
-            )
+        check_final_filesystem(image)
         return
     fsck(image, "-fn")

@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.hibreak import image
-from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
+from tools.hibreak.policy import compile_pair, neverallow_failures, prepare_ir_policy
 from tools.hibreak.properties import parse_contexts, resolve_context, effective_permissions
 
 
@@ -99,20 +99,145 @@ def extended_file_permissions(policy, target, query, not_conditional):
     return permissions
 
 
-def validate(source, vendor, work, compiler, with_init_bridge=False, complete_candidate=False):
+def validate_frontlight_xperms(actual, baseline, *, display_migrated=False, generic_display=None):
+    existing = {item for item in actual if item[0] != "hibreak_eink" and
+                not (display_migrated and item[0] == "hibreak_display")}
+    if existing != baseline:
+        raise ValueError("Existing extended sysfs file permissions changed: "
+                         f"lost={baseline - existing}, added={existing - baseline}")
+    if display_migrated:
+        display = {item for item in actual if item[0] == "hibreak_display"}
+        if display != generic_display:
+            raise ValueError("Display helper extended frontlight permissions differ from generic sysfs")
+
+
+def validate_candidate_policy(candidate, baseline_permissions, bridge_permissions,
+                              sysfs_file, sysfs_xperms, with_init_bridge,
+                              complete_candidate, *, display_migrated=False):
+    from setools import TERuleQuery
+    from setools.exception import RuleNotConditional
+
+    domain = candidate.lookup_type("hibreak_eink")
+    if domain.ispermissive:
+        raise ValueError("Candidate domain must be enforcing")
+    if "mlstrustedsubject" not in {str(attribute) for attribute in domain.attributes()}:
+        raise ValueError("Categorized priv_app clients require the daemon's MLS exception")
+    for target, cls, permissions in (
+        ("system_file", "file", ("execute", "execute_no_trans")),
+        ("toolbox_exec", "file", ("execute", "execute_no_trans")),
+        ("binder_device", "chr_file", ("open", "read", "write", "ioctl")),
+        ("servicemanager", "binder", ("call", "transfer")),
+        ("system_server", "binder", ("call", "transfer")),
+        ("system_server", "fd", ("use",)),
+        ("activity_service", "service_manager", ("find",)),
+        ("input_service", "service_manager", ("find",)),
+        ("settings_service", "service_manager", ("find",)),
+    ):
+        for permission in permissions:
+            rules = TERuleQuery(candidate, ruletype=["allow"], source="hibreak_eink",
+                                target=target, tclass=[cls], perms=[permission]).results()
+            if not any(rules):
+                raise ValueError(f"Native candidate lacks {target}:{cls} {permission}")
+    if not any(TERuleQuery(candidate, ruletype=["allow"], source="system_server",
+                           target="hibreak_eink", tclass=["binder"], perms=["call"]).results()):
+        raise ValueError("System server cannot deliver Binder callbacks to the daemon's helpers")
+    for target, permissions in baseline_permissions.items():
+        actual = effective_permissions(candidate, target, TERuleQuery, RuleNotConditional)
+        existing = {permission for permission in actual if permission[0] != "hibreak_eink" and
+                    not (display_migrated and permission[0] == "hibreak_display")}
+        inherited = actual - existing
+        expected_inherited = {
+            ("hibreak_eink", "file", permission)
+            for permission in ("read", "open", "getattr", "map")
+        } if target == "system_prop" else set()
+        if display_migrated and target == "system_prop":
+            expected_inherited |= {
+                ("hibreak_display", "file", permission)
+                for permission in ("read", "open", "getattr", "map")
+            }
+        if existing != permissions or inherited != expected_inherited:
+            raise ValueError(
+                f"Destination property permissions changed unexpectedly for {target}: "
+                f"lost={sorted(permissions - existing)}, gained={sorted(existing - permissions)}, "
+                f"native={sorted(inherited)}"
+            )
+        if ("init", "property_service", "set") not in permissions:
+            raise ValueError(f"Init cannot bridge to destination property type {target}")
+    for target, cls, permission in (
+        ("system_prop", "property_service", "set"),
+        ("vendor_default_prop", "property_service", "set"),
+        ("hibreak_eink", "unix_stream_socket", "connectto"),
+    ):
+        source_type = "priv_app" if cls == "unix_stream_socket" else "hibreak_eink"
+        grants = list(TERuleQuery(candidate, ruletype=["allow"], source=source_type,
+                                 target=target, tclass=[cls], perms=[permission]).results())
+        if bool(grants) != (cls == "unix_stream_socket"):
+            raise ValueError(f"Unexpected {source_type}->{target} {permission} grants")
+    for permission in ("read", "write"):
+        if not any(TERuleQuery(candidate, ruletype=["allow"], source="priv_app",
+                               target="hibreak_eink", tclass=["unix_stream_socket"],
+                               perms=[permission]).results()):
+            raise ValueError(f"Candidate socket lacks client {permission} permission")
+    control_permissions = effective_permissions(candidate, CONTROL_TYPE, TERuleQuery, RuleNotConditional)
+    if ("hibreak_eink", "property_service", "set") not in control_permissions:
+        raise ValueError("Daemon cannot set request properties")
+    if with_init_bridge:
+        actual = effective_permissions(candidate, BRIDGE_TYPE, TERuleQuery, RuleNotConditional)
+        if {item for item in actual if item[0] != "hibreak_eink"} != bridge_permissions:
+            raise ValueError("Existing init bridge property permissions changed")
+        writers = {src for src, cls, perm in actual if cls == "property_service" and perm == "set"}
+        if writers != {"init", "phhsu_daemon", "hibreak_eink"}:
+            raise ValueError(f"Unexpected init bridge property writers: {sorted(writers)}")
+    if complete_candidate:
+        actual = {item for item in effective_permissions(
+            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
+        ) if item[1] == "file"}
+        expected = {("hibreak_eink", "file", permission) for permission in ("open", "write")}
+        if sysfs_file - actual or actual - sysfs_file != expected:
+            raise ValueError(f"Unexpected frontlight permissions: lost={sysfs_file - actual}, "
+                             f"added={actual - sysfs_file}")
+        actual_xperms = extended_file_permissions(
+            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
+        )
+        generic_display_xperms = None
+        if display_migrated:
+            generic_display_xperms = {
+                item for item in extended_file_permissions(candidate, "sysfs", TERuleQuery, RuleNotConditional)
+                if item[0] == "hibreak_display"
+            }
+        validate_frontlight_xperms(actual_xperms, sysfs_xperms, display_migrated=display_migrated,
+                                  generic_display=generic_display_xperms)
+        for node in FRONTLIGHT_PATHS:
+            if not any(rule.fs == "sysfs" and str(rule.path) == node and
+                       str(rule.context.type_) == FRONTLIGHT_TYPE for rule in candidate.genfscons()):
+                raise ValueError(f"Frontlight node label missing: {node}")
+        for target, cls, permissions in (
+            ("system_data_file", "dir", ("search",)),
+            ("packages_list_file", "file", ("open", "read", "getattr")),
+        ):
+            for permission in permissions:
+                if not any(TERuleQuery(candidate, ruletype=["allow"], source="hibreak_eink",
+                                       target=target, tclass=[cls], perms=[permission]).results()):
+                    raise ValueError(f"Candidate cannot access package registry: {target}:{cls} {permission}")
+
+
+def validate(source, vendor, work, compiler, with_init_bridge=False, complete_candidate=False,
+             *, parallel_compile=False):
     try:
         from setools import SELinuxPolicy, TERuleQuery
         from setools.exception import RuleNotConditional
     except ImportError as error:
         raise ValueError(f"SETools required for migration validation: {error}") from error
 
+    diagnostics = []
     platform, _, inputs = prepare_ir_policy(
-        source, vendor, work, compiler, allow_existing_ir=True,
+        source, vendor, work, compiler, allow_existing_ir=True, diagnostics_out=diagnostics,
+        parallel_compile=parallel_compile,
     )
     baseline_policy = SELinuxPolicy(str(work / "validated.policy"))
     command = [compiler, "-m", "-M", "true", "-G", "-c", "30", *map(str, inputs),
                "-o", str(work / "candidate.policy"), "-f", str(work / "candidate.contexts")]
-    baseline = neverallow_failures(subprocess.run(command, capture_output=True))
+    baseline = diagnostics[0]
     entries = []
     plat_contexts = ""
     for index, (img, path, required) in enumerate((
@@ -173,105 +298,19 @@ def validate(source, vendor, work, compiler, with_init_bridge=False, complete_ca
         ) if item[1] == "file"}
         rules = frontlight_preservation_rules(sysfs_file, current_file)
         platform.write_text(platform.read_text() + "\n" + "\n".join(rules) + "\n")
-    modified = neverallow_failures(subprocess.run(command, capture_output=True))
+    modified = (compile_pair(command) if parallel_compile
+                else neverallow_failures(subprocess.run(command, capture_output=True)))
     added = modified - baseline
     if added:
         raise ValueError("Native candidate changes neverallow diagnostics:\n" + "\n".join(sorted(added)))
-    image.run(*command, "-N")
+    if not parallel_compile:
+        image.run(*command, "-N")
     candidate = SELinuxPolicy(str(work / "candidate.policy"))
-    domain = candidate.lookup_type("hibreak_eink")
-    if domain.ispermissive:
-        raise ValueError("Candidate domain must be enforcing")
-    if "mlstrustedsubject" not in {str(attribute) for attribute in domain.attributes()}:
-        raise ValueError("Categorized priv_app clients require the daemon's MLS exception")
-    for target, cls, permissions in (
-        ("system_file", "file", ("execute", "execute_no_trans")),
-        ("toolbox_exec", "file", ("execute", "execute_no_trans")),
-        ("binder_device", "chr_file", ("open", "read", "write", "ioctl")),
-        ("servicemanager", "binder", ("call", "transfer")),
-        ("system_server", "binder", ("call", "transfer")),
-        ("system_server", "fd", ("use",)),
-        ("activity_service", "service_manager", ("find",)),
-        ("input_service", "service_manager", ("find",)),
-        ("settings_service", "service_manager", ("find",)),
-    ):
-        for permission in permissions:
-            rules = TERuleQuery(candidate, ruletype=["allow"], source="hibreak_eink",
-                                target=target, tclass=[cls], perms=[permission]).results()
-            if not any(rules):
-                raise ValueError(f"Native candidate lacks {target}:{cls} {permission}")
-    if not any(TERuleQuery(candidate, ruletype=["allow"], source="system_server",
-                           target="hibreak_eink", tclass=["binder"], perms=["call"]).results()):
-        raise ValueError("System server cannot deliver Binder callbacks to the daemon's helpers")
-    for target, permissions in baseline_permissions.items():
-        actual = effective_permissions(candidate, target, TERuleQuery, RuleNotConditional)
-        existing = {permission for permission in actual if permission[0] != "hibreak_eink"}
-        inherited = actual - existing
-        expected_inherited = {
-            ("hibreak_eink", "file", permission)
-            for permission in ("read", "open", "getattr", "map")
-        } if target == "system_prop" else set()
-        if existing != permissions or inherited != expected_inherited:
-            raise ValueError(
-                f"Destination property permissions changed unexpectedly for {target}: "
-                f"lost={sorted(permissions - existing)}, gained={sorted(existing - permissions)}, "
-                f"native={sorted(inherited)}"
-            )
-        if ("init", "property_service", "set") not in permissions:
-            raise ValueError(f"Init cannot bridge to destination property type {target}")
-    for target, cls, permission in (
-        ("system_prop", "property_service", "set"),
-        ("vendor_default_prop", "property_service", "set"),
-        ("hibreak_eink", "unix_stream_socket", "connectto"),
-    ):
-        source_type = "priv_app" if cls == "unix_stream_socket" else "hibreak_eink"
-        grants = list(TERuleQuery(candidate, ruletype=["allow"], source=source_type,
-                                 target=target, tclass=[cls], perms=[permission]).results())
-        if bool(grants) != (cls == "unix_stream_socket"):
-            raise ValueError(f"Unexpected {source_type}->{target} {permission} grants")
-    for permission in ("read", "write"):
-        if not any(TERuleQuery(candidate, ruletype=["allow"], source="priv_app",
-                               target="hibreak_eink", tclass=["unix_stream_socket"],
-                               perms=[permission]).results()):
-            raise ValueError(f"Candidate socket lacks client {permission} permission")
-    control_permissions = effective_permissions(candidate, CONTROL_TYPE, TERuleQuery, RuleNotConditional)
-    if ("hibreak_eink", "property_service", "set") not in control_permissions:
-        raise ValueError("Daemon cannot set request properties")
-    if with_init_bridge:
-        actual = effective_permissions(candidate, BRIDGE_TYPE, TERuleQuery, RuleNotConditional)
-        if {item for item in actual if item[0] != "hibreak_eink"} != bridge_permissions:
-            raise ValueError("Existing init bridge property permissions changed")
-        writers = {src for src, cls, perm in actual if cls == "property_service" and perm == "set"}
-        if writers != {"init", "phhsu_daemon", "hibreak_eink"}:
-            raise ValueError(f"Unexpected init bridge property writers: {sorted(writers)}")
-    if complete_candidate:
-        actual = {item for item in effective_permissions(
-            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
-        ) if item[1] == "file"}
-        expected = {("hibreak_eink", "file", permission) for permission in ("open", "write")}
-        if sysfs_file - actual or actual - sysfs_file != expected:
-            raise ValueError(f"Unexpected frontlight permissions: lost={sysfs_file - actual}, "
-                             f"added={actual - sysfs_file}")
-        actual_xperms = extended_file_permissions(
-            candidate, FRONTLIGHT_TYPE, TERuleQuery, RuleNotConditional,
-        )
-        existing_xperms = {item for item in actual_xperms if item[0] != "hibreak_eink"}
-        if existing_xperms != sysfs_xperms:
-            raise ValueError("Existing extended sysfs file permissions changed: "
-                             f"lost={sysfs_xperms - existing_xperms}, "
-                             f"added={existing_xperms - sysfs_xperms}")
-        for node in FRONTLIGHT_PATHS:
-            if not any(rule.fs == "sysfs" and str(rule.path) == node and
-                       str(rule.context.type_) == FRONTLIGHT_TYPE for rule in candidate.genfscons()):
-                raise ValueError(f"Frontlight node label missing: {node}")
-        for target, cls, permissions in (
-            ("system_data_file", "dir", ("search",)),
-            ("packages_list_file", "file", ("open", "read", "getattr")),
-        ):
-            for permission in permissions:
-                if not any(TERuleQuery(candidate, ruletype=["allow"], source="hibreak_eink",
-                                       target=target, tclass=[cls], perms=[permission]).results()):
-                    raise ValueError(f"Candidate cannot access package registry: {target}:{cls} {permission}")
+    validate_candidate_policy(candidate, baseline_permissions,
+                              bridge_permissions if with_init_bridge else None,
+                              sysfs_file if complete_candidate else None,
+                              sysfs_xperms if complete_candidate else None,
+                              with_init_bridge, complete_candidate)
     probe = work / "control-context-probe.cil"
     probe_text = (
         f'(filecon "/__hibreak_control_context_probe" file '

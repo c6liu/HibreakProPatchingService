@@ -108,6 +108,19 @@ vendor. u:object_r:vendor_default_prop:s0
         with self.assertRaises(ValueError):
             migration.frontlight_preservation_rules({("init", "dir", "search")}, set())
 
+    def test_final_frontlight_xperms_preserve_existing_and_display_inheritance(self):
+        baseline = {("init", "ioctl", 1)}
+        display = {("hibreak_display", "ioctl", 2)}
+        actual = baseline | display
+        migration.validate_frontlight_xperms(actual, baseline, display_migrated=True,
+                                            generic_display=display)
+        with self.assertRaisesRegex(ValueError, "Display helper extended frontlight"):
+            migration.validate_frontlight_xperms(actual, baseline, display_migrated=True,
+                                                generic_display=set())
+        with self.assertRaisesRegex(ValueError, "Existing extended sysfs"):
+            migration.validate_frontlight_xperms(actual | {("other", "ioctl", 3)}, baseline,
+                                                display_migrated=True, generic_display=display)
+
     def test_complete_candidate_is_scoped_to_two_frontlight_paths(self):
         cil = (ROOT / "tools/display/hibreak-eink-runtime.cil").read_text()
         self.assertEqual(cil.count("(genfscon sysfs "), 2)

@@ -13,7 +13,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.hibreak import image
-from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
+from tools.hibreak.policy import compile_pair, neverallow_failures, prepare_ir_policy
 
 
 EXT_POLICY = "system/system_ext/etc/selinux/system_ext_sepolicy.cil"
@@ -41,9 +41,9 @@ def reduce_policy(content):
     return "".join(lines).encode()
 
 
-def prepare_reduction(source, vendor, work, compiler):
+def prepare_reduction(source, vendor, work, compiler, *, parallel_compile=False):
     _, _, inputs = prepare_ir_policy(
-        source, vendor, work, compiler, allow_existing_ir=True,
+        source, vendor, work, compiler, allow_existing_ir=True, parallel_compile=parallel_compile,
     )
     ext = work / "ext.cil"
     if ext not in inputs:
@@ -51,7 +51,8 @@ def prepare_reduction(source, vendor, work, compiler):
     ext.write_bytes(reduce_policy(ext.read_bytes()))
     command = [compiler, "-m", "-M", "true", "-G", "-c", "30", *map(str, inputs),
                "-o", str(work / "reduced.policy"), "-f", str(work / "reduced.contexts")]
-    failures = neverallow_failures(subprocess.run(command, capture_output=True))
+    failures = (compile_pair(command) if parallel_compile
+                else neverallow_failures(subprocess.run(command, capture_output=True)))
     ordinary = sum(block.startswith("neverallow ") for block in failures)
     extended = len(failures) - ordinary
     if (ordinary, extended) != (371, 15):
@@ -59,7 +60,8 @@ def prepare_reduction(source, vendor, work, compiler):
             f"Unexpected reduced policy conflicts: ordinary={ordinary}, extended={extended}; "
             "expected 371 and 15 for the tested GSI/vendor pair"
         )
-    image.run(*command, "-N")
+    if not parallel_compile:
+        image.run(*command, "-N")
     digest = hashlib.sha256()
     for path in inputs:
         digest.update(path.read_bytes())

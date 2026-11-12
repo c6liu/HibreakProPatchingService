@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -75,6 +76,24 @@ vendor.test u:object_r:exact_prop:s0 exact string
 
 
 class XrzPolicyTests(unittest.TestCase):
+    def test_compiled_policy_rejects_lost_or_extra_permissions(self):
+        baseline = {("system_server", "file", "read")}
+        permissions = baseline | {overlay.COMPOSER_SET}
+        policy = SimpleNamespace(lookup_type=lambda _name: SimpleNamespace(
+            attributes=lambda: ("property_type", "vendor_xrz_prop_31_0")))
+        modules = {"setools": SimpleNamespace(TERuleQuery=object()),
+                   "setools.exception": SimpleNamespace(RuleNotConditional=Exception)}
+        with mock.patch.dict(sys.modules, modules), \
+                mock.patch.object(overlay, "effective_permissions", return_value=permissions):
+            overlay.validate_xrz_policy(policy, baseline)
+            permissions.remove(("system_server", "file", "read"))
+            with self.assertRaisesRegex(ValueError, "Property permissions differ"):
+                overlay.validate_xrz_policy(policy, baseline)
+            permissions.add(("system_server", "file", "read"))
+            permissions.add(("untrusted_app", "property_service", "set"))
+            with self.assertRaisesRegex(ValueError, "Property permissions differ"):
+                overlay.validate_xrz_policy(policy, baseline)
+
     def test_preserves_missing_access_and_adds_only_composer_set(self):
         baseline = {
             ("composer", "file", "read"),

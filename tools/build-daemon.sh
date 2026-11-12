@@ -12,8 +12,6 @@ flags=()
 candidate=false
 migration_candidate=false
 experimental=false
-auto_refresh=false
-init_bridge=false
 for option in "$@"; do
     case "$option" in
         --enforcing-candidate)
@@ -27,14 +25,8 @@ for option in "$@"; do
             experimental=true
             flags+=(-DHIBREAK_PROPERTY_ONLY_REFRESH)
             ;;
-        --experimental-property-only-auto-refresh)
-            experimental=true
-            auto_refresh=true
-            flags+=(-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH)
-            ;;
         --experimental-init-eink-bridge)
             experimental=true
-            init_bridge=true
             flags+=(-DHIBREAK_INIT_EINK_BRIDGE)
             ;;
         *)
@@ -53,10 +45,6 @@ if "$migration_candidate"; then
 fi
 if "$candidate" && "$experimental"; then
     echo "Experimental property-only modes cannot be combined with the host-only enforcing candidate." >&2
-    exit 1
-fi
-if "$auto_refresh" && "$init_bridge"; then
-    echo "Property-only auto-refresh cannot be combined with the init e-ink bridge." >&2
     exit 1
 fi
 if "$candidate"; then

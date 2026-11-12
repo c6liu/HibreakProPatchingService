@@ -56,10 +56,23 @@ All paths can also be supplied explicitly:
   --secilc "$SECILC"
 ```
 
-The stages run in order; intermediate images are removed and their checksums
-are recorded in the manifest. The final image is always
+The default tested build applies the overlays to one private working image,
+retaining intermediate policy compilations needed to generate permission
+preservation rules. It then compiles and validates the combined policy and
+checks the final files, labels, permissions, and filesystem before publication.
+Use `--strict-verification` to retain the separate policy checks at each stage.
+Other feature combinations continue to use per-stage verification and report
+that choice; they are not silently treated as having combined verification.
+The manifest records input and final-output checksums and elapsed times for
+each stage; there are no intermediate image checksums.
+The final image is always
 `HiBreakPro-release.img`. Use the printed final image path (or `final_image`
 in the manifest).
+
+Independent APK, daemon and IR HAL builds run concurrently. Policy validation
+also runs up to two independent compiler processes at once; use
+`--policy-jobs 1` to avoid concurrent policy compilation on a constrained
+host. Policy transformations and image writes remain ordered.
 
 ### Compatibility and opt-outs
 
@@ -76,8 +89,8 @@ Individual defaults can be disabled with `--no-enforcing-migration`,
 `--no-experimental-property-only-refresh`. The enforcing migrations require
 the init bridge, and the tested bridge requires IR, XRZ, PHH reduction and
 property-only refresh: disable dependent features as well, or use
-`--compatibility`. The legacy property-only Auto Refresh experiment is
-known not to work and cannot be combined with the init bridge.
+`--compatibility`. The failed property-only Auto Refresh experiment has been
+removed; the default uses the working init bridge.
 
 To reuse a signed source APK you already built, without rebuilding or signing it:
 
@@ -110,69 +123,15 @@ against the working image. `adb logcat -s a9EinkService:I '*:S'` shows
 and an error if setting it fails; that log confirms neither composer receipt
 nor physical panel behavior. See the [investigation](../reference/verification.md#debugfs-alternative-investigation-2026-11-11).
 
-### Experimental property-only Auto Refresh test
+### Init bridge and enforcing migrations
 
-With `--compatibility`, add `--experimental-property-only-auto-refresh` to replace the daemon's
-`clean_a2` write with `vendor.xrz.auto_clean_enabled=0/1`. It can be combined
-with `--experimental-property-only-refresh`. Anti-Shake still uses its
-original debugfs path. The manifest records
-each experiment separately. This does not migrate the daemon to an enforcing
-domain, and the property is not proven equivalent to `clean_a2` on this device.
-The user reported that Auto Refresh did not seem to work in the 2026-11-11
-device test, despite successful property requests. Do not use this experiment
-as a replacement for the existing control.
-
-Keep the previous working image and recovery path. Compare Auto Refresh on
-and off in the same apps and refresh modes against the previous image, including
-app changes and sleep/wake. Look for changes in ghosting and cleaning; absence
-of visible differences alone does not establish equivalence. The daemon log
-`Property-only auto-refresh test: requested ...` confirms a property set, not
-composer receipt or panel behavior. Failures are logged as
-`Failed to set vendor.xrz.auto_clean_enabled=...`.
-See the [Color comparison](../reference/verification.md#hibreak-pro-color-comparison-2026-11-11).
-
-### Experimental init e-ink bridge
-
-Without `--rebuild-gsi`, the standalone experiment starts from the byte-identical tested
-IR/XRZ/PHH-reduced image with property-only refresh (SHA-256
-`e04bb8354ffcf2a999945bc83fe1d834caa1c131bfe3574353d1939134ee70e2`).
-It builds a new daemon and has init write the two existing Auto Refresh and
-Anti-Shake nodes using fixed `0`/`1` requests. It does not by itself migrate
-the daemon out of `phhsu_daemon`; the default release build applies the
-enforcing migrations afterward.
-
-```bash
-/usr/bin/python3 tools/add-eink-init-bridge-to-gsi.py \
-  "$TESTED_IMAGE" "$NEW_TEST_IMAGE" \
-  --vendor-image "$VENDOR" --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
-```
-
-The tool refuses to overwrite an image or manifest and never flashes. Keep
-the previous working image and recovery path. After boot, observe
+The default release builder installs the init bridge and migrates the e-ink
+daemon and display/AOD helpers to enforcing domains. It never flashes.
+Keep the previous working image and recovery path. After boot, observe
 `adb logcat -b all -s a9EinkService:I init:I '*:S'` while testing toggles,
 rapid changes, repeated settings, app changes and sleep/wake. Daemon request
 success is not hardware-write acknowledgement; init logs failed actions.
-Compare actual panel behavior against the previous image. SELinux remains
-enforcing globally, but `phhsu_daemon` remains permissive.
-
-### Experimental enforcing e-ink daemon
-
-Without `--rebuild-gsi`, the standalone migration overlay accepts only the
-user-tested init-bridge image (SHA-256
-`5844ef262b47d04cd3df990b3e97e71567a940ff85f8322348a6ce3ee722cdca`)
-and the matching vendor image. It installs an enforcing e-ink daemon domain,
-the existing tested display bridges, exact frontlight labels, and socket peer
-authentication. It does **not** migrate display/AOD helpers or other PHH
-services, and does not retire `phhsu_daemon`.
-
-```bash
-/usr/bin/python3 tools/add-eink-migration-to-gsi.py \
-  "$TESTED_BRIDGE_IMAGE" "$NEW_TEST_IMAGE" \
-  --vendor-image "$VENDOR" --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
-```
-
-The tool refuses to overwrite an image or manifest and never flashes. Keep the
-working bridge image and recovery path. After a separately authorized flash,
+Compare actual panel behavior against the previous image. After a separately authorized flash,
 confirm `adb shell getenforce` reports `Enforcing` and
 `adb shell 'ps -AZ | grep a9_eink'` shows `u:r:hibreak_eink:s0`. Check
 `adb logcat -b all -s a9EinkService:V A9SideKeys:V init:I auditd:V '*:S'`
@@ -183,19 +142,7 @@ theme settings. The policy and DAC checks do not prove framework authorization
 or physical behavior; request-property success is not a hardware-write
 acknowledgement.
 
-### Experimental enforcing display and AOD helpers
-
-Without `--rebuild-gsi`, the standalone overlay starts from the user-tested Binder-callback e-ink
-daemon image (SHA-256
-`6077c0eee9b37038ac35d5f3b08106aa3280b29073787c41404a72666fbd8bff`):
-
-```bash
-/usr/bin/python3 tools/add-display-migration-to-gsi.py \
-  "$TESTED_EINK_IMAGE" "$NEW_TEST_IMAGE" \
-  --vendor-image "$VENDOR" --secilc "$SECILC"
-```
-
-It moves all five HiBreak display/AOD services into an enforcing
+The migration moves all five HiBreak display/AOD services into an enforcing
 `hibreak_display` domain. AOD inversion is retained; the migration imports
 existing setup/inversion markers into separate, scoped persistent state
 properties. The existing AOD toggle and original property labels remain

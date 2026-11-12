@@ -1,18 +1,16 @@
-import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location(
-    "display_migration", ROOT / "tools/add-display-migration-to-gsi.py",
-)
-migration = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(migration)
+from tools.hibreak import display_migration as migration
 
 
 class DisplayMigrationTests(unittest.TestCase):
@@ -128,6 +126,32 @@ class DisplayMigrationTests(unittest.TestCase):
     def test_unexpected_aod_source_is_rejected(self):
         with self.assertRaises(ValueError):
             migration.migrate_aod("MARK=persist.sys.hibreak.aod_inverted\n")
+
+    def test_compiled_policy_checks_writers_and_required_grants(self):
+        baseline = {("system_server", "file", "read")}
+        permissions = {
+            "system_prop": baseline | {
+                ("hibreak_display", "file", permission)
+                for permission in ("read", "open", "getattr", "map")},
+            "hibreak_display_state_prop": {
+                ("init", "property_service", "set"),
+                ("hibreak_display", "property_service", "set")},
+        }
+        policy = SimpleNamespace(lookup_type=lambda _name: SimpleNamespace(ispermissive=False))
+        query = mock.Mock(return_value=SimpleNamespace(results=lambda: [object()]))
+        modules = {"setools": SimpleNamespace(TERuleQuery=query),
+                   "setools.exception": SimpleNamespace(RuleNotConditional=Exception)}
+        with mock.patch.dict(sys.modules, modules), \
+                mock.patch.object(migration, "effective_permissions",
+                                  side_effect=lambda _policy, target, *_args: permissions[target]):
+            migration.validate_display_policy(policy, baseline)
+            permissions["hibreak_display_state_prop"].add(("untrusted_app", "property_service", "set"))
+            with self.assertRaisesRegex(ValueError, "Unexpected display state property writers"):
+                migration.validate_display_policy(policy, baseline)
+            permissions["hibreak_display_state_prop"].remove(("untrusted_app", "property_service", "set"))
+            query.return_value = SimpleNamespace(results=lambda: [])
+            with self.assertRaisesRegex(ValueError, "Missing helper grant"):
+                migration.validate_display_policy(policy, baseline)
 
 
 if __name__ == "__main__":

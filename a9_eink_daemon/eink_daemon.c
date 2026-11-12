@@ -276,17 +276,6 @@ void setGlobalAutoRefresh(const char* value) {
 #ifdef HIBREAK_INIT_EINK_BRIDGE
     requestEinkControl("sys.hibreak.eink_bridge.auto_refresh", value);
 #else
-#ifdef HIBREAK_PROPERTY_ONLY_AUTO_REFRESH
-    if (strcmp(value, "0") != 0 && strcmp(value, "1") != 0) {
-        LOGE("Invalid property-only auto-refresh value: %s", value);
-        return;
-    }
-    if (__system_property_set("vendor.xrz.auto_clean_enabled", value) != 0) {
-        LOGE("Failed to set vendor.xrz.auto_clean_enabled=%s", value);
-    } else {
-        LOGI("Property-only auto-refresh test: requested vendor.xrz.auto_clean_enabled=%s", value);
-    }
-#else
     const char* globalAutoRefreshPath = "/sys/kernel/debug/eink_debug/clean_a2";
     if(!valid_number(value)){
         LOGE("Error writing to %s: Invalid Number\n", globalAutoRefreshPath);
@@ -301,7 +290,6 @@ void setGlobalAutoRefresh(const char* value) {
         LOGE("Error writing to %s: %s\n", globalAutoRefreshPath, strerror(errno));
     }
     close(fd);
-#endif
 #endif
 }
 

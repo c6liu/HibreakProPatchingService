@@ -510,9 +510,7 @@ class RefreshModeTests(unittest.TestCase):
             for flag in ("-DHIBREAK_ENFORCING_CANDIDATE", "-DHIBREAK_PROPERTY_ONLY_REFRESH",
                          "-DHIBREAK_INIT_EINK_BRIDGE", "-DHIBREAK_SOCKET_AUTH"):
                 self.assertEqual(flags.count(flag), 1)
-            self.assertNotIn("-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH", flags)
             for option in ("--enforcing-candidate", "--experimental-property-only-refresh",
-                           "--experimental-property-only-auto-refresh",
                            "--experimental-init-eink-bridge"):
                 with self.subTest(option=option):
                     result = subprocess.run(
@@ -538,9 +536,6 @@ class RefreshModeTests(unittest.TestCase):
             binary = work / "refresh-mode-probe"
             for flags in ([], ["-DHIBREAK_ENFORCING_CANDIDATE"],
                           ["-DHIBREAK_PROPERTY_ONLY_REFRESH"],
-                          ["-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
-                          ["-DHIBREAK_PROPERTY_ONLY_REFRESH",
-                           "-DHIBREAK_PROPERTY_ONLY_AUTO_REFRESH"],
                           ["-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE"],
                           ["-DHIBREAK_ENFORCING_CANDIDATE",
                            "-DHIBREAK_PROPERTY_ONLY_REFRESH", "-DHIBREAK_INIT_EINK_BRIDGE",
