@@ -17,6 +17,8 @@ import uuid
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from tools.hibreak.tested_stages import GSI_SHA256, VENDOR_SHA256
 
 
 def sha256(path):
@@ -70,17 +72,37 @@ def main():
                         help="Android NDK directory (default: ANDROID_NDK_HOME)")
     parser.add_argument("--secilc", default=os.environ.get("SECILC", "secilc"),
                         help="Policy compiler for both overlays (default: SECILC or secilc)")
-    parser.add_argument("--ir", action="store_true", help="Include the release IR HAL")
-    parser.add_argument("--xrz", action="store_true", help="Include experimental XRZ v2 overlay")
-    parser.add_argument("--experimental-phh-reduction", action="store_true",
+    parser.add_argument("--compatibility", action="store_true",
+                        help="Disable tested-device defaults for other GSI images")
+    parser.add_argument("--ir", action=argparse.BooleanOptionalAction, default=None,
+                        help="Include the IR HAL (default except in compatibility mode)")
+    parser.add_argument("--xrz", action=argparse.BooleanOptionalAction, default=None,
+                        help="Include XRZ v2 (default except in compatibility mode)")
+    parser.add_argument("--experimental-phh-reduction", action=argparse.BooleanOptionalAction, default=None,
                         help="Remove 70 PHH root grants for the exact tested EvoX baseline; not hardening")
-    parser.add_argument("--experimental-property-only-refresh", action="store_true",
+    parser.add_argument("--experimental-property-only-refresh", action=argparse.BooleanOptionalAction, default=None,
                         help="Test composer property refresh without the daemon global_mode write")
     parser.add_argument("--experimental-property-only-auto-refresh", action="store_true",
-                        help="Test composer auto-clean property without the daemon clean_a2 write")
+                        help="Legacy property-only auto-clean test (known not to work)")
+    parser.add_argument("--init-eink-bridge", action=argparse.BooleanOptionalAction, default=None,
+                        help="Use the tested init bridge for Auto Refresh and Anti-Shake")
+    parser.add_argument("--enforcing-migration", action=argparse.BooleanOptionalAction, default=None,
+                        help="Migrate e-ink daemon and display helpers to enforcing domains")
     parser.add_argument("--output-root", type=Path, default=ROOT / "build",
                         help="Directory for a new timestamped build (default: build/)")
     args = parser.parse_args()
+    for name in ("ir", "xrz", "experimental_phh_reduction",
+                 "experimental_property_only_refresh", "init_eink_bridge", "enforcing_migration"):
+        if getattr(args, name) is None:
+            setattr(args, name, not args.compatibility)
+    if args.experimental_property_only_auto_refresh and (args.init_eink_bridge or args.enforcing_migration):
+        parser.error("Property-only Auto Refresh cannot be combined with the init bridge or enforcing migration")
+    if args.enforcing_migration and not args.init_eink_bridge:
+        parser.error("The enforcing migration requires --init-eink-bridge")
+    if args.init_eink_bridge and not all((args.ir, args.xrz, args.experimental_phh_reduction,
+                                           args.experimental_property_only_refresh)):
+        parser.error("The tested init bridge requires --ir, --xrz, --experimental-phh-reduction "
+                     "and --experimental-property-only-refresh; use --compatibility to disable tested defaults")
     if args.built_apk is None:
         args.source_apk = True
 
@@ -90,7 +112,7 @@ def main():
         apk_inputs = {"built_apk": args.built_apk.resolve()}
     else:
         apk_inputs = source_apk_inputs(parser)
-    if args.ir or args.xrz or args.experimental_phh_reduction:
+    if args.ir or args.xrz or args.experimental_phh_reduction or args.init_eink_bridge:
         if args.vendor_image is None:
             parser.error("--vendor-image is required for --ir, --xrz or --experimental-phh-reduction")
         require_input(parser, args.vendor_image, "vendor image")
@@ -100,6 +122,12 @@ def main():
         for header in ("hardware/consumerir.h", "hardware/hardware.h"):
             if not (args.aosp_headers / header).is_file():
                 parser.error(f"Missing AOSP header: {args.aosp_headers / header}")
+    if args.init_eink_bridge:
+        if sha256(args.gsi) != GSI_SHA256 or sha256(args.vendor_image) != VENDOR_SHA256:
+            parser.error("Tested bridge/migration defaults require the exact tested GSI and vendor; "
+                         "use --compatibility for other images")
+        if args.ndk is None:
+            parser.error("--ndk or ANDROID_NDK_HOME is required for the tested bridge")
     output_root = args.output_root.resolve()
     for path in (args.gsi, args.built_apk, args.vendor_image,
                  args.aosp_headers, args.ndk, output_root):
@@ -129,12 +157,15 @@ def main():
     final_image = build_dir / "HiBreakPro-release.img"
     stage_directory = tempfile.TemporaryDirectory(prefix=".release-stages-", dir=build_dir)
     stage_dir = Path(stage_directory.name)
-    has_overlays = args.ir or args.xrz or args.experimental_phh_reduction
+    has_overlays = args.ir or args.xrz or args.experimental_phh_reduction or args.init_eink_bridge
     base = stage_dir / "HiBreakPro-release-base.img" if has_overlays else final_image
     parallel_commands = [["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)]]
-    if args.experimental_property_only_refresh:
-        print("WARNING: experimental property-only refresh requested; display behavior is unverified.")
+    if args.enforcing_migration:
+        parallel_commands[0].append("--enforcing-migration-candidate")
+    elif args.experimental_property_only_refresh:
         parallel_commands[0].append("--experimental-property-only-refresh")
+        if args.init_eink_bridge:
+            parallel_commands[0].append("--experimental-init-eink-bridge")
     if args.experimental_property_only_auto_refresh:
         print("WARNING: experimental property-only auto-refresh requested; display behavior is unverified.")
         parallel_commands[0].append("--experimental-property-only-auto-refresh")
@@ -146,7 +177,7 @@ def main():
          str(base), str(apk), str(daemon), "--release"],
     ]
     current = base
-    ir_image = stage_dir / "HiBreakPro-release-ir.img" if args.xrz or args.experimental_phh_reduction else final_image
+    ir_image = stage_dir / "HiBreakPro-release-ir.img" if args.xrz or args.experimental_phh_reduction or args.init_eink_bridge else final_image
     hal = build_dir / "consumerir.hxd-release.so"
     if args.ir:
         parallel_commands.append(["bash", str(ROOT / "tools/build-ir-hal.sh"), str(hal)])
@@ -156,7 +187,7 @@ def main():
              "--hal-module", str(hal), "--secilc", args.secilc],
         ])
         current = ir_image
-    xrz_image = stage_dir / "HiBreakPro-release-xrz.img" if args.experimental_phh_reduction else final_image
+    xrz_image = stage_dir / "HiBreakPro-release-xrz.img" if args.experimental_phh_reduction or args.init_eink_bridge else final_image
     if args.xrz:
         commands.append([
             sys.executable, str(ROOT / "tools/add-xrz-compat-to-gsi.py"),
@@ -166,10 +197,32 @@ def main():
         current = xrz_image
     if args.experimental_phh_reduction:
         print("WARNING: experimental PHH grant reduction requested; root domain remains permissive.")
+        reduction_output = stage_dir / "HiBreakPro-release-reduced.img" if args.init_eink_bridge else final_image
         commands.append([
             sys.executable, str(ROOT / "tools/add-phh-reduction-to-gsi.py"),
-            str(current), str(final_image), "--vendor-image", str(args.vendor_image.resolve()),
+            str(current), str(reduction_output), "--vendor-image", str(args.vendor_image.resolve()),
             "--secilc", args.secilc,
+        ])
+        current = reduction_output
+    if args.init_eink_bridge:
+        bridge_output = stage_dir / "HiBreakPro-release-bridge.img" if args.enforcing_migration else final_image
+        commands.append([
+            sys.executable, str(ROOT / "tools/add-eink-init-bridge-to-gsi.py"),
+            str(current), str(bridge_output), "--vendor-image", str(args.vendor_image.resolve()),
+            "--ndk", str(args.ndk.resolve()), "--secilc", args.secilc,
+            "--rebuild-gsi", str(args.gsi.resolve()),
+        ])
+        current = bridge_output
+    if args.enforcing_migration:
+        daemon_image = stage_dir / "HiBreakPro-release-enforcing-daemon.img"
+        commands.extend([
+            [sys.executable, str(ROOT / "tools/add-eink-migration-to-gsi.py"),
+             str(current), str(daemon_image), "--vendor-image", str(args.vendor_image.resolve()),
+             "--ndk", str(args.ndk.resolve()), "--secilc", args.secilc,
+             "--rebuild-gsi", str(args.gsi.resolve())],
+            [sys.executable, str(ROOT / "tools/add-display-migration-to-gsi.py"),
+             str(daemon_image), str(final_image), "--vendor-image", str(args.vendor_image.resolve()),
+             "--secilc", args.secilc, "--rebuild-gsi", str(args.gsi.resolve())],
         ])
 
     input_files = {"gsi": args.gsi.resolve(), **apk_inputs}
@@ -182,12 +235,21 @@ def main():
     manifest = {
         "schema_version": 1,
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "options": {"ir": args.ir, "xrz_v2": args.xrz, "release": True},
+        "options": {
+            "ir": args.ir, "xrz_v2": args.xrz, "release": True,
+            "source_apk": args.source_apk, "reuse_built_apk": args.built_apk is not None,
+            "experimental_property_only_refresh": args.experimental_property_only_refresh,
+            "experimental_property_only_auto_refresh": args.experimental_property_only_auto_refresh,
+            "experimental_phh_reduction": args.experimental_phh_reduction,
+            "init_eink_bridge": args.init_eink_bridge,
+            "enforcing_eink_and_display": args.enforcing_migration,
+        },
         "inputs": {
             name: {"path": str(path), "sha256": sha256(path)}
             for name, path in input_files.items()
         },
         "outputs": {},
+        "stages": [],
         "final_image": str(final_image),
     }
     if args.source_apk:
@@ -196,6 +258,10 @@ def main():
         manifest["options"]["experimental_property_only_refresh"] = True
     if args.experimental_property_only_auto_refresh:
         manifest["options"]["experimental_property_only_auto_refresh"] = True
+    if args.init_eink_bridge:
+        manifest["options"]["init_eink_bridge"] = True
+    if args.enforcing_migration:
+        manifest["options"]["enforcing_eink_and_display"] = True
     if args.experimental_phh_reduction:
         manifest["options"]["experimental_phh_reduction"] = True
         reduction_tool = ROOT / "tools/add-phh-reduction-to-gsi.py"
@@ -234,6 +300,21 @@ def main():
         for command in commands:
             print(f"Running: {Path(command[1]).name}", flush=True)
             subprocess.run(command, cwd=ROOT, env=child_environment, check=True)
+            stage_output = Path(command[3])
+            if not stage_output.is_file() or not stage_output.stat().st_size:
+                raise ValueError(f"Build stage did not produce expected output: {stage_output}")
+            stage_name = Path(command[1]).name
+            if (stage_name == "add-eink-migration-to-gsi.py"
+                    or (stage_name == "add-eink-init-bridge-to-gsi.py" and not args.enforcing_migration)):
+                stage_manifest = stage_output.with_name(stage_output.name + ".manifest.json")
+                installed_sha = json.loads(stage_manifest.read_text())["daemon_sha256"]
+                if installed_sha != sha256(daemon):
+                    raise ValueError("Built daemon does not match the daemon installed in the image")
+            manifest["stages"].append({
+                "tool": stage_name,
+                "input_sha256": sha256(Path(command[2])),
+                "output_sha256": sha256(stage_output),
+            })
         outputs = [apk, daemon]
         if args.ir:
             outputs.append(hal)

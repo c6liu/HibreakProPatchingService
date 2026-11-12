@@ -16,6 +16,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.hibreak import image
+from tools.hibreak.tested_stages import validate_rebuild
 
 SPEC = importlib.util.spec_from_file_location("eink_migration", ROOT / "tools/check-eink-migration.py")
 migration = importlib.util.module_from_spec(SPEC)
@@ -70,6 +71,8 @@ def main():
     parser.add_argument("--ndk", type=Path, required=True)
     parser.add_argument("--secilc", default="secilc")
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument("--rebuild-gsi", type=Path,
+                        help="Verify critical stage inputs against the tested GSI rebuild")
     args = parser.parse_args()
     for tool in ("debugfs", "e2fsck", "resize2fs", "dumpe2fs", "cp", args.secilc):
         if not shutil.which(tool):
@@ -83,7 +86,10 @@ def main():
     manifest_path = args.output.with_name(args.output.name + ".manifest.json")
     if os.path.lexists(args.output) or os.path.lexists(manifest_path):
         parser.error("Refusing to overwrite image or manifest")
-    if sha256(args.source) != SOURCE_SHA256:
+    source_sha = sha256(args.source)
+    if args.rebuild_gsi:
+        validate_rebuild(args.source, args.vendor_image, args.rebuild_gsi, "bridge")
+    elif source_sha != SOURCE_SHA256:
         parser.error("Migration requires the exact user-tested init bridge image")
     with tempfile.TemporaryDirectory(prefix="hibreak-eink-migration-") as directory:
         work = Path(directory)
@@ -125,7 +131,7 @@ def main():
             image.shrink_and_check(args.output, strict_final=True)
             manifest = {
                 "experimental_enforcing_eink_daemon": True,
-                "source": {"path": str(args.source.resolve()), "sha256": SOURCE_SHA256},
+                "source": {"path": str(args.source.resolve()), "sha256": source_sha},
                 "vendor": {"path": str(args.vendor_image.resolve()), "sha256": sha256(args.vendor_image)},
                 "daemon_sha256": sha256(daemon),
                 "image": {"path": str(args.output.resolve()), "sha256": sha256(args.output)},

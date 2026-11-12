@@ -2,7 +2,7 @@
 
 Return to the project folder. Use the same terminal in which you set the
 variables. If you opened another one, set `ANDROID_NDK_HOME` and `BASE`
-([inputs](inputs.md)), the three [signing variables](signing.md) and, for IR,
+([inputs](inputs.md)), the three [signing variables](signing.md),
 `VENDOR` and `AOSP_HEADERS` ([IR inputs](ir-inputs.md)) again.
 
 For a single-command release build, use the orchestrator. It creates a new
@@ -15,51 +15,74 @@ requested) IR HAL builds run concurrently before image patching:
 python3 tools/build-release.py "$BASE"
 ```
 
-By default this **builds and signs the source APK**, compiles the
-daemon, and creates the release image. Set the [signing variables](signing.md)
-first for release signing; otherwise the APK is debug-signed. Passwords are
-entered only at the signer's terminal prompts.
+By default this **builds and signs the source APK**, adds IR and XRZ,
+uses property-only refresh and the working init bridge for Auto Refresh and
+Anti-Shake, applies the experimental PHH grant reduction, and migrates the
+e-ink daemon and display/AOD helpers to enforcing domains. The PHH root
+domain itself remains permissive; the reduction is not a hardening claim.
+Set the [signing variables](signing.md) for release signing; otherwise the
+APK is debug-signed. Passwords are entered only at the signer's terminal prompts.
 
-Add `--ir --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS"` for the IR
-HAL, and `--xrz` to add the experimental XRZ v2 overlay after the base or IR
-image. IR and XRZ both require the matching stock vendor image. Release signing
-uses the same optional signing environment variables as `build-source-apk.sh`.
+The migration defaults are restricted to the tested EvoX GSI (SHA-256
+`d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf`)
+and HiBreak Pro 3.1.6 vendor image (SHA-256
+`6ba5354d8bcd1b1b91cfc79c3cbe148ddd31df706e0aa6c6e03191f9dcff24ff`).
+Freshly generated intermediate images are checked against the tested
+policy-critical components and service metadata and undergo the existing
+policy checks. The component checks are not a whole-image identity check:
+use the release builder to generate the intermediates rather than supplying
+an unrelated or independently modified image. A different
+GSI or vendor fails explicitly instead of silently disabling features.
+Use a Python interpreter with SETools, such as `/usr/bin/python3` where
+the system Python provides it.
 
-### One command with IR and the property overlay
+### Default build
 
-Set `BASE`, `VENDOR` (the matching raw stock vendor image),
+Set `BASE`, `VENDOR` (the tested raw stock vendor image),
 `ANDROID_NDK_HOME`, `AOSP_HEADERS`, and optionally `SECILC` to your installed
 policy compiler. Then run:
 
 ```bash
-python3 tools/build-release.py "$BASE" --ir --xrz
+python3 tools/build-release.py "$BASE"
 ```
-
-Use a Python interpreter with SETools installed for XRZ; for example, on a host
-where the system Python provides SETools, use `/usr/bin/python3` instead of
-`python3`. The same interpreter runs both overlays.
 
 All paths can also be supplied explicitly:
 
 ```bash
-/usr/bin/python3 tools/build-release.py "$BASE" --ir --xrz \
+/usr/bin/python3 tools/build-release.py "$BASE" \
   --vendor-image "$VENDOR" \
   --ndk "$ANDROID_NDK_HOME" \
   --aosp-headers "$AOSP_HEADERS" \
   --secilc "$SECILC"
 ```
 
-This builds the APK and daemon, then applies the requested image stages in
-order. Intermediate stage images are removed after the build, and the final
-image is always named `HiBreakPro-release.img`. The compiler selection is
-passed to **both** overlays. Use the printed final image path (or
-`final_image` in the manifest).
+The stages run in order; intermediate images are removed and their checksums
+are recorded in the manifest. The final image is always
+`HiBreakPro-release.img`. Use the printed final image path (or `final_image`
+in the manifest).
+
+### Compatibility and opt-outs
+
+Use `--compatibility` for another GSI to turn off all tested-device defaults
+and retain the legacy base release behavior. Explicit `--ir`, `--xrz`,
+`--experimental-phh-reduction` and `--experimental-property-only-refresh`
+can be added back where their own checks permit them. IR needs headers and a
+vendor image; XRZ and PHH reduction also need a vendor image. Some overlays
+remain restricted to their tested policy inputs.
+
+Individual defaults can be disabled with `--no-enforcing-migration`,
+`--no-init-eink-bridge`, `--no-ir`, `--no-xrz`,
+`--no-experimental-phh-reduction`, or
+`--no-experimental-property-only-refresh`. The enforcing migrations require
+the init bridge, and the tested bridge requires IR, XRZ, PHH reduction and
+property-only refresh: disable dependent features as well, or use
+`--compatibility`. The legacy property-only Auto Refresh experiment is
+known not to work and cannot be combined with the init bridge.
 
 To reuse a signed source APK you already built, without rebuilding or signing it:
 
 ```bash
-/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
-  --ir --xrz
+/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk
 ```
 
 The existing APK is copied unchanged and its signature/alignment verified with
@@ -72,13 +95,13 @@ The manual build below remains supported and exposes each intermediate step.
 
 ### Experimental property-only refresh test
 
-Add `--experimental-property-only-refresh` to build a separate test image.
+With `--compatibility`, add `--experimental-property-only-refresh` to build
+the legacy property-only refresh test image.
 Only the daemon's refresh-mode write to `eink_debug/global_mode` is omitted;
 it still sets `vendor.xrz.global_refresh_mode`, and Auto Refresh and
-Anti-Shake retain their existing debugfs writes. Normal builds are unchanged.
-The option is recorded in the manifest. This is not an enforcing-domain
-migration or a proven equivalent refresh path. The image is never flashed
-by the build command.
+Anti-Shake retain their existing debugfs writes. The default tested build
+instead uses the init bridge for those controls and enforcing domains.
+The option is recorded in the manifest. No build command flashes a device.
 
 Keep a working image and recovery path before testing. Compare all five modes
 (especially HD_256), app switching, sleep/wake, and Auto Refresh/Anti-Shake
@@ -89,10 +112,10 @@ nor physical panel behavior. See the [investigation](../reference/verification.m
 
 ### Experimental property-only Auto Refresh test
 
-Add `--experimental-property-only-auto-refresh` to replace the daemon's
+With `--compatibility`, add `--experimental-property-only-auto-refresh` to replace the daemon's
 `clean_a2` write with `vendor.xrz.auto_clean_enabled=0/1`. It can be combined
 with `--experimental-property-only-refresh`. Anti-Shake still uses its
-original debugfs path; normal builds are unchanged. The manifest records
+original debugfs path. The manifest records
 each experiment separately. This does not migrate the daemon to an enforcing
 domain, and the property is not proven equivalent to `clean_a2` on this device.
 The user reported that Auto Refresh did not seem to work in the 2026-11-11
@@ -110,12 +133,13 @@ See the [Color comparison](../reference/verification.md#hibreak-pro-color-compar
 
 ### Experimental init e-ink bridge
 
-This separate experiment starts from the byte-identical tested
+Without `--rebuild-gsi`, the standalone experiment starts from the byte-identical tested
 IR/XRZ/PHH-reduced image with property-only refresh (SHA-256
 `e04bb8354ffcf2a999945bc83fe1d834caa1c131bfe3574353d1939134ee70e2`).
 It builds a new daemon and has init write the two existing Auto Refresh and
-Anti-Shake nodes using fixed `0`/`1` requests. It does not change the default
-release builder or migrate the daemon out of `phhsu_daemon`.
+Anti-Shake nodes using fixed `0`/`1` requests. It does not by itself migrate
+the daemon out of `phhsu_daemon`; the default release build applies the
+enforcing migrations afterward.
 
 ```bash
 /usr/bin/python3 tools/add-eink-init-bridge-to-gsi.py \
@@ -133,7 +157,7 @@ enforcing globally, but `phhsu_daemon` remains permissive.
 
 ### Experimental enforcing e-ink daemon
 
-The migration overlay is separate from the release builder. It accepts only the
+Without `--rebuild-gsi`, the standalone migration overlay accepts only the
 user-tested init-bridge image (SHA-256
 `5844ef262b47d04cd3df990b3e97e71567a940ff85f8322348a6ce3ee722cdca`)
 and the matching vendor image. It installs an enforcing e-ink daemon domain,
@@ -161,7 +185,7 @@ acknowledgement.
 
 ### Experimental enforcing display and AOD helpers
 
-This separate overlay starts from the user-tested Binder-callback e-ink
+Without `--rebuild-gsi`, the standalone overlay starts from the user-tested Binder-callback e-ink
 daemon image (SHA-256
 `6077c0eee9b37038ac35d5f3b08106aa3280b29073787c41404a72666fbd8bff`):
 
@@ -175,8 +199,8 @@ It moves all five HiBreak display/AOD services into an enforcing
 `hibreak_display` domain. AOD inversion is retained; the migration imports
 existing setup/inversion markers into separate, scoped persistent state
 properties. The existing AOD toggle and original property labels remain
-unchanged. This is a test image, not the default release. It does not migrate
-upstream PHH services or remove `phhsu_daemon`.
+unchanged. The default release build includes this migration. It does not
+migrate upstream PHH services or remove `phhsu_daemon`.
 
 The builder never flashes. Keep the prior image and recovery path. After an
 authorized flash, check `adb shell getenforce` and collect
@@ -188,8 +212,8 @@ process listing; look for `hibreak_display` in AVCs if a helper fails.
 
 ### Experimental PHH grant reduction
 
-Add `--experimental-phh-reduction` to apply the exact 70-grant host experiment
-after all other overlays. It requires `--vendor-image` and `--secilc`, accepts
+The default build applies the exact 70-grant host experiment after IR and XRZ,
+before the bridge and enforcing migrations. It requires `--vendor-image` and `--secilc`, accepts
 only the byte-identical EvoX 11.11 20260920 system-ext policy, and rejects a
 merge that does not produce 371 ordinary plus 15 extended conflicts.
 The final image remains `HiBreakPro-release.img`; the manifest explicitly
@@ -202,10 +226,10 @@ records the experimental option and reduction-tool checksum.
   --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
 ```
 
-Default builds are unchanged. This removes substantial root permissions,
+This removes substantial root permissions,
 including daemon entrypoint access, but preserves the upstream permissive
 `phhsu_daemon` declaration. It is **not hardening**, still requires `-N`,
-and has not been device-validated. Keep your working image and recovery path;
+and does not make all upstream services enforcing. Keep your working image and recovery path;
 do not make this domain enforcing without reviewing its required grants.
 See the [host experiment](ir-overlay.md#host-only-baseline-reduction-experiment-2026-11-11).
 The standalone [overlay tool](../../tools/add-phh-reduction-to-gsi.py)

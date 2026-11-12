@@ -52,6 +52,11 @@ class ReleaseBuildTests(unittest.TestCase):
             else:
                 output = Path(command[3])
             output.write_bytes(b"built:" + output.name.encode())
+            if Path(command[1]).name in ("add-eink-init-bridge-to-gsi.py", "add-eink-migration-to-gsi.py"):
+                daemon = next(Path(item[2]) for item in commands if Path(item[1]).name == "build-daemon.sh")
+                output.with_name(output.name + ".manifest.json").write_text(json.dumps({
+                    "daemon_sha256": build_release.sha256(daemon),
+                }))
             return subprocess.CompletedProcess(command, 0)
         return run
 
@@ -59,7 +64,7 @@ class ReleaseBuildTests(unittest.TestCase):
         output_root = self.work / "builds"
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi),
+            "build-release.py", str(self.gsi), "--compatibility",
             "--vendor-image", str(self.vendor),
             "--aosp-headers", str(self.headers),
             "--ir", "--xrz", "--output-root", str(output_root),
@@ -86,6 +91,9 @@ class ReleaseBuildTests(unittest.TestCase):
         manifest = json.loads((build_dir / "manifest.json").read_text())
         self.assertEqual(manifest["options"], {
             "ir": True, "xrz_v2": True, "release": True, "source_apk": True,
+            "reuse_built_apk": False, "experimental_property_only_refresh": False,
+            "experimental_property_only_auto_refresh": False, "experimental_phh_reduction": False,
+            "init_eink_bridge": False, "enforcing_eink_and_display": False,
         })
         self.assertEqual(Path(manifest["final_image"]).name, "HiBreakPro-release.img")
         self.assertEqual(manifest["inputs"]["gsi"]["sha256"], build_release.sha256(self.gsi))
@@ -103,7 +111,7 @@ class ReleaseBuildTests(unittest.TestCase):
         output_root = self.work / "property-only-builds"
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--experimental-property-only-refresh",
+            "build-release.py", str(self.gsi), "--compatibility", "--experimental-property-only-refresh",
             "--output-root", str(output_root),
         ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
             build_release.main()
@@ -117,7 +125,7 @@ class ReleaseBuildTests(unittest.TestCase):
         output_root = self.work / "auto-refresh-builds"
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--experimental-property-only-refresh",
+            "build-release.py", str(self.gsi), "--compatibility", "--experimental-property-only-refresh",
             "--experimental-property-only-auto-refresh", "--output-root", str(output_root),
         ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
             build_release.main()
@@ -135,7 +143,7 @@ class ReleaseBuildTests(unittest.TestCase):
         output_root = self.work / "source-builds"
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--source-apk",
+            "build-release.py", str(self.gsi), "--compatibility", "--source-apk",
             "--output-root", str(output_root),
         ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
             build_release.main()
@@ -163,7 +171,7 @@ class ReleaseBuildTests(unittest.TestCase):
                 output_root = self.work / ("phh" + "".join(features))
                 commands = []
                 with mock.patch.object(sys, "argv", [
-                    "build-release.py", str(self.gsi),
+                    "build-release.py", str(self.gsi), "--compatibility",
                     "--vendor-image", str(self.vendor), "--aosp-headers", str(self.headers),
                     "--experimental-phh-reduction", *features,
                     "--output-root", str(output_root),
@@ -181,7 +189,7 @@ class ReleaseBuildTests(unittest.TestCase):
 
     def test_experimental_phh_reduction_requires_vendor(self):
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--experimental-phh-reduction",
+            "build-release.py", str(self.gsi), "--compatibility", "--experimental-phh-reduction",
         ]), self.assertRaises(SystemExit) as result:
             build_release.main()
         self.assertEqual(result.exception.code, 2)
@@ -193,7 +201,7 @@ class ReleaseBuildTests(unittest.TestCase):
             with self.subTest(extra=extra):
                 output_root = self.work / "unused-builds"
                 with mock.patch.object(sys, "argv", [
-                    "build-release.py", str(self.gsi), *extra,
+                    "build-release.py", str(self.gsi), "--compatibility", *extra,
                     "--output-root", str(output_root),
                 ]), self.assertRaises(SystemExit) as result:
                     build_release.main()
@@ -203,7 +211,7 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_default_builds_source_apk(self):
         commands = []
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--output-root", str(self.work / "default"),
+            "build-release.py", str(self.gsi), "--compatibility", "--output-root", str(self.work / "default"),
         ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
             build_release.main()
         self.assertIn("build-source-apk.sh", [Path(command[1]).name for command in commands[:2]])
@@ -225,7 +233,7 @@ class ReleaseBuildTests(unittest.TestCase):
             "VENDOR": str(self.vendor), "AOSP_HEADERS": str(self.headers),
             "ANDROID_NDK_HOME": str(self.work / "ndk"), "SECILC": "/custom/secilc",
         }), mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--ir", "--xrz",
+            "build-release.py", str(self.gsi), "--compatibility", "--ir", "--xrz",
             "--output-root", str(self.work / "all-stages"),
         ]), mock.patch.object(subprocess, "run", side_effect=run):
             build_release.main()
@@ -259,7 +267,7 @@ class ReleaseBuildTests(unittest.TestCase):
         with mock.patch.dict(build_release.os.environ, {
             "APK_SIGNER_JAR": str(signer), "APK_RELEASE_CERT_SHA256": "AB:" * 31 + "AB",
         }), mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi), "--built-apk", str(self.apk),
+            "build-release.py", str(self.gsi), "--compatibility", "--built-apk", str(self.apk),
             "--ir", "--xrz", "--vendor-image", str(self.vendor),
             "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
             "--secilc", "/custom/secilc", "--output-root", str(output_root),
@@ -283,7 +291,7 @@ class ReleaseBuildTests(unittest.TestCase):
         signer.write_bytes(b"signer")
         with mock.patch.dict(build_release.os.environ, {"APK_SIGNER_JAR": str(signer)}), \
                 mock.patch.object(sys, "argv", [
-                    "build-release.py", str(self.gsi), "--built-apk", str(self.apk),
+                    "build-release.py", str(self.gsi), "--compatibility", "--built-apk", str(self.apk),
                     "--output-root", str(self.work / "failed"),
                 ]), mock.patch.object(subprocess, "run",
                                       side_effect=subprocess.CalledProcessError(1, ["java"])) as run, \
@@ -299,7 +307,7 @@ class ReleaseBuildTests(unittest.TestCase):
                 with mock.patch.dict(build_release.os.environ, {
                     "APK_RELEASE_CERT_SHA256": fingerprint,
                 }), mock.patch.object(sys, "argv", [
-                    "build-release.py", str(self.gsi), "--built-apk", str(path),
+                    "build-release.py", str(self.gsi), "--compatibility", "--built-apk", str(path),
                     "--output-root", str(output),
                 ]), self.assertRaises(SystemExit) as result:
                     build_release.main()
@@ -317,7 +325,7 @@ class ReleaseBuildTests(unittest.TestCase):
             return build(command)
 
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi),
+            "build-release.py", str(self.gsi), "--compatibility",
             "--vendor-image", str(self.vendor), "--aosp-headers", str(self.headers),
             "--ir", "--output-root", str(output_root),
         ]), mock.patch.object(subprocess, "run", side_effect=run):
@@ -327,12 +335,153 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_ir_requires_vendor_and_headers_before_creating_build_directory(self):
         output_root = self.work / "unused-builds"
         with mock.patch.object(sys, "argv", [
-            "build-release.py", str(self.gsi),
+            "build-release.py", str(self.gsi), "--compatibility",
             "--ir", "--output-root", str(output_root),
         ]), self.assertRaises(SystemExit) as result:
             build_release.main()
         self.assertEqual(result.exception.code, 2)
         self.assertFalse(output_root.exists())
+
+    def test_tested_defaults_run_all_stages(self):
+        commands = []
+        output = self.work / "tested"
+        with mock.patch.object(build_release, "GSI_SHA256", build_release.sha256(self.gsi)), \
+                mock.patch.object(build_release, "VENDOR_SHA256", build_release.sha256(self.vendor)), \
+                mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+                    "--output-root", str(output),
+                ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+        names = [Path(command[1]).name for command in commands]
+        self.assertCountEqual(names[:3], ["build-daemon.sh", "build-source-apk.sh", "build-ir-hal.sh"])
+        self.assertEqual(names[3:], [
+            "patch-gsi.sh", "add-ir-capture-to-gsi.py", "add-xrz-compat-to-gsi.py",
+            "add-phh-reduction-to-gsi.py", "add-eink-init-bridge-to-gsi.py",
+            "add-eink-migration-to-gsi.py", "add-display-migration-to-gsi.py",
+        ])
+        for previous, current in zip(commands[3:], commands[4:]):
+            self.assertEqual(previous[3], current[2])
+        for command in commands[-3:]:
+            self.assertEqual(command[command.index("--rebuild-gsi") + 1], str(self.gsi))
+        daemon = next(command for command in commands if Path(command[1]).name == "build-daemon.sh")
+        self.assertEqual(daemon[3:], ["--enforcing-migration-candidate"])
+        manifest = json.loads((next(output.iterdir()) / "manifest.json").read_text())
+        self.assertTrue(manifest["options"]["init_eink_bridge"])
+        self.assertTrue(manifest["options"]["enforcing_eink_and_display"])
+        self.assertFalse(manifest["options"]["experimental_property_only_auto_refresh"])
+        self.assertEqual([stage["tool"] for stage in manifest["stages"]], names[3:])
+
+    def test_bridge_only_build_uses_matching_daemon(self):
+        commands = []
+        with mock.patch.object(build_release, "GSI_SHA256", build_release.sha256(self.gsi)), \
+                mock.patch.object(build_release, "VENDOR_SHA256", build_release.sha256(self.vendor)), \
+                mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+                    "--no-enforcing-migration", "--output-root", str(self.work / "bridge"),
+                ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+            build_release.main()
+        daemon = next(command for command in commands if Path(command[1]).name == "build-daemon.sh")
+        self.assertEqual(daemon[3:], ["--experimental-property-only-refresh", "--experimental-init-eink-bridge"])
+        self.assertEqual(Path(commands[-1][1]).name, "add-eink-init-bridge-to-gsi.py")
+
+    def test_unsupported_default_and_incompatible_switches_fail_before_build(self):
+        for switches in ([], ["--no-ir"], ["--no-xrz"], ["--no-experimental-phh-reduction"],
+                         ["--no-experimental-property-only-refresh"], ["--no-init-eink-bridge"],
+                         ["--experimental-property-only-auto-refresh"]):
+            with self.subTest(switches=switches):
+                output = self.work / "must-not-exist"
+                with mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+                    "--output-root", str(output), *switches,
+                ]), self.assertRaises(SystemExit) as result:
+                    build_release.main()
+                self.assertEqual(result.exception.code, 2)
+                self.assertFalse(output.exists())
+
+    def test_explicit_opt_outs_disable_the_requested_stages(self):
+        for flag, disabled in (
+            ("--no-ir", "add-ir-capture-to-gsi.py"),
+            ("--no-xrz", "add-xrz-compat-to-gsi.py"),
+            ("--no-experimental-phh-reduction", "add-phh-reduction-to-gsi.py"),
+            ("--no-experimental-property-only-refresh", None),
+        ):
+            with self.subTest(flag=flag):
+                commands = []
+                with mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--no-enforcing-migration",
+                    "--no-init-eink-bridge", flag, "--output-root", str(self.work / flag[2:]),
+                ]), mock.patch.object(subprocess, "run", side_effect=self.fake_build(commands)):
+                    build_release.main()
+                names = [Path(command[1]).name for command in commands]
+                self.assertNotIn("add-eink-init-bridge-to-gsi.py", names)
+                self.assertNotIn("add-eink-migration-to-gsi.py", names)
+                self.assertNotIn("add-display-migration-to-gsi.py", names)
+                if disabled:
+                    self.assertNotIn(disabled, names)
+                else:
+                    daemon = next(command for command in commands if Path(command[1]).name == "build-daemon.sh")
+                    self.assertNotIn("--experimental-property-only-refresh", daemon)
+
+    def test_unverified_vendor_rejects_tested_defaults_before_build(self):
+        output = self.work / "wrong-vendor"
+        with mock.patch.object(build_release, "GSI_SHA256", build_release.sha256(self.gsi)), \
+                mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+                    "--output-root", str(output),
+                ]), self.assertRaises(SystemExit) as result:
+            build_release.main()
+        self.assertEqual(result.exception.code, 2)
+        self.assertFalse(output.exists())
+
+    def test_stage_failure_does_not_fall_back_or_write_release_manifest(self):
+        commands = []
+        build = self.fake_build(commands)
+
+        def run(command, **kwargs):
+            if Path(command[1]).name == "add-xrz-compat-to-gsi.py":
+                raise subprocess.CalledProcessError(1, command)
+            return build(command, **kwargs)
+
+        output = self.work / "failed-stage"
+        with mock.patch.object(sys, "argv", [
+            "build-release.py", str(self.gsi), "--compatibility", "--xrz",
+            "--vendor-image", str(self.vendor), "--output-root", str(output),
+        ]), mock.patch.object(subprocess, "run", side_effect=run), self.assertRaises(SystemExit):
+            build_release.main()
+        directory = next(output.iterdir())
+        self.assertFalse((directory / "manifest.json").exists())
+        self.assertFalse((directory / "HiBreakPro-release.img").exists())
+
+    def test_installed_daemon_mismatch_rejects_build(self):
+        commands = []
+        build = self.fake_build(commands)
+
+        def run(command, **kwargs):
+            result = build(command, **kwargs)
+            if Path(command[1]).name == "add-eink-migration-to-gsi.py":
+                output = Path(command[3])
+                output.with_name(output.name + ".manifest.json").write_text(json.dumps({
+                    "daemon_sha256": "wrong",
+                }))
+            return result
+
+        output = self.work / "wrong-daemon"
+        with mock.patch.object(build_release, "GSI_SHA256", build_release.sha256(self.gsi)), \
+                mock.patch.object(build_release, "VENDOR_SHA256", build_release.sha256(self.vendor)), \
+                mock.patch.object(sys, "argv", [
+                    "build-release.py", str(self.gsi), "--vendor-image", str(self.vendor),
+                    "--aosp-headers", str(self.headers), "--ndk", str(self.work / "ndk"),
+                    "--output-root", str(output),
+                ]), mock.patch.object(subprocess, "run", side_effect=run), self.assertRaisesRegex(
+                    SystemExit, "does not match"):
+            build_release.main()
+        self.assertFalse((next(output.iterdir()) / "manifest.json").exists())
+        self.assertFalse(any(Path(command[1]).name == "add-display-migration-to-gsi.py" for command in commands))
 
 
 if __name__ == "__main__":

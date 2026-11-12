@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.hibreak import image
 from tools.hibreak.policy import neverallow_failures, prepare_ir_policy
 from tools.hibreak.properties import effective_permissions, parse_contexts, resolve_context
+from tools.hibreak.tested_stages import validate_rebuild
 
 SPEC = importlib.util.spec_from_file_location("eink_image", ROOT / "tools/add-eink-migration-to-gsi.py")
 eink_image = importlib.util.module_from_spec(SPEC)
@@ -168,6 +169,8 @@ def main():
     parser.add_argument("--vendor-image", type=Path, required=True)
     parser.add_argument("--secilc", default="secilc")
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument("--rebuild-gsi", type=Path,
+                        help="Verify critical stage inputs against the tested GSI rebuild")
     args = parser.parse_args()
     for tool in ("debugfs", "e2fsck", "resize2fs", "dumpe2fs", "cp", "sh", args.secilc):
         if not shutil.which(tool):
@@ -181,7 +184,10 @@ def main():
     manifest_path = args.output.with_name(args.output.name + ".manifest.json")
     if os.path.lexists(args.output) or os.path.lexists(manifest_path):
         parser.error("Refusing to overwrite image or manifest")
-    if eink_image.sha256(args.source) != SOURCE_SHA256:
+    source_sha = eink_image.sha256(args.source)
+    if args.rebuild_gsi:
+        validate_rebuild(args.source, args.vendor_image, args.rebuild_gsi, "daemon")
+    elif source_sha != SOURCE_SHA256:
         parser.error("Requires the exact user-tested enforcing daemon image")
     with tempfile.TemporaryDirectory(prefix="hibreak-display-migration-") as directory:
         work = Path(directory)
@@ -205,7 +211,7 @@ def main():
             image.shrink_and_check(args.output, strict_final=True)
             manifest = {
                 "experimental_enforcing_display_helpers": True,
-                "source": {"path": str(args.source.resolve()), "sha256": SOURCE_SHA256},
+                "source": {"path": str(args.source.resolve()), "sha256": source_sha},
                 "vendor": {"path": str(args.vendor_image.resolve()), "sha256": eink_image.sha256(args.vendor_image)},
                 "image": {"path": str(args.output.resolve()), "sha256": eink_image.sha256(args.output)},
             }
