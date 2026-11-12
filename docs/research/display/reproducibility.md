@@ -1,9 +1,9 @@
 # Reproducibility and script locations
 
 The working display scripts now live under [tools/display](../../../tools/display).
-[patch-gsi.sh](../../../tools/patch-gsi.sh) replaces the external display patcher and
+[patch-gsi.sh](../../../tools/image/patch-gsi.sh) replaces the external display patcher and
 the session-only image updater scripts.
-[build-source-apk.sh](../../../tools/build-source-apk.sh) builds the checked-in
+[build-source-apk.sh](../../../tools/build/build-source-apk.sh) builds the checked-in
 Kotlin/resources. The former binary APK patcher and smali payloads have been
 removed; historical binary-patching validation below does not validate the
 current source build. The NDK build has its own

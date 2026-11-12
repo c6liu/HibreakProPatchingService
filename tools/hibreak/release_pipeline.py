@@ -17,7 +17,7 @@ SYSTEM = "u:object_r:system_file:s0"
 
 
 def load(name, filename):
-    spec = importlib.util.spec_from_file_location(name, ROOT / "tools" / filename)
+    spec = importlib.util.spec_from_file_location(name, ROOT / "tools/image" / filename)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load {filename}")
     module = importlib.util.module_from_spec(spec)

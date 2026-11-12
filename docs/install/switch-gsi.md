@@ -10,13 +10,13 @@ Set `IMAGE` to the new final image, then:
 adb reboot fastboot
 fastboot getvar is-userspace
 fastboot getvar current-slot
-tools/flash-system.sh "$IMAGE" a --wipe-data
+tools/device/flash-system.sh "$IMAGE" a --wipe-data
 ```
 
 Expect `yes` and `a`. Inspect the preview, then execute:
 
 ```bash
-tools/flash-system.sh "$IMAGE" a --wipe-data --flash
+tools/device/flash-system.sh "$IMAGE" a --wipe-data --flash
 ```
 
 Without a wipe, old GSI data can lead to "Can't load Android system" in

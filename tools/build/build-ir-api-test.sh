@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/tools/lib/build-common.sh"
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <output.apk>" >&2

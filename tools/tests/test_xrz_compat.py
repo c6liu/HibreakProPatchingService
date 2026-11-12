@@ -10,7 +10,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("xrz_compat", ROOT / "tools/add-xrz-compat-to-gsi.py")
+SPEC = importlib.util.spec_from_file_location("xrz_compat", ROOT / "tools/image/add-xrz-compat-to-gsi.py")
 overlay = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = overlay
 SPEC.loader.exec_module(overlay)

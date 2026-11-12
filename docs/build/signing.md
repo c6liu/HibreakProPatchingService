@@ -60,12 +60,12 @@ passwords. Use this same key for every future A9 build. Changing the
 certificate may cause Android to reject an update or reset the app's data.
 Moving an already-flashed debug-signed system app to the release certificate
 requires a fresh migration plan; test on a disposable device before publishing.
-The experimental source-APK builder uses this same signer and configuration;
+The source-APK builder uses this same signer and configuration;
 it does not use Gradle's separate debug signing key.
 
 ## Unified release builds and APK reuse
 
-`python3 tools/build-release.py "$BASE"` builds and signs the source APK
+`python3 tools/build/build-release.py "$BASE"` builds and signs the source APK
 automatically. Export all three release-key variables in that same terminal
 before starting it. Signing remains interactive; never put passwords in the
 release command or a configuration file.
@@ -76,3 +76,8 @@ is set, requires that fingerprint. Only the public fingerprint is needed for
 this mode; the keystore and alias are not used and no password is requested.
 Without an expected fingerprint, verification does not establish that the APK
 uses your release key.
+
+For an APK already built at `build/HiBreakEink.apk`, pass
+`--built-apk build/HiBreakEink.apk` to the release builder. The builder still
+needs the GSI, NDK, vendor image, IR headers and policy compiler for the
+default device build; see the complete [build command](build-image.md#default-build).

@@ -12,13 +12,13 @@ flags or reflash vbmeta:
 adb reboot fastboot
 fastboot getvar is-userspace
 fastboot getvar current-slot
-tools/flash-system.sh "$IMAGE" a
+tools/device/flash-system.sh "$IMAGE" a
 ```
 
 Expect `yes` and slot `a`, then execute:
 
 ```bash
-tools/flash-system.sh "$IMAGE" a --flash
+tools/device/flash-system.sh "$IMAGE" a --flash
 ```
 
 This preserves userdata; it does not guarantee every upstream GSI update is

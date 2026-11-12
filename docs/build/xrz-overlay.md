@@ -45,11 +45,11 @@ export SECILC=/path/to/secilc
 export XRZ_IMAGE=build/HiBreakPro-xrz-v2-test.img
 
 # Validates the policy and property context; does not create an image.
-python3 tools/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
+python3 tools/image/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
   --vendor-image "$VENDOR" --secilc "$SECILC" --check-only
 
 # Creates a separate image only after preflight. Existing outputs are refused.
-python3 tools/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
+python3 tools/image/add-xrz-compat-to-gsi.py "$XRZ_SOURCE" "$XRZ_IMAGE" \
   --vendor-image "$VENDOR" --secilc "$SECILC"
 sha256sum "$XRZ_IMAGE"
 ```
@@ -66,7 +66,7 @@ directories. The diagnostics can contain personal data; review before sharing:
 
 ```bash
 D=build/xrz-before  # use build/xrz-after for the second capture
-tools/collect-diagnostics.sh "$D"
+tools/device/collect-diagnostics.sh "$D"
 adb shell getenforce > "$D/selinux-mode.txt"
 adb logcat -d -b all -v threadtime > "$D/logcat-all.txt"
 adb logcat -d -b crash -v threadtime > "$D/logcat-crash.txt"

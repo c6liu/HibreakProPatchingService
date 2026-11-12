@@ -40,8 +40,10 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
 - Frontlights use
   `/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light`
   and `lm3630a_warm_light` on the same path.
-- Auto-refresh uses `/sys/kernel/debug/eink_debug/clean_a2`; anti-flicker uses
-  `/sys/kernel/debug/eink_debug/anti_flicker`. Missing nodes are logged.
+- Auto Refresh and Anti-Shake use the init bridge by default to write
+  `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
+  The compatibility daemon uses direct writes instead. Request success does
+  not acknowledge the hardware write; init logs failed bridge actions.
 - Native bitmap commit and native force-clear are not implemented for HiBreak.
   The app's separate Clear Screen action is the intended alternative.
 - Threshold/contrast code still points at Qualcomm `epd_*` paths. These

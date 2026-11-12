@@ -10,7 +10,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("build_release", ROOT / "tools/build-release.py")
+SPEC = importlib.util.spec_from_file_location("build_release", ROOT / "tools/build/build-release.py")
 assert SPEC is not None and SPEC.loader is not None
 build_release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(build_release)

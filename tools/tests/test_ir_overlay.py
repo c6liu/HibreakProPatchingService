@@ -13,7 +13,7 @@ from tools.hibreak import elf, image, policy
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("ir_overlay", ROOT / "tools/add-ir-capture-to-gsi.py")
+SPEC = importlib.util.spec_from_file_location("ir_overlay", ROOT / "tools/image/add-ir-capture-to-gsi.py")
 overlay = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(overlay)
 

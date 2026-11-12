@@ -4,7 +4,7 @@ The 230-byte branch in `StudyKeyCode` is separate from `compdata`. An
 isolated run from `0x2a24` to `0x2b70` reproduces its normalization and complete
 232-byte packet, stopping before JNI allocation/copy callbacks. All 22
 synthetic extended vectors match the independent model in
-[`tools/verify-hxd-codec.py`](../../../tools/verify-hxd-codec.py) **byte-for-byte**,
+[`tools/diagnostics/verify-hxd-codec.py`](../../../tools/diagnostics/verify-hxd-codec.py) **byte-for-byte**,
 including the checksum. These include fixed patterns, 16 deterministic
 pseudorandom records, and controlled memory after the input.
 

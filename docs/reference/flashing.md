@@ -12,21 +12,21 @@ another user's partition commands.
 Preview first (no device commands executed):
 
 ```bash
-tools/flash-system.sh build/HiBreakPro.img a
+tools/device/flash-system.sh build/HiBreakPro.img a
 ```
 
 If slot A is the intended, prepared slot:
 
 ```bash
 adb reboot fastboot
-tools/flash-system.sh build/HiBreakPro.img a --flash
+tools/device/flash-system.sh build/HiBreakPro.img a --flash
 ```
 
 For a **first migration from official stock firmware** that requires a factory
 reset, preview the destructive action first:
 
 ```bash
-tools/flash-system.sh build/HiBreakPro.img a --wipe-data
+tools/device/flash-system.sh build/HiBreakPro.img a --wipe-data
 ```
 
 For the first GSI migration, also pass `--delete-stock-logical-partitions` to
@@ -35,9 +35,9 @@ this is needed to make room for the GSI. The option is destructive, so inspect
 the preview before executing. For example:
 
 ```bash
-tools/flash-system.sh build/HiBreakPro.img a \
+tools/device/flash-system.sh build/HiBreakPro.img a \
   --delete-stock-logical-partitions --wipe-data
-tools/flash-system.sh build/HiBreakPro.img a \
+tools/device/flash-system.sh build/HiBreakPro.img a \
   --delete-stock-logical-partitions --wipe-data --flash
 ```
 

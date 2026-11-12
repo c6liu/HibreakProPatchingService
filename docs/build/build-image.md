@@ -12,7 +12,7 @@ intermediate stage images are temporary. Independent APK, daemon, and (when
 requested) IR HAL builds run concurrently before image patching:
 
 ```bash
-python3 tools/build-release.py "$BASE"
+python3 tools/build/build-release.py "$BASE"
 ```
 
 By default this **builds and signs the source APK**, adds IR and XRZ,
@@ -20,18 +20,17 @@ uses property-only refresh and the working init bridge for Auto Refresh and
 Anti-Shake, applies the experimental PHH grant reduction, and migrates the
 e-ink daemon and display/AOD helpers to enforcing domains. The PHH root
 domain itself remains permissive; the reduction is not a hardening claim.
-Set the [signing variables](signing.md) for release signing; otherwise the
-APK is debug-signed. Passwords are entered only at the signer's terminal prompts.
+Set the [signing variables](signing.md) for release signing when building the
+APK from source; otherwise it is debug-signed. Passwords are entered only at
+the signer's terminal prompts. A reused `--built-apk` is never re-signed.
 
 The migration defaults are restricted to the tested EvoX GSI (SHA-256
 `d25aeac2b42012e76e8f4fd95d69f9e28ceeac64289d85f194d72ef0249374bf`)
 and HiBreak Pro 3.1.6 vendor image (SHA-256
 `6ba5354d8bcd1b1b91cfc79c3cbe148ddd31df706e0aa6c6e03191f9dcff24ff`).
-Freshly generated intermediate images are checked against the tested
-policy-critical components and service metadata and undergo the existing
-policy checks. The component checks are not a whole-image identity check:
-use the release builder to generate the intermediates rather than supplying
-an unrelated or independently modified image. A different
+The working image is checked at migration boundaries against tested
+policy-critical components and service metadata. These checks are not a
+whole-image identity check. A different
 GSI or vendor fails explicitly instead of silently disabling features.
 Use a Python interpreter with SETools, such as `/usr/bin/python3` where
 the system Python provides it.
@@ -43,13 +42,13 @@ Set `BASE`, `VENDOR` (the tested raw stock vendor image),
 policy compiler. Then run:
 
 ```bash
-python3 tools/build-release.py "$BASE"
+python3 tools/build/build-release.py "$BASE"
 ```
 
 All paths can also be supplied explicitly:
 
 ```bash
-/usr/bin/python3 tools/build-release.py "$BASE" \
+/usr/bin/python3 tools/build/build-release.py "$BASE" \
   --vendor-image "$VENDOR" \
   --ndk "$ANDROID_NDK_HOME" \
   --aosp-headers "$AOSP_HEADERS" \
@@ -95,7 +94,7 @@ removed; the default uses the working init bridge.
 To reuse a signed source APK you already built, without rebuilding or signing it:
 
 ```bash
-/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk
+/usr/bin/python3 tools/build/build-release.py "$BASE" --built-apk build/HiBreakEink.apk
 ```
 
 The existing APK is copied unchanged and its signature/alignment verified with
@@ -103,6 +102,23 @@ uber-apk-signer. When `APK_RELEASE_CERT_SHA256` is set, the certificate must
 match it. No keystore password is needed for reuse. The manifest records the
 original APK checksum; it does not claim that current source files produced it.
 Do not combine `--source-apk` and `--built-apk`. Positional APK inputs are rejected.
+Add `--built-apk build/HiBreakEink.apk` to the full command above; all default
+vendor, NDK, header and policy compiler requirements still apply.
+
+For example, after setting those input variables:
+
+```bash
+/usr/bin/python3 tools/build/build-release.py "$BASE" \
+  --built-apk build/HiBreakEink.apk \
+  --vendor-image "$VENDOR" \
+  --aosp-headers "$AOSP_HEADERS" \
+  --ndk "$ANDROID_NDK_HOME" \
+  --secilc "$SECILC"
+```
+
+Use `--output-root /path/to/builds` to change the output directory. Run
+`/usr/bin/python3 tools/build/build-release.py --help` for the full option
+list, including compatibility and verification choices.
 
 The manual build below remains supported and exposes each intermediate step.
 
@@ -167,7 +183,7 @@ The final image remains `HiBreakPro-release.img`; the manifest explicitly
 records the experimental option and reduction-tool checksum.
 
 ```bash
-/usr/bin/python3 tools/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
+/usr/bin/python3 tools/build/build-release.py "$BASE" --built-apk build/HiBreakEink.apk \
   --ir --xrz --experimental-phh-reduction \
   --vendor-image "$VENDOR" --aosp-headers "$AOSP_HEADERS" \
   --ndk "$ANDROID_NDK_HOME" --secilc "$SECILC"
@@ -179,21 +195,21 @@ including daemon entrypoint access, but preserves the upstream permissive
 and does not make all upstream services enforcing. Keep your working image and recovery path;
 do not make this domain enforcing without reviewing its required grants.
 See the [host experiment](ir-overlay.md#host-only-baseline-reduction-experiment-2026-11-11).
-The standalone [overlay tool](../../tools/add-phh-reduction-to-gsi.py)
+The standalone [overlay tool](../../tools/image/add-phh-reduction-to-gsi.py)
 also supports `--check-only` without producing an image.
 
 ## Manual source-APK build
 
 ```bash
 cd "$HOME/HibreakProPatchingService"
-tools/build-source-apk.sh build/HiBreakEink-release.apk
-tools/build-daemon.sh build/a9_eink_server-release
+tools/build/build-source-apk.sh build/HiBreakEink-release.apk
+tools/build/build-daemon.sh build/a9_eink_server-release
 ```
 
 Stop on an error. On success, build the display/AOD release base:
 
 ```bash
-tools/patch-gsi.sh "$BASE" build/HiBreakPro-release-base.img \
+tools/image/patch-gsi.sh "$BASE" build/HiBreakPro-release-base.img \
   build/HiBreakEink-release.apk build/a9_eink_server-release --release
 ```
 
@@ -217,14 +233,14 @@ the orchestrator builds from the checked-in Kotlin and resources by default.
 The explicit equivalent remains available:
 
 ```bash
-python3 tools/build-release.py "$BASE" --source-apk
+python3 tools/build/build-release.py "$BASE" --source-apk
 ```
 
 The upstream APK patcher has been removed. The manifest identifies source builds
 and records checksums of the source and build files. To build just the APK:
 
 ```bash
-tools/build-source-apk.sh build/HiBreakEink-source.apk
+tools/build/build-source-apk.sh build/HiBreakEink-source.apk
 ```
 
 Both commands use the same signing variables and overwrite safeguards.

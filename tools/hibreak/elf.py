@@ -16,7 +16,7 @@ def validate_static_arm64_executable(path):
         raise ValueError("Invalid ELF program headers")
     if any(int.from_bytes(binary[offset:offset + 4], "little") == 3
            for offset in range(phoff, phoff + phsize * phnum, phsize)):
-        raise ValueError("Service requires a static executable; rebuild with tools/build-ir-tool.sh")
+        raise ValueError("Service requires a static executable; rebuild with tools/build/build-ir-tool.sh")
 
 
 def validate_hal_module(path):

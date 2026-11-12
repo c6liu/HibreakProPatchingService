@@ -29,7 +29,7 @@ No phone was connected for this comparison.
   Adding only the missing mapping and labels would deny existing reads for
   203 domains and existing property sets for four domains on this build.
 - A host-only experiment with the new
-  [XRZ compatibility overlay](../../../tools/add-xrz-compat-to-gsi.py) preserves
+  [XRZ compatibility overlay](../../../tools/image/add-xrz-compat-to-gsi.py) preserves
   all 847 baseline effective `allow` permission tuples on those exact three
   properties and adds only the composer's property-service `set`. It adds
   no new neverallow violations to this merge. The EvoX/vendor merge already

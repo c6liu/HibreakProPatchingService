@@ -9,9 +9,10 @@ emulator, CMake, or original APK extraction is not needed.
 | No APK argument, or `--source-apk` (default) | Gradle, Android SDK, JDK, and uber-apk-signer; see [source prerequisites](#source-apk-prerequisites) |
 | `--built-apk /path/to/signed.apk` | Already signed source-built APK, Java, and uber-apk-signer for verification |
 
-Every image build also needs the GSI and NDK to compile the daemon.
-IR additionally needs [HAL headers and matching vendor](ir-inputs.md);
-XRZ needs matching vendor, `secilc`, and SETools in the selected Python.
+Every image build also needs the GSI and NDK to compile the daemon. The
+default tested-device build includes IR and XRZ, so it also needs the
+[HAL headers and matching vendor](ir-inputs.md), `secilc`, and SETools in
+the selected Python. Compatibility builds can disable those overlays.
 
 | What | Where to get it | Where it goes |
 |------|-----------------|---------------|

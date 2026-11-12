@@ -3,23 +3,52 @@
 The scripts are developer and maintenance tools. For the supported image
 workflow, follow the [build guide](../build/README.md), which builds the
 release APK, daemon and patched image in order. The
-[release orchestrator](../../tools/build-release.py) runs the same stages and
-records input/output checksums in a manifest.
+[release orchestrator](../../tools/build/build-release.py) uses one working image
+and records input/output checksums and stage timings in a manifest. Script
+paths have changed: use the directories below rather than the old `tools/`
+top-level paths.
+
+## Build entry points
 
 | Script | Purpose |
 |--------|---------|
-| [build-release.py](../../tools/build-release.py) | Unified release build: source APK/signing, optional signed source `--built-apk` reuse, daemon, IR/XRZ, and checksum manifest; never flashes |
-| [build-source-apk.sh](../../tools/build-source-apk.sh) | Build the checked-in Kotlin/resources with Gradle and the APK signer |
-| [build-daemon.sh](../../tools/build-daemon.sh) | Compile the current daemon with the Android NDK |
-| [build-ir-tool.sh](../../tools/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
-| [add-ir-capture-to-gsi.py](../../tools/add-ir-capture-to-gsi.py) | Add the optional IR overlay; release support is HAL-only with `--hal-module`; diagnostics and test apps require opt-in; `--check-only` never packages an image |
-| [add-xrz-compat-to-gsi.py](../../tools/add-xrz-compat-to-gsi.py) | Add experimental XRZ v2 labels for four exact graphics properties and restore composer set access; requires matching vendor, `secilc` and SETools; run after IR on a pre-XRZ image; `--check-only` never packages an image |
-| [build-ir-remote.sh](../../tools/build-ir-remote.sh) | Build the standalone one-button IR test APK; requires the matching ROM overlay |
-| [build-ir-hal.sh](../../tools/build-ir-hal.sh) | Build the experimental single-frame NEC/NECext Consumer IR adapter; opt in with overlay `--hal-module` |
-| [build-ir-api-test.sh](../../tools/build-ir-api-test.sh) | Build an ordinary `ConsumerIrManager` test client; no root or private properties |
-| [patch-gsi.sh](../../tools/patch-gsi.sh) | Patch display/AOD support, preserve saved ADB state, enforce ADB authorization, and remove `su` unless `--root`; supports `--release` mode |
-| [flash-system.sh](../../tools/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
-| [collect-diagnostics.sh](../../tools/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
+| [build-release.py](../../tools/build/build-release.py) | Unified release build with combined or strict verification; never flashes |
+| [build-source-apk.sh](../../tools/build/build-source-apk.sh) | Build the checked-in Kotlin/resources with Gradle and the APK signer |
+| [build-daemon.sh](../../tools/build/build-daemon.sh) | Compile the current daemon with the Android NDK |
+| [build-ir-hal.sh](../../tools/build/build-ir-hal.sh) | Build the single-frame NEC/NECext Consumer IR adapter used by the default release |
+| [build-ir-tool.sh](../../tools/build/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
+| [build-ir-remote.sh](../../tools/build/build-ir-remote.sh) | Build the standalone one-button IR test APK; requires the matching ROM overlay |
+| [build-ir-api-test.sh](../../tools/build/build-ir-api-test.sh) | Build an ordinary `ConsumerIrManager` test client; no root or private properties |
+
+## Standalone image tools
+
+These are manual alternatives, not extra steps after a default release build.
+
+| Script | Purpose |
+|--------|---------|
+| [patch-gsi.sh](../../tools/image/patch-gsi.sh) | Patch display/AOD support, preserve saved ADB state, enforce ADB authorization, and remove `su` unless `--root`; supports `--release` mode |
+| [patch-gsi.py](../../tools/image/patch-gsi.py) | Python implementation of the base image patcher |
+| [add-ir-capture-to-gsi.py](../../tools/image/add-ir-capture-to-gsi.py) | Add an IR HAL or opt-in diagnostics; `--check-only` does not write an image |
+| [add-xrz-compat-to-gsi.py](../../tools/image/add-xrz-compat-to-gsi.py) | Add the XRZ v2 graphics-property overlay; requires a matching vendor, `secilc` and SETools |
+| [add-phh-reduction-to-gsi.py](../../tools/image/add-phh-reduction-to-gsi.py) | Apply or preflight the exact-input experimental PHH grant reduction |
+
+## Device tools
+
+| Script | Purpose |
+|--------|---------|
+| [flash-system.sh](../../tools/device/flash-system.sh) | Dry-run by default; `--flash` checks fastbootd and active slot; `--wipe-data` opts into erasing shared userdata |
+| [collect-diagnostics.sh](../../tools/device/collect-diagnostics.sh) | Save read-only boot, power, display, and service diagnostics |
+
+## Diagnostics and internals
+
+| Location | Purpose |
+|----------|---------|
+| [check-eink-migration.py](../../tools/diagnostics/check-eink-migration.py) | Host-only e-ink policy and permission validation |
+| [verify-hxd-codec.py](../../tools/diagnostics/verify-hxd-codec.py), [verify-hxd-driver.py](../../tools/diagnostics/verify-hxd-driver.py) | Optional IR research harnesses |
+| [internal/](../../tools/internal/) | Release-init and build-property helpers invoked by the patcher |
+| [hibreak/](../../tools/hibreak/) | Shared image, policy, verification and release-pipeline modules |
+| [display/](../../tools/display/), [ir/](../../tools/ir/) | Android runtime scripts, policies, init files and IR sources |
+| [tests/](../../tools/tests/) | Host tests and native fixtures |
 
 The Gradle source builder resolves dependencies and can install
 missing SDK components; the other tools do not download dependencies. No tool

@@ -48,13 +48,13 @@ Expect `is-userspace: yes` and `current-slot: a`. Stop if either differs.
 Preview first; this command only prints the planned actions:
 
 ```bash
-tools/flash-system.sh "$IMAGE" a --delete-stock-logical-partitions --wipe-data
+tools/device/flash-system.sh "$IMAGE" a --delete-stock-logical-partitions --wipe-data
 ```
 
 Only when the image, slot and wipe are correct, execute:
 
 ```bash
-tools/flash-system.sh "$IMAGE" a --delete-stock-logical-partitions --wipe-data --flash
+tools/device/flash-system.sh "$IMAGE" a --delete-stock-logical-partitions --wipe-data --flash
 ```
 
 The helper deletes only slot A's unused logical partitions to make room,

@@ -16,7 +16,7 @@ import tempfile
 import uuid
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.hibreak.tested_stages import GSI_SHA256, VENDOR_SHA256
 from tools.hibreak import release_pipeline
@@ -43,7 +43,7 @@ def source_apk_inputs(parser):
         ROOT / "a9_accessibility_service/build.gradle.kts",
         ROOT / "a9_accessibility_service/AndroidManifest.xml",
         ROOT / "tools/android-system-api-stubs/build.gradle.kts",
-        ROOT / "tools/build-source-apk.sh",
+        ROOT / "tools/build/build-source-apk.sh",
         ROOT / "tools/lib/build-common.sh",
     ]
     for path in files:
@@ -159,7 +159,7 @@ def main():
     stage_directory = tempfile.TemporaryDirectory(prefix=".release-stages-", dir=build_dir)
     stage_dir = Path(stage_directory.name)
     working_image = stage_dir / "HiBreakPro-release-working.img"
-    parallel_commands = [["bash", str(ROOT / "tools/build-daemon.sh"), str(daemon)]]
+    parallel_commands = [["bash", str(ROOT / "tools/build/build-daemon.sh"), str(daemon)]]
     if args.enforcing_migration:
         parallel_commands[0].append("--enforcing-migration-candidate")
     elif args.experimental_property_only_refresh:
@@ -168,10 +168,10 @@ def main():
             parallel_commands[0].append("--experimental-init-eink-bridge")
     if args.source_apk:
         parallel_commands.append(
-            ["bash", str(ROOT / "tools/build-source-apk.sh"), str(apk)])
+            ["bash", str(ROOT / "tools/build/build-source-apk.sh"), str(apk)])
     hal = build_dir / "consumerir.hxd-release.so"
     if args.ir:
-        parallel_commands.append(["bash", str(ROOT / "tools/build-ir-hal.sh"), str(hal)])
+        parallel_commands.append(["bash", str(ROOT / "tools/build/build-ir-hal.sh"), str(hal)])
     if args.experimental_phh_reduction:
         print("WARNING: experimental PHH grant reduction requested; root domain remains permissive.")
 
@@ -219,7 +219,7 @@ def main():
         manifest["options"]["enforcing_eink_and_display"] = True
     if args.experimental_phh_reduction:
         manifest["options"]["experimental_phh_reduction"] = True
-        reduction_tool = ROOT / "tools/add-phh-reduction-to-gsi.py"
+        reduction_tool = ROOT / "tools/image/add-phh-reduction-to-gsi.py"
         manifest["inputs"]["phh_reduction_tool"] = {
             "path": str(reduction_tool), "sha256": sha256(reduction_tool),
         }

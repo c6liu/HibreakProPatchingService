@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 AOD_SCRIPT = ROOT / "tools/display/hibreak-aod.sh"
-RELEASE_SCRIPT = ROOT / "tools/prepare-release-init.py"
+RELEASE_SCRIPT = ROOT / "tools/internal/prepare-release-init.py"
 
 
 class DisplayScriptTests(unittest.TestCase):

@@ -8,7 +8,8 @@ python3 -m unittest tools.tests.test_build_release tools.tests.test_source_apk t
 
 Orchestration tests mock expensive build commands. They cover source builds,
 rejection of positional upstream APK inputs, signed source-APK reuse,
-certificate failures, IR-to-XRZ ordering, environment defaults, and tool paths.
+certificate failures, combined and strict verification routing, stage ordering,
+environment defaults, and relocated tool paths.
 They do not prove device compatibility. Binary APK patching and its smali
 instrumentation tests have been removed.
 
@@ -30,7 +31,7 @@ If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's
 ## Signed source-APK inspection
 
 ```bash
-tools/build-source-apk.sh build/HiBreakEink-source.apk
+tools/build/build-source-apk.sh build/HiBreakEink-source.apk
 ANDROID_HOME="$HOME/Android/Sdk" \
 HIBREAK_SOURCE_APK="$PWD/build/HiBreakEink-source.apk" \
   python3 -m unittest tools.tests.test_source_apk -v
@@ -46,7 +47,7 @@ the artifact test class is skipped. It does not access a device.
 ```bash
 python3 -m unittest tools.tests.test_ir_overlay tools.tests.test_xrz_compat -v
 python3 -m unittest discover -s tools/tests -v
-for script in tools/*.sh tools/display/*.sh; do bash -n "$script"; done
+for script in tools/build/*.sh tools/image/*.sh tools/device/*.sh tools/display/*.sh tools/lib/*.sh; do bash -n "$script"; done
 shellcheck --shell=sh tools/display/*.sh
 shellcheck tools/lib/*.sh
 ```

@@ -65,7 +65,7 @@ output.mkdir(parents=True)
 
     def build(self):
         return subprocess.run(
-            ["bash", ROOT / "tools/build-source-apk.sh", self.output],
+            ["bash", ROOT / "tools/build/build-source-apk.sh", self.output],
             env=self.env, capture_output=True, text=True,
         )
 

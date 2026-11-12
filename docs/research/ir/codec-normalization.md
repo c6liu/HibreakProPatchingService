@@ -188,7 +188,7 @@ treating the APK's returned array length as proof of successful conversion.
 
 ## Reproducible software checks
 
-[`tools/verify-hxd-codec.py`](../../../tools/verify-hxd-codec.py) runs the original
+[`tools/diagnostics/verify-hxd-codec.py`](../../../tools/diagnostics/verify-hxd-codec.py) runs the original
 Thumb instructions in Unicorn using synthetic records. It verifies the
 library hash listed in [binary landmarks](protocol-correlation.md#reproducible-binary-landmarks). Isolated tests map selected helper code; complete
 short-record tests additionally map the local ELF load segments and resolve
@@ -198,7 +198,7 @@ services, or device access execute. The APK and its proprietary code tables
 are not included.
 
 ```sh
-uv run --script tools/verify-hxd-codec.py /path/to/HxdIR.apk
+uv run --script tools/diagnostics/verify-hxd-codec.py /path/to/HxdIR.apk
 ```
 
 The script declares its tested Unicorn dependency; this is investigation

@@ -19,7 +19,7 @@
 For display/app problems, enable USB debugging and collect read-only logs:
 
 ```bash
-tools/collect-diagnostics.sh build/diagnostics
+tools/device/collect-diagnostics.sh build/diagnostics
 ```
 
 See [Findings](../research/README.md) and [detailed building/verification](../build/README.md)

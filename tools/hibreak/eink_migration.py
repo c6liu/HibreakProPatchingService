@@ -8,7 +8,7 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 from tools.hibreak import image
 
-SPEC = importlib.util.spec_from_file_location("eink_migration", ROOT / "tools/check-eink-migration.py")
+SPEC = importlib.util.spec_from_file_location("eink_migration", ROOT / "tools/diagnostics/check-eink-migration.py")
 migration = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(migration)
 

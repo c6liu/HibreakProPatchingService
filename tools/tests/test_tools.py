@@ -7,7 +7,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PATCHER = ROOT / "tools/patch-gsi.sh"
+PATCHER = ROOT / "tools/image/patch-gsi.sh"
 
 
 class ToolTests(unittest.TestCase):
@@ -252,7 +252,7 @@ class ToolTests(unittest.TestCase):
         self.assertIn("cannot be combined", rejected.stderr)
 
     def test_flash_defaults_to_dry_run(self):
-        result = subprocess.run(["bash", ROOT / "tools/flash-system.sh", self.base, "a"],
+        result = subprocess.run(["bash", ROOT / "tools/device/flash-system.sh", self.base, "a"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Nothing was executed", result.stdout)
@@ -261,7 +261,7 @@ class ToolTests(unittest.TestCase):
 
     def test_flash_wipe_data_is_opt_in_and_visible_in_preview(self):
         result = subprocess.run(
-            ["bash", ROOT / "tools/flash-system.sh", self.base, "a", "--wipe-data"],
+            ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a", "--wipe-data"],
             capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = result.stdout.splitlines()
@@ -276,14 +276,14 @@ class ToolTests(unittest.TestCase):
         self.assertIn("erases shared userdata", result.stdout)
         self.assertIn("Nothing was executed", result.stdout)
         duplicate = subprocess.run(
-            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+            ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a",
              "--wipe-data", "--wipe-data"],
             capture_output=True, text=True)
         self.assertNotEqual(duplicate.returncode, 0)
 
     def test_flash_stock_partition_deletion_is_opt_in_and_ordered(self):
         preview = subprocess.run(
-            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+            ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a",
              "--delete-stock-logical-partitions"],
             capture_output=True, text=True)
         self.assertEqual(preview.returncode, 0, preview.stderr)
@@ -296,7 +296,7 @@ class ToolTests(unittest.TestCase):
         self.assertLess(commands.index(system_ext), commands.index(flash))
         self.assertIn("removes product and system_ext from slot a", preview.stdout)
         duplicate = subprocess.run(
-            ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+            ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a",
              "--delete-stock-logical-partitions",
              "--delete-stock-logical-partitions"],
             capture_output=True, text=True)
@@ -321,7 +321,7 @@ esac
                        COMMAND_LOG=str(command_log), FAKE_FASTBOOTD=fastbootd,
                        FAKE_SLOT=slot)
             result = subprocess.run(
-                ["bash", ROOT / "tools/flash-system.sh", self.base, "a", "--flash"],
+                ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a", "--flash"],
                 capture_output=True, text=True, env=env)
             self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("flash ", command_log.read_text())
@@ -365,7 +365,7 @@ esac
                            COMMAND_LOG=str(command_log), FAKE_FLASH_STATUS=str(status),
                            FAKE_WIPE_STATUS=str(wipe_status), MODE_FILE=str(mode_file),
                            FAKE_STAY_FASTBOOTD=str(stay))
-                args = ["bash", ROOT / "tools/flash-system.sh", self.base, "a"]
+                args = ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a"]
                 if wipe_requested:
                     args.append("--wipe-data")
                 args.append("--flash")
@@ -424,7 +424,7 @@ esac
                            FAKE_DELETE_PRODUCT_STATUS=str(product_status),
                            FAKE_DELETE_SYSTEM_EXT_STATUS=str(system_ext_status))
                 result = subprocess.run(
-                    ["bash", ROOT / "tools/flash-system.sh", self.base, "a",
+                    ["bash", ROOT / "tools/device/flash-system.sh", self.base, "a",
                      "--delete-stock-logical-partitions", "--flash"],
                     capture_output=True, text=True, env=env)
                 commands = command_log.read_text().splitlines()
@@ -501,7 +501,7 @@ class RefreshModeTests(unittest.TestCase):
             args_file = work / "args"
             env = dict(os.environ, ANDROID_NDK_HOME=str(work / "ndk"),
                        ARGS_FILE=str(args_file))
-            script = ROOT / "tools/build-daemon.sh"
+            script = ROOT / "tools/build/build-daemon.sh"
             output = work / "daemon"
             result = subprocess.run(["bash", script, output, "--enforcing-migration-candidate"],
                                     capture_output=True, text=True, env=env)

@@ -157,12 +157,12 @@ uv tool run --from vmlinux-to-elf vmlinux-to-elf \
 Use the NDK's ARM64 `llvm-nm` and `llvm-objdump` on the reconstructed ELF.
 Unlike the APK's ARM32 Thumb helpers, this kernel is AArch64.
 
-The [stock-driver verification harness](../../../tools/verify-hxd-driver.py)
+The [stock-driver verification harness](../../../tools/diagnostics/verify-hxd-driver.py)
 executes original instructions from the decompressed, hash-checked
 `Image`; the reconstructed ELF is not required for those checks:
 
 ```sh
-uv run --script tools/verify-hxd-driver.py /path/to/analysis/Image
+uv run --script tools/diagnostics/verify-hxd-driver.py /path/to/analysis/Image
 ```
 
 It verifies unchanged writes and the 255-byte cap, both learning-mode

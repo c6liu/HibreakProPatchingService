@@ -29,7 +29,7 @@ adb shell getprop debug.sf.enable_gl_backpressure
 adb shell getprop debug.sf.enable_hwc_backpressure
 adb shell dumpsys SurfaceFlinger | grep 'h/w composer disabled'
 adb logcat -d -s hibreak-display a9EinkService
-tools/collect-diagnostics.sh build/diagnostics-after-boot
+tools/device/collect-diagnostics.sh build/diagnostics-after-boot
 ```
 
 Expect boot completion `1`, both backpressure properties `false`, and disabled
@@ -63,7 +63,7 @@ Do not assume a successful package install proves mode speed or AOD appearance.
 Test a selected mode, lock/unlock, and inspect the physical panel. See
 [Findings](../research/README.md) for unsupported controls and the boot power-button issue.
 
-## Optional XRZ v2 overlay
+## XRZ v2 overlay
 
 If the image includes XRZ v2, follow its
 [label and log checks](../build/xrz-overlay.md). Confirm SELinux remains
@@ -76,9 +76,19 @@ confirmed the labels and loaded composer permissions, with no retained
 composer crash or framework restart. It did not establish successful property
 writes or stability across repeated sleep/wake and scrolling tests.
 
-## Enforcing-domain migration: diagnostic gate
+## Migration investigation history
 
-Migration is not yet enabled in release builds. The native daemon now reports
+The following sections preserve the chronological investigation, including
+statements about what was not yet implemented or tested at each stage. They
+are not current release instructions. The default release builder now installs
+the working init bridge and the enforcing e-ink and display/AOD migrations;
+the user reported that the separate migration test images worked. Upstream
+PHH services remain outside those migrations. See the current
+[build and device-verification guidance](../build/build-image.md#init-bridge-and-enforcing-migrations).
+
+### Initial diagnostic gate
+
+At this initial stage, migration was not enabled in release builds. The native daemon reports
 its process context and the SELinux labels, owner/group and modes of its
 hardware nodes, framework command executables and selected side-key input
 device at startup. These probes only read metadata; failures are logged
@@ -142,16 +152,16 @@ experimental migration build adds the peer check described below.
 Validate only, without image creation or device changes:
 
 ```bash
-/usr/bin/python3 tools/check-eink-migration.py "$BASE" \
+/usr/bin/python3 tools/diagnostics/check-eink-migration.py "$BASE" \
   --vendor-image "$VENDOR" --secilc "$SECILC"
 ```
 
-`tools/build-daemon.sh OUTPUT --enforcing-candidate` compiles the request
+`tools/build/build-daemon.sh OUTPUT --enforcing-candidate` compiles the request
 property route for host/development testing. **Do not substitute this binary
 into a normal release image:** the bridge, domain transitions, executable
 labels, hardware labels/permissions and framework execution path are not
-fully wired. Normal daemon/release builds keep the existing direct-property
-behavior. The candidate files are not installed by the release builder.
+fully wired in that early standalone candidate. At the time, normal builds
+kept the direct-property behavior and did not install the candidate files.
 
 The separate `--enforcing-migration-candidate` daemon build combines those
 request properties with the user-tested property-only refresh and init e-ink
@@ -161,8 +171,8 @@ to send the two bridge requests. Validate this against the tested bridge
 image using `--with-init-bridge`; the full test-image/vendor pair retained
 386 existing diagnostic blocks with no added blocks or changed existing
 bridge-property permissions. The separate migration-image builder adds
-frontlight access, socket authorization and service labelling; none of those
-changes are in normal release builds or have been validated on the device.
+frontlight access, socket authorization and service labelling. At that stage
+those changes were not in normal release builds or device-validated.
 
 The migration daemon obtains `SO_PEERCRED` for each connection and compares the
 peer's Android app ID against `/data/system/packages.list`, rejecting malformed
@@ -218,7 +228,7 @@ changed neverallow diagnostics, so it was not used. Instead, the experimental
 overlay keeps those labels intact, reads their legacy values on first use, and
 stores migrated markers in two new exact, enum-typed persistent properties.
 This keeps the existing AOD inversion behavior rather than removing it; the
-normal release scripts remain unchanged. The new image and its embedded
+normal release scripts remained unchanged at that stage. The new image and its embedded
 scripts, policy, property contexts, unchanged daemon, and checksum have been
 verified on the host. Boot, SurfaceFlinger, framework callbacks, AOD
 transitions, and DAC still require device testing.

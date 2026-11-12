@@ -43,11 +43,12 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
   image from source.
 
 The [unified release builder](docs/build/build-image.md) builds and signs the
-source APK, compiles the daemon, and creates a new image. Add `--ir --xrz` for
-the IR HAL and experimental graphics-property overlay, or use `--built-apk`
-to reuse an already signed source-built APK. APKs are built only from the
-checked-in Kotlin/resources; upstream binary APK patching is no longer supported.
-Source-APK device validation remains required.
+source APK, compiles the daemon, and creates a new image. The tested-device
+defaults include the IR HAL, XRZ, the init e-ink bridge, and enforcing e-ink
+and display helpers. Use `--built-apk build/HiBreakEink.apk` to reuse an
+already signed source-built APK, or `--compatibility` for other GSIs.
+APKs are built only from checked-in Kotlin/resources; upstream binary APK
+patching is no longer supported. Validate each release on the target device.
 
 The tools do not patch vendor or flash automatically. Flashing is a dry run
 unless explicitly requested; a data wipe requires an explicit option and

@@ -7,7 +7,7 @@ from tools.hibreak.properties import parse_contexts
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("eink_migration", ROOT / "tools/check-eink-migration.py")
+SPEC = importlib.util.spec_from_file_location("eink_migration", ROOT / "tools/diagnostics/check-eink-migration.py")
 migration = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(migration)
 

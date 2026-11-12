@@ -8,7 +8,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("phh_reduction", ROOT / "tools/add-phh-reduction-to-gsi.py")
+SPEC = importlib.util.spec_from_file_location("phh_reduction", ROOT / "tools/image/add-phh-reduction-to-gsi.py")
 overlay = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(overlay)
 

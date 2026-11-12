@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/tools/lib/build-common.sh"
 if [ "$#" -ne 1 ]; then
     echo "Usage: ANDROID_NDK_HOME=/path/to/ndk AOSP_HEADERS=/path/to/include $0 <output.so>" >&2

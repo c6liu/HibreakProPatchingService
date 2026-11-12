@@ -12,7 +12,7 @@ import sys
 import tempfile
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -86,7 +86,7 @@ def read_image(image_path, path):
 
 
 def prepare_release_files(display_rc, eink_rc, work):
-    helper = ROOT / "tools/prepare-release-init.py"
+    helper = ROOT / "tools/internal/prepare-release-init.py"
     image.run(
         sys.executable, str(helper), str(display_rc), str(eink_rc), str(work),
     )
@@ -134,7 +134,7 @@ def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=T
                 prop_file = work / "build.prop"
                 image.extract(output, prop, prop_file)
                 image.run(
-                    sys.executable, str(ROOT / "tools/update-build-prop.py"),
+                    sys.executable, str(ROOT / "tools/internal/update-build-prop.py"),
                     str(prop_file), prop,
                 )
                 put(output, prop_file, prop, "0100644", "u:object_r:system_file:s0", work)

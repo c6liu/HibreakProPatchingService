@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.hibreak import image
 from tools.hibreak.policy import compile_pair, neverallow_failures, prepare_ir_policy
 

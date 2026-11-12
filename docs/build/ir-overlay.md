@@ -5,7 +5,7 @@ Skip this page for display-only builds. You need the release base from
 `ANDROID_NDK_HOME` from [Prepare IR build inputs](ir-inputs.md).
 
 ```bash
-tools/build-ir-hal.sh build/consumerir.hxd-release.so
+tools/build/build-ir-hal.sh build/consumerir.hxd-release.so
 python3 -m unittest tools.tests.test_hxd_nec tools.tests.test_hxd_learn \
   tools.tests.test_ir_overlay tools.tests.test_ir_remote
 ```
@@ -14,7 +14,7 @@ Check the tests pass without missing-dependency skips. First run the IR
 preflight; **this command does not create an image**:
 
 ```bash
-python3 tools/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-capture-to-gsi.py \
   build/HiBreakPro-release-base.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd-release.so \
   --vendor-image "$VENDOR" --secilc secilc --check-only
@@ -23,7 +23,7 @@ python3 tools/add-ir-capture-to-gsi.py \
 If it succeeds and you are ready to package, run it without `--check-only`:
 
 ```bash
-python3 tools/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-capture-to-gsi.py \
   build/HiBreakPro-release-base.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd-release.so \
   --vendor-image "$VENDOR" --secilc secilc
@@ -70,8 +70,10 @@ The upstream system-ext policy already declares `phhsu_daemon` permissive.
 Leaving that declaration intact means removing its explicit grants is not
 equivalent to restricting its runtime access. Conversely, making it enforcing
 would require a separately reviewed root permission set and device regression
-tests. These reductions are **not automatically applied by the image builder**;
-they demonstrate a feasible cleanup direction, not a hardened release policy.
+tests. The 70-grant reduction is now applied by the default release builder
+for the exact tested inputs, but it does not make `phhsu_daemon` enforcing
+and is not a hardened release policy. Use `--no-experimental-phh-reduction`
+with the necessary dependent opt-outs, or `--compatibility`, to disable it.
 
 ## Overlay details and development options
 
@@ -101,10 +103,10 @@ without separate validation.
 ```bash
 export ANDROID_NDK_HOME=/path/to/android-ndk
 export AOSP_HEADERS=/path/to/aosp-include
-bash tools/build-ir-hal.sh build/consumerir.hxd.so
+bash tools/build/build-ir-hal.sh build/consumerir.hxd.so
 
 # Preflight only: compiles/validates policy and the module, produces NO image.
-python3 tools/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-capture-to-gsi.py \
   build/HiBreakPro-release.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd.so \
   --vendor-image /path/to/matching-stock-vendor.img \
@@ -122,13 +124,13 @@ build this configuration. Stock vendor is read-only and unchanged.
 Development-only opt-ins (omit all from the release command):
 
 - `--diagnostics-binary build/hxd-learn`: adds capture/camera diagnostics
-  and their service/policy. Build with `tools/build-ir-tool.sh`.
+  and their service/policy. Build with `tools/build/build-ir-tool.sh`.
 - `--remote-apk build/HiBreakIrRemote.apk`: adds the privileged, fixed
   TCL test app/service; **requires** `--diagnostics-binary`. Build with
-  `tools/build-ir-remote.sh`.
+  `tools/build/build-ir-remote.sh`.
 - `--api-test-apk build/AndroidIrApiTest.apk`: adds the ordinary Android
   API test app under `/system/app`, independently of capture diagnostics.
-  Build with `tools/build-ir-api-test.sh`. Alternatively sideload it only
+  Build with `tools/build/build-ir-api-test.sh`. Alternatively sideload it only
   on a development device.
 
 The old optional positional `hxd-learn` argument is deprecated and prints a

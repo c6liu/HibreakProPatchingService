@@ -8,6 +8,17 @@ from tools.hibreak import release_pipeline as pipeline
 
 
 class ReleasePipelineTests(unittest.TestCase):
+    def test_loads_relocated_image_tools(self):
+        for name, entry_point in (
+            ("patch-gsi.py", "patch_image"),
+            ("add-ir-capture-to-gsi.py", "prepare_policy"),
+            ("add-xrz-compat-to-gsi.py", "prepare_compatibility"),
+            ("add-phh-reduction-to-gsi.py", "prepare_reduction"),
+        ):
+            with self.subTest(script=name):
+                module = pipeline.load("test_" + name.replace("-", "_").replace(".", "_"), name)
+                self.assertTrue(callable(getattr(module, entry_point)))
+
     def test_all_stages_use_one_image_and_verify_each_migration(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

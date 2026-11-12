@@ -14,7 +14,7 @@ class DeprecationTests(unittest.TestCase):
             output = Path(directory) / "output.img"
             result = subprocess.run(
                 [
-                    sys.executable, ROOT / "tools/add-ir-capture-to-gsi.py",
+                    sys.executable, ROOT / "tools/image/add-ir-capture-to-gsi.py",
                     "missing.img", str(output), "capture", "--vendor-image", "vendor.img",
                 ],
                 capture_output=True, text=True,

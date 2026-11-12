@@ -1,7 +1,7 @@
 # GSI patcher behavior
 
-Options and image changes made by [patch-gsi.sh](../../tools/patch-gsi.sh).
-The shell entry point delegates to [patch-gsi.py](../../tools/patch-gsi.py),
+Options and image changes made by [patch-gsi.sh](../../tools/image/patch-gsi.sh).
+The shell entry point delegates to [patch-gsi.py](../../tools/image/patch-gsi.py),
 which uses the shared image helpers under `tools/hibreak/`.
 For the normal release commands, use
 [Build a release image](../build/build-image.md).
@@ -13,7 +13,7 @@ For personal debugging builds, you can embed **your own ADB public key**:
 ```bash
 adb start-server
 # If the key does not exist, generate it using: adb keygen "$HOME/.android/adbkey"
-tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
+tools/image/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
   build/HiBreakPro.img build/HiBreakEink.apk build/a9_eink_server \
   "$HOME/.android/adbkey.pub"
 ```
@@ -32,7 +32,7 @@ GSI's existing key setup; authorize the computer on-screen when prompted.
 For a public-release candidate, use `--release` and do not pass an ADB key:
 
 ```bash
-tools/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
+tools/image/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
   build/HiBreakPro-release.img build/HiBreakEink.apk build/a9_eink_server \
   --release
 ```
