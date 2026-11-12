@@ -2,7 +2,6 @@ package com.lmqr.ha9_comp_service
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ShortcutInfo
 import android.util.Log
 import androidx.preference.PreferenceManager
 import org.json.JSONException
@@ -33,13 +32,6 @@ object ShortcutAssignment {
         intent.selector?.let { requireUriCompatible(it) }
     }
 
-    fun saveModern(context: Context, actionKey: String, shortcut: ShortcutInfo) {
-        save(context, actionKey, JSONObject()
-            .put("label", shortcut.shortLabel?.toString() ?: shortcut.id)
-            .put("package", shortcut.`package`)
-            .put("id", shortcut.id))
-    }
-
     private fun save(context: Context, actionKey: String, value: JSONObject) {
         require(actionKey in ButtonActionSettings.actionKeys)
         PreferenceManager.getDefaultSharedPreferences(context).edit()
@@ -52,8 +44,19 @@ object ShortcutAssignment {
         PreferenceManager.getDefaultSharedPreferences(context).getString(key(actionKey), null)
             ?.let { JSONObject(it) }
 
+    fun isRemovedLauncherShortcut(target: JSONObject): Boolean =
+        !target.has("intent") && target.has("package") && target.has("id")
+
     fun summary(context: Context, actionKey: String): String = try {
-        read(context, actionKey)?.getString("label") ?: context.getString(R.string.choose_shortcut)
+        val target = read(context, actionKey)
+        when {
+            target == null -> context.getString(R.string.choose_shortcut)
+            isRemovedLauncherShortcut(target) -> context.getString(R.string.launcher_shortcut_removed)
+            else -> {
+                target.getString("intent")
+                target.getString("label")
+            }
+        }
     } catch (e: JSONException) {
         Log.e("A9ShortcutAssignment", "Invalid shortcut for $actionKey", e)
         context.getString(R.string.unavailable_shortcut)

@@ -2,8 +2,6 @@ package com.lmqr.ha9_comp_service.button_mapper
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.LauncherApps
-import android.os.Process
 import android.util.Log
 import android.widget.Toast
 import com.lmqr.ha9_comp_service.R
@@ -20,18 +18,14 @@ class LaunchShortcutButtonAction(private val actionKey: String) : ButtonAction {
                 Toast.makeText(context, R.string.choose_shortcut, Toast.LENGTH_LONG).show()
                 return
             }
-            if (target.has("intent")) {
-                val intent = Intent.parseUri(target.getString("intent"), Intent.URI_INTENT_SCHEME)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                LaunchTarget.execute(context, TAG) { context.startActivity(intent) }
-            } else {
-                val packageName = target.getString("package")
-                val id = target.getString("id")
-                LaunchTarget.execute(context, TAG) {
-                    context.getSystemService(LauncherApps::class.java)
-                        .startShortcut(packageName, id, null, null, Process.myUserHandle())
-                }
+            if (ShortcutAssignment.isRemovedLauncherShortcut(target)) {
+                Log.w(TAG, "Launcher shortcut is no longer supported for $actionKey")
+                Toast.makeText(context, R.string.launcher_shortcut_removed, Toast.LENGTH_LONG).show()
+                return
             }
+            val intent = Intent.parseUri(target.getString("intent"), Intent.URI_INTENT_SCHEME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            LaunchTarget.execute(context, TAG) { context.startActivity(intent) }
         } catch (e: JSONException) {
             LaunchTarget.report(context, TAG, e, R.string.unavailable_shortcut)
         } catch (e: URISyntaxException) {

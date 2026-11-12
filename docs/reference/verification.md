@@ -9,7 +9,8 @@ that the active system APK at
 byte-for-byte. This is a successful user-reported device check, not an
 independent exhaustive test of every gesture, shortcut provider, permission
 state, or lock-screen condition; use the remaining checks below for broader
-release validation.
+release validation. The subsequent removal of modern launcher shortcuts
+requires a fresh device check.
 
 Press Power right after the Bigme logo flashes, wait for boot, open E-Ink Settings and enable the accessibility service and
 draw-over-other-apps permission. Top/bottom customization buttons have separate
@@ -23,8 +24,8 @@ dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
 navigation on the physical e-ink panel after updating the source-built APK.
 The Apps and Shortcuts picker supports search and preserves the current
-assignment when cancelled. Modern launcher shortcuts require shortcut-host
-access; app-provided shortcut configuration is available independently.
+assignment when cancelled. Only app-provided shortcut configuration is
+supported; modern launcher shortcuts are not listed or launched.
 Screen-off app/shortcut launches wake the display without bypassing the
 lock screen. Screen-off Clear Screen is removed, with existing assignments
 migrated to Nothing. The overlay's top-right X closes it.

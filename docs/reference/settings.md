@@ -28,24 +28,18 @@ Back cancels without changing the existing assignment. Tap **App to launch**
 or **Shortcut to launch** beneath an assigned action to change its target.
 Existing app-launch assignments remain compatible.
 
-The Shortcuts tab supports:
-
-- **Configure shortcut**: apps exposing Android's `ACTION_CREATE_SHORTCUT`
-  configuration flow. Choose an app, configure its shortcut, and confirm.
-  Cancelling configuration keeps the previous assignment.
-  Intent-based shortcuts with primitive/string extras are supported; shortcuts
-  relying on temporary clip data or complex extras are rejected with an
-  explanation rather than saved with missing data.
-- **Launcher shortcut**: enabled static, dynamic and pinned shortcuts exposed
-  through `LauncherApps`, when this app has Android shortcut-host permission.
-  Selected shortcuts are pinned for this app to retain dynamic shortcuts.
-  Android normally reserves this access for the default launcher or a
-  system-authorized shortcut host. The picker explains unavailable access;
-  it does not replace your launcher or grant itself privileges.
+The Shortcuts tab lists apps exposing Android's `ACTION_CREATE_SHORTCUT`
+configuration flow. Choose an app, configure its shortcut, and confirm.
+Cancelling configuration keeps the previous assignment. Intent-based
+shortcuts with primitive/string extras are supported; shortcuts relying on
+temporary clip data or complex extras are rejected with an explanation rather
+than saved with missing data. Modern launcher shortcuts are not supported,
+regardless of shortcut-host access. A previously saved launcher shortcut is
+marked unavailable and must be replaced with an app-provided shortcut.
 
 Only apps and shortcuts in the current Android profile are shown. Apps must
 expose a supported shortcut; arbitrary internal app screens cannot be listed.
-Removed/disabled shortcuts and revoked permissions can still prevent launches;
+Removed apps or changed permissions can still prevent launches;
 failures are reported rather than silently opening the app's home screen.
 
 App and shortcut actions assigned with the screen off wake the display before
@@ -53,7 +47,6 @@ launching. They do **not** unlock the phone or bypass the keyguard. Android or
 the target app may require unlocking before its content becomes available.
 
 API/design references:
-[Android launcher shortcut access](https://developer.android.com/reference/android/content/pm/LauncherApps),
 [shortcut creation intents](https://developer.android.com/reference/android/content/Intent#ACTION_CREATE_SHORTCUT),
 and [Material 3 app bars](https://m3.material.io/components/app-bars/guidelines).
 

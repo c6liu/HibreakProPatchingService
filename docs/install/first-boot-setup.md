@@ -12,7 +12,7 @@
      target in the Apps or Shortcuts picker. Search to narrow the list; Back
      cancels without changing the assignment. Apps that provide
      `ACTION_CREATE_SHORTCUT` can configure a shortcut. Modern launcher
-     shortcuts appear only when Android grants shortcut-host access.
+     shortcuts are not supported.
      Clear Screen is screen-on only; old screen-off Clear Screen assignments
      are changed to Nothing. Screen-off app and shortcut launches wake the
      display but do not unlock the phone or bypass the lock screen.

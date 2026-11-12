@@ -3,11 +3,8 @@ package com.lmqr.ha9_comp_service
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.LauncherApps
-import android.content.pm.ShortcutInfo
 import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.os.Process
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -45,7 +42,6 @@ class ActionTargetPickerActivity : AppCompatActivity() {
     private var generation = 0
     private var apps = emptyList<Target>()
     private var shortcuts = emptyList<Target>()
-    private var shortcutNotice = ""
     private var loaded = false
     private var loadError: String? = null
 
@@ -116,35 +112,7 @@ class ActionTargetPickerActivity : AppCompatActivity() {
         loader.execute {
             try {
                 val appTargets = loadApps()
-                val shortcutTargets = loadShortcutProviders().toMutableList()
-                var message = getString(R.string.shortcut_picker_help)
-                val launcher = getSystemService(LauncherApps::class.java)
-                if (launcher.hasShortcutHostPermission()) {
-                    try {
-                        val query = LauncherApps.ShortcutQuery().setQueryFlags(
-                            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
-                                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-                                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
-                        )
-                        launcher.getShortcuts(query, Process.myUserHandle()).orEmpty()
-                            .filter { it.isEnabled }
-                            .forEach { shortcut ->
-                                shortcutTargets += Target(
-                                    shortcut.shortLabel?.toString() ?: shortcut.id,
-                                    getString(R.string.launcher_shortcut_detail, shortcut.`package`),
-                                    launcher.getShortcutIconDrawable(shortcut, resources.displayMetrics.densityDpi),
-                                ) { selectModern(shortcut) }
-                            }
-                    } catch (e: SecurityException) {
-                        Log.w(TAG, "Shortcut-host permission changed", e)
-                        message = getString(R.string.shortcut_permission_help)
-                    } catch (e: IllegalStateException) {
-                        Log.w(TAG, "Shortcut user is locked", e)
-                        message = getString(R.string.locked_target)
-                    }
-                } else {
-                    message = getString(R.string.shortcut_permission_help)
-                }
+                val shortcutTargets = loadShortcutProviders()
                 val collator = Collator.getInstance()
                 val sortedApps = appTargets.sortedWith(compareBy(collator) { it.title })
                 val sortedShortcuts = shortcutTargets.sortedWith(compareBy(collator) { it.title })
@@ -152,7 +120,6 @@ class ActionTargetPickerActivity : AppCompatActivity() {
                     if (request != generation || isDestroyed || isFinishing) return@runOnUiThread
                     apps = sortedApps
                     shortcuts = sortedShortcuts
-                    shortcutNotice = message
                     loaded = true
                     filterTargets()
                 }
@@ -207,24 +174,6 @@ class ActionTargetPickerActivity : AppCompatActivity() {
                 }
             }
 
-    private fun selectModern(shortcut: ShortcutInfo) {
-        try {
-            val launcher = getSystemService(LauncherApps::class.java)
-            val query = LauncherApps.ShortcutQuery().setPackage(shortcut.`package`)
-                .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
-            val pinned = launcher.getShortcuts(query, Process.myUserHandle()).orEmpty().map { it.id }
-            launcher.pinShortcuts(shortcut.`package`, (pinned + shortcut.id).distinct(), Process.myUserHandle())
-            ShortcutAssignment.saveModern(this, actionKey, shortcut)
-            finish()
-        } catch (e: SecurityException) {
-            showError(R.string.shortcut_permission_help, e)
-        } catch (e: IllegalStateException) {
-            showError(R.string.locked_target, e)
-        } catch (e: IllegalArgumentException) {
-            showError(R.string.unavailable_shortcut, e)
-        }
-    }
-
     private fun filterTargets() {
         val isShortcuts = tabs.selectedTabPosition == 1
         val query = search.text?.toString().orEmpty().trim()
@@ -233,7 +182,7 @@ class ActionTargetPickerActivity : AppCompatActivity() {
         }
         adapter.notifyDataSetChanged()
         notice.visibility = if (isShortcuts) View.VISIBLE else View.GONE
-        notice.text = shortcutNotice
+        notice.setText(R.string.shortcut_picker_help)
         empty.visibility = if (adapter.items.isEmpty()) View.VISIBLE else View.GONE
         empty.text = loadError ?: getString(when {
             !loaded -> R.string.loading_targets

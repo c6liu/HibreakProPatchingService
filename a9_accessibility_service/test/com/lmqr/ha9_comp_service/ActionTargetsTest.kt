@@ -10,7 +10,6 @@ import android.content.pm.ShortcutInfo
 import android.net.Uri
 import android.os.Looper
 import android.os.PowerManager
-import android.os.Process
 import android.widget.ListView
 import android.widget.TextView
 import androidx.preference.ListPreference
@@ -30,12 +29,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.Implementation
-import org.robolectric.annotation.Implements
-import org.robolectric.shadows.ShadowLauncherApps
 import org.robolectric.shadows.ShadowPowerManager
 import org.robolectric.shadows.ShadowToast
-import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -161,10 +156,50 @@ class ActionTargetsTest {
     @Test
     fun malformedShortcutReportsErrorInsteadOfLaunchingApp() {
         val key = ButtonActionSettings.actionKeys.first()
-        preferences.edit().putString(ShortcutAssignment.key(key), "{bad-json").commit()
+        for (value in listOf("{bad-json", """{"label":"Missing intent"}""")) {
+            preferences.edit().putString(ShortcutAssignment.key(key), value).commit()
+            assertEquals(context.getString(R.string.unavailable_shortcut), ShortcutAssignment.summary(context, key))
+            LaunchShortcutButtonAction(key).execute(context)
+            assertEquals(context.getString(R.string.unavailable_shortcut), ShadowToast.getTextOfLatestToast())
+            assertNull(shadowOf(context).nextStartedActivity)
+        }
+    }
+
+    @Test
+    fun removedLauncherAssignmentsReportErrorAndCanBeReplaced() {
+        val saved = """{"label":"Read example","package":"example.reader","id":"read"}"""
+        val keys = listOf("top_single_press_eink_action", "long_press_eink_action_screen_off")
+        for (key in keys) {
+            preferences.edit()
+                .putString(ShortcutAssignment.key(key), saved)
+                .putString(key, "launch_shortcut_$key")
+                .commit()
+            assertEquals(context.getString(R.string.launcher_shortcut_removed),
+                ShortcutAssignment.summary(context, key))
+            LaunchShortcutButtonAction(key).execute(context)
+            assertEquals(context.getString(R.string.launcher_shortcut_removed),
+                ShadowToast.getTextOfLatestToast())
+            assertNull(shadowOf(context).nextStartedActivity)
+            assertEquals(saved, preferences.getString(ShortcutAssignment.key(key), null))
+            assertEquals("launch_shortcut_$key", preferences.getString(key, null))
+        }
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
+        try {
+            val fragment = controller.get().supportFragmentManager.findFragmentById(R.id.settings)
+                as SettingsActivity.SettingsFragment
+            for (key in keys) {
+                val target = requireNotNull(fragment.findPreference<Preference>("shortcut_target_$key"))
+                assertTrue(target.isVisible)
+                assertEquals(context.getString(R.string.launcher_shortcut_removed), target.summary)
+            }
+        } finally {
+            controller.pause().stop().destroy()
+        }
+        val key = keys.last()
+        ShortcutAssignment.saveLegacy(context, key, "Replacement", Intent(Intent.ACTION_VIEW))
+        assertEquals("Replacement", ShortcutAssignment.summary(context, key))
         LaunchShortcutButtonAction(key).execute(context)
-        assertEquals(context.getString(R.string.unavailable_shortcut), ShadowToast.getTextOfLatestToast())
-        assertNull(shadowOf(context).nextStartedActivity)
+        assertEquals(Intent.ACTION_VIEW, shadowOf(context).nextStartedActivity.action)
     }
 
     @Test
@@ -272,49 +307,53 @@ class ActionTargetsTest {
         }
     }
 
+    @Suppress("DEPRECATION")
     @Test
-    @Config(shadows = [PinnedQueryLauncherApps::class])
-    fun modernShortcutsRequirePermissionAndArePinnedOnSelection() {
-        PinnedQueryLauncherApps.pinnedIds.clear()
-        PinnedQueryLauncherApps.launched = null
-        PinnedQueryLauncherApps.denyLaunch = false
+    fun pickerListsOnlyAppProvidersEvenWithShortcutHostPermission() {
         val launcher = context.getSystemService(LauncherApps::class.java)
         val shadow = shadowOf(launcher)
-        shadow.setHasShortcutHostPermission(false)
+        shadow.setHasShortcutHostPermission(true)
         val shortcut = ShortcutInfo.Builder(context, "read")
             .setShortLabel("Read example")
             .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse("example://read")))
             .build()
         shadow.addDynamicShortcut(shortcut)
+        addActivity(Intent(Intent.ACTION_CREATE_SHORTCUT), "example.shortcuts", "Create example")
         val key = ButtonActionSettings.actionKeys.first()
         val controller = Robolectric.buildActivity(ActionTargetPickerActivity::class.java,
             pickerIntent(key).putExtra(ActionTargetPickerActivity.EXTRA_SHORTCUTS, true)).setup()
         try {
             val activity = controller.get()
-            waitForTargets(activity)
-            assertEquals(context.getString(R.string.shortcut_permission_help),
-                activity.findViewById<TextView>(R.id.picker_notice).text)
-            activity.findViewById<TextInputEditText>(R.id.picker_search).setText("Read example")
-            val list = activity.findViewById<ListView>(R.id.picker_list)
-            assertEquals(0, list.adapter.count)
-            shadow.setHasShortcutHostPermission(true)
-            controller.pause().resume()
             waitForTargets(activity, expectedCount = 1)
+            assertEquals(context.getString(R.string.shortcut_picker_help),
+                activity.findViewById<TextView>(R.id.picker_notice).text)
+            val search = activity.findViewById<TextInputEditText>(R.id.picker_search)
+            val list = activity.findViewById<ListView>(R.id.picker_list)
+            search.setText("Read example")
+            assertEquals(0, list.adapter.count)
+            search.setText("example.shortcuts")
+            assertEquals(1, list.adapter.count)
             list.performItemClick(list.adapter.getView(0, null, list), 0, 0)
-            val stored = requireNotNull(ShortcutAssignment.read(context, key))
-            assertEquals("read", stored.getString("id"))
-            assertEquals(context.packageName, stored.getString("package"))
-            val pinned = launcher.getShortcuts(LauncherApps.ShortcutQuery()
-                .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED), Process.myUserHandle())
-            assertTrue(pinned.orEmpty().any { it.id == "read" })
-            LaunchShortcutButtonAction(key).execute(context)
-            assertEquals(context.packageName to "read", PinnedQueryLauncherApps.launched)
-            PinnedQueryLauncherApps.launched = null
-            PinnedQueryLauncherApps.denyLaunch = true
-            LaunchShortcutButtonAction(key).execute(context)
-            assertEquals(context.getString(R.string.blocked_target), ShadowToast.getTextOfLatestToast())
-            assertNull(PinnedQueryLauncherApps.launched)
-            assertNull(shadowOf(context).nextStartedActivity)
+            assertEquals(Intent.ACTION_CREATE_SHORTCUT,
+                shadowOf(activity).nextStartedActivityForResult.intent.action)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun shortcutPickerExplainsWhenNoProvidersAreAvailable() {
+        val controller = Robolectric.buildActivity(ActionTargetPickerActivity::class.java,
+            pickerIntent(ButtonActionSettings.actionKeys.first())
+                .putExtra(ActionTargetPickerActivity.EXTRA_SHORTCUTS, true)).setup()
+        try {
+            val activity = controller.get()
+            waitForTargets(activity)
+            assertEquals(0, activity.findViewById<ListView>(R.id.picker_list).adapter.count)
+            assertEquals(context.getString(R.string.no_shortcuts),
+                activity.findViewById<TextView>(R.id.picker_empty).text)
+            assertEquals(context.getString(R.string.shortcut_picker_help),
+                activity.findViewById<TextView>(R.id.picker_notice).text)
         } finally {
             controller.pause().stop().destroy()
         }
@@ -354,45 +393,4 @@ class ActionTargetsTest {
         fail("Picker did not finish loading")
     }
 
-    @Implements(LauncherApps::class)
-    class PinnedQueryLauncherApps : ShadowLauncherApps() {
-        @Implementation
-        public override fun getShortcuts(
-            query: LauncherApps.ShortcutQuery,
-            user: android.os.UserHandle,
-        ): List<ShortcutInfo> {
-            val flags = ReflectionHelpers.getField<Int>(query, "mQueryFlags")
-            if (flags == LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED) {
-                // The built-in shadow rejects pinned-only queries and does not model pin state.
-                query.setQueryFlags(flags or LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC)
-                return super.getShortcuts(query, user).orEmpty().filter {
-                    it.id in pinnedIds[it.`package`].orEmpty()
-                }
-            }
-            return super.getShortcuts(query, user).orEmpty()
-        }
-
-        @Implementation
-        public override fun pinShortcuts(packageName: String, ids: List<String>, user: android.os.UserHandle) {
-            pinnedIds[packageName] = ids
-        }
-
-        @Implementation
-        public override fun startShortcut(
-            packageName: String,
-            id: String,
-            bounds: android.graphics.Rect?,
-            options: android.os.Bundle?,
-            user: android.os.UserHandle,
-        ) {
-            if (denyLaunch) throw SecurityException("Shortcut access revoked")
-            launched = packageName to id
-        }
-
-        companion object {
-            val pinnedIds = mutableMapOf<String, List<String>>()
-            var launched: Pair<String, String>? = null
-            var denyLaunch = false
-        }
-    }
 }
