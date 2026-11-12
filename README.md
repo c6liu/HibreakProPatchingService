@@ -53,9 +53,9 @@ patching is no longer supported. Validate each release on the target device.
 The tools do not patch vendor or flash automatically. Flashing is a dry run
 unless explicitly requested; a data wipe requires an explicit option and
 erases shared userdata. Large inputs, generated images, logs, and local tools
-belong in git-ignored `local/` and `build/`. IR learning is not supported on
-the tested phone; the earlier capture path is a legacy development diagnostic
-([details](docs/research/ir/historical-diagnostics.md)).
+belong in git-ignored `local/` and `build/`. IR learning is not possible on
+the tested phone because it has no IR receiver
+([history](docs/research/ir/historical-diagnostics.md)).
 
 ## Licensing
 

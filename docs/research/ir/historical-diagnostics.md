@@ -3,10 +3,13 @@
 These experiments established a few controller facts, but their old
 commands, image recipes and troubleshooting steps are omitted: they describe
 superseded test images and are not needed to build or use the current
-adapter. The standalone capture tool and privileged test app remain
-opt-in development artifacts; neither is included in a HAL-only release.
+adapter. The standalone capture tool, fixed-packet transmit test and
+privileged TCL test app have since been removed from the repository; they
+remain in git history only.
 
-- **Learning did not work on the tested stock 3.1.6 device.** In both short
+- **Learning did not work on the tested stock 3.1.6 device.** The user
+  subsequently reported that the phone has no IR receiver hardware, which
+  explains this result. In both short
   and extended modes, a button attempt returned the same bytes as its
   no-button control. A nonempty record or successful controller read was
   therefore not evidence of optical reception. No learning/receive feature
@@ -23,6 +26,6 @@ opt-in development artifacts; neither is included in a HAL-only release.
   failures. These fixes apply only to the optional diagnostic app; ordinary
   apps use the separate [HAL adapter](../../reference/ir-adapter.md).
 
-The detailed implementation, test code and opt-in build flags remain in the
-repository. See [the build guide](../../build/ir-overlay.md#overlay-details-and-development-options).
+See [the build guide](../../build/ir-overlay.md#overlay-details-and-development-options)
+for the current HAL overlay.
 Do not use the historical test procedures as a production setup guide.

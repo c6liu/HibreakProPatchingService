@@ -11,7 +11,7 @@ class ReleasePipelineTests(unittest.TestCase):
     def test_loads_relocated_image_tools(self):
         for name, entry_point in (
             ("patch-gsi.py", "patch_image"),
-            ("add-ir-capture-to-gsi.py", "prepare_policy"),
+            ("add-ir-hal-to-gsi.py", "prepare_policy"),
             ("add-xrz-compat-to-gsi.py", "prepare_compatibility"),
             ("add-phh-reduction-to-gsi.py", "prepare_reduction"),
         ):
@@ -53,7 +53,7 @@ class ReleasePipelineTests(unittest.TestCase):
                                    PROPERTY_CONTEXTS="properties", FILE_CONTEXTS="contexts", DISPLAY=root)
             display = SimpleNamespace(prepare=lambda *args, **kwargs: [prepared] * 5,
                                       PROPERTY_CONTEXTS="properties", INIT_PATH="display-init", AOD_PATH="aod")
-            modules = {"patch-gsi.py": patch, "add-ir-capture-to-gsi.py": ir,
+            modules = {"patch-gsi.py": patch, "add-ir-hal-to-gsi.py": ir,
                        "add-xrz-compat-to-gsi.py": xrz, "add-phh-reduction-to-gsi.py": phh}
 
             def extract(_img, path, destination):
@@ -78,7 +78,7 @@ class ReleasePipelineTests(unittest.TestCase):
                                strict_verification=True)
             self.assertEqual(calls, [(output, "base"), (output, "bridge"), (output, "daemon")])
             self.assertEqual([item["tool"] for item in report], [
-                "patch-gsi.py", "add-ir-capture-to-gsi.py", "add-xrz-compat-to-gsi.py",
+                "patch-gsi.py", "add-ir-hal-to-gsi.py", "add-xrz-compat-to-gsi.py",
                 "add-phh-reduction-to-gsi.py", "eink-bridge",
                 "eink-migration", "display-migration", "finalize-image",
             ])

@@ -16,8 +16,6 @@ top-level paths.
 | [build-source-apk.sh](../../tools/build/build-source-apk.sh) | Build the checked-in Kotlin/resources with Gradle and the APK signer |
 | [build-daemon.sh](../../tools/build/build-daemon.sh) | Compile the current daemon with the Android NDK |
 | [build-ir-hal.sh](../../tools/build/build-ir-hal.sh) | Build the single-frame NEC/NECext Consumer IR adapter used by the default release |
-| [build-ir-tool.sh](../../tools/build/build-ir-tool.sh) | Build the HXD capture CLI with opt-in fixed-packet camera diagnostic; does not install a HAL |
-| [build-ir-remote.sh](../../tools/build/build-ir-remote.sh) | Build the standalone one-button IR test APK; requires the matching ROM overlay |
 | [build-ir-api-test.sh](../../tools/build/build-ir-api-test.sh) | Build an ordinary `ConsumerIrManager` test client; no root or private properties |
 
 ## Standalone image tools
@@ -28,7 +26,7 @@ These are manual alternatives, not extra steps after a default release build.
 |--------|---------|
 | [patch-gsi.sh](../../tools/image/patch-gsi.sh) | Patch display/AOD support, preserve saved ADB state, enforce ADB authorization, and remove `su` unless `--root`; supports `--release` mode |
 | [patch-gsi.py](../../tools/image/patch-gsi.py) | Python implementation of the base image patcher |
-| [add-ir-capture-to-gsi.py](../../tools/image/add-ir-capture-to-gsi.py) | Add an IR HAL or opt-in diagnostics; `--check-only` does not write an image |
+| [add-ir-hal-to-gsi.py](../../tools/image/add-ir-hal-to-gsi.py) | Add the NEC IR HAL and optionally the API test app; `--check-only` does not write an image |
 | [add-xrz-compat-to-gsi.py](../../tools/image/add-xrz-compat-to-gsi.py) | Add the XRZ v2 graphics-property overlay; requires a matching vendor, `secilc` and SETools |
 | [add-phh-reduction-to-gsi.py](../../tools/image/add-phh-reduction-to-gsi.py) | Apply or preflight the exact-input experimental PHH grant reduction |
 
@@ -60,6 +58,6 @@ standalone Gradle route, but the AOSP module route is currently **unmaintained a
 untested**. The checked-in module definitions and sources are retained for
 reconstruction; use the documented Gradle source path for supported builds.
 
-IR learning is not a supported feature on the tested phone. The capture path
-is a legacy development diagnostic; see the
+IR learning is not possible on the tested phone: it has no IR receiver.
+The former capture and private transmit diagnostics have been removed; see the
 [historical diagnostic results](../research/ir/historical-diagnostics.md).

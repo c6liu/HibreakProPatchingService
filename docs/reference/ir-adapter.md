@@ -177,16 +177,13 @@ the supported protocol contract.
 
 The current overlay's release command uses `--hal-module` with no
 diagnostic binary or APK. It installs the standard adapter only.
-Both test apps are explicit opt-ins: `--remote-apk` requires
-`--diagnostics-binary`, while `--api-test-apk` independently adds the
-ordinary API test app. Capture/camera services, their binary, private
-request properties, and diagnostic-domain contexts/policy are absent
-from the HAL-only configuration.
+`--api-test-apk` is an explicit opt-in that adds the ordinary API test app.
+The former private capture/transmit diagnostics and TCL test app have been
+removed from the repository.
 See [the release build procedure](../build/ir-overlay.md#overlay-details-and-development-options)
 for preflight and packaging commands.
 
-Review hardening keeps a shared post-write ownership guard in both the
-HAL and diagnostic transmitter, including the diagnostic's last packet.
+Review hardening keeps a post-write ownership guard in the HAL.
 HAL requests hold the controller lock for their validated envelope plus
 120 ms; this is unmeasured pacing, not a completion notification.
 

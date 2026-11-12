@@ -1,22 +1,8 @@
-"""Validation for native IR executables and HAL modules."""
+"""Validation for native IR HAL modules."""
 
 import re
 import struct
 import subprocess
-
-
-def validate_static_arm64_executable(path):
-    binary = path.read_bytes()
-    if len(binary) < 64 or binary[:7] != b"\x7fELF\x02\x01\x01" or binary[18:20] != b"\xb7\x00":
-        raise ValueError("Expected a complete little-endian arm64 ELF executable")
-    phoff = int.from_bytes(binary[32:40], "little")
-    phsize = int.from_bytes(binary[54:56], "little")
-    phnum = int.from_bytes(binary[56:58], "little")
-    if phsize < 56 or not phnum or phoff + phsize * phnum > len(binary):
-        raise ValueError("Invalid ELF program headers")
-    if any(int.from_bytes(binary[offset:offset + 4], "little") == 3
-           for offset in range(phoff, phoff + phsize * phnum, phsize)):
-        raise ValueError("Service requires a static executable; rebuild with tools/build/build-ir-tool.sh")
 
 
 def validate_hal_module(path):

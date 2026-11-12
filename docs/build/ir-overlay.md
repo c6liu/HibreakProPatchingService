@@ -6,15 +6,14 @@ Skip this page for display-only builds. You need the release base from
 
 ```bash
 tools/build/build-ir-hal.sh build/consumerir.hxd-release.so
-python3 -m unittest tools.tests.test_hxd_nec tools.tests.test_hxd_learn \
-  tools.tests.test_ir_overlay tools.tests.test_ir_remote
+python3 -m unittest tools.tests.test_hxd_nec tools.tests.test_ir_overlay
 ```
 
 Check the tests pass without missing-dependency skips. First run the IR
 preflight; **this command does not create an image**:
 
 ```bash
-python3 tools/image/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-hal-to-gsi.py \
   build/HiBreakPro-release-base.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd-release.so \
   --vendor-image "$VENDOR" --secilc secilc --check-only
@@ -23,18 +22,16 @@ python3 tools/image/add-ir-capture-to-gsi.py \
 If it succeeds and you are ready to package, run it without `--check-only`:
 
 ```bash
-python3 tools/image/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-hal-to-gsi.py \
   build/HiBreakPro-release-base.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd-release.so \
   --vendor-image "$VENDOR" --secilc secilc
 ```
 
 Start from the clean release base, not an old IR test image. This installs
-the NEC adapter, its init action and scoped SELinux policy. It does **not**
-include either test app, capture/camera services or private IR request hooks.
-Do not add `--diagnostics-binary`, `--remote-apk`, or `--api-test-apk` to a
-normal release build. Development opt-ins are described in
-[Overlay details](#overlay-details-and-development-options).
+the NEC adapter, its init action and scoped SELinux policy. Do not add
+`--api-test-apk` to a normal release build; this development opt-in is
+described in [Overlay details](#overlay-details-and-development-options).
 
 The policy preflight counts both ordinary `neverallow` and extended-permission
 `neverallowx` conflicts (such as ioctl restrictions). It rejects new conflicts
@@ -106,7 +103,7 @@ export AOSP_HEADERS=/path/to/aosp-include
 bash tools/build/build-ir-hal.sh build/consumerir.hxd.so
 
 # Preflight only: compiles/validates policy and the module, produces NO image.
-python3 tools/image/add-ir-capture-to-gsi.py \
+python3 tools/image/add-ir-hal-to-gsi.py \
   build/HiBreakPro-release.img build/HiBreakPro-release-ir.img \
   --hal-module build/consumerir.hxd.so \
   --vendor-image /path/to/matching-stock-vendor.img \
@@ -116,27 +113,20 @@ python3 tools/image/add-ir-capture-to-gsi.py \
 When ready to package, run that overlay command again **without**
 `--check-only`. It refuses to overwrite an existing output. The release
 configuration installs only the NEC adapter, its init bind-mount action,
-and its scoped SELinux policy/file context. It does **not** install either
-test app, `hxd-learn`, capture/camera services, private IR properties,
-or their app-domain policy. No diagnostic binary or APK is required to
-build this configuration. Stock vendor is read-only and unchanged.
+and its scoped SELinux policy/file context. No APK is required to build
+this configuration. Stock vendor is read-only and unchanged.
 
-Development-only opt-ins (omit all from the release command):
+The only development opt-in (omit it from the release command):
 
-- `--diagnostics-binary build/hxd-learn`: adds capture/camera diagnostics
-  and their service/policy. Build with `tools/build/build-ir-tool.sh`.
-- `--remote-apk build/HiBreakIrRemote.apk`: adds the privileged, fixed
-  TCL test app/service; **requires** `--diagnostics-binary`. Build with
-  `tools/build/build-ir-remote.sh`.
 - `--api-test-apk build/AndroidIrApiTest.apk`: adds the ordinary Android
-  API test app under `/system/app`, independently of capture diagnostics.
-  Build with `tools/build/build-ir-api-test.sh`. Alternatively sideload it only
-  on a development device.
+  API test app under `/system/app`. Build with
+  `tools/build/build-ir-api-test.sh`. Alternatively sideload it only on a
+  development device.
 
-The old optional positional `hxd-learn` argument is deprecated and prints a
-warning; it remains accepted for compatibility. Use `--diagnostics-binary`
-instead. Do not layer onto v4-v8 test images to produce a release: start from
-the clean release base.
+The private capture, fixed-packet transmit and TCL test-app diagnostics have
+been removed: the phone has no IR receiver, and the release adapter covers
+transmission. Do not layer onto v4-v8 test images to produce a release:
+start from the clean release base.
 On a previously used development device, an APK installed in userdata
 may remain after changing system images; inspect/uninstall test packages
 separately rather than assuming an update wipes userdata.

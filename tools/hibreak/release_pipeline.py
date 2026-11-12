@@ -80,7 +80,7 @@ def build(gsi, output, apk, daemon, vendor, hal, compiler, *, ir, xrz,
 
         if ir:
             def apply_ir():
-                module = load("release_ir", "add-ir-capture-to-gsi.py")
+                module = load("release_ir", "add-ir-hal-to-gsi.py")
                 scratch = work("ir")
                 validate_hal_module(hal)
                 stock = image.extract(vendor, "/lib64/hw/consumerir.common.so", scratch / "stock-ir.so")
@@ -102,7 +102,7 @@ def build(gsi, output, apk, daemon, vendor, hal, compiler, *, ir, xrz,
                     (hal, "system/lib64/consumerir.hxd.so", "0100644", "u:object_r:hibreak_ir_hal_file:s0"),
                     (ROOT / "tools/ir/hibreak-ir-hal.rc", "system/etc/init/hibreak-ir-hal.rc", "0100644", SYSTEM),
                 ))
-            stage("add-ir-capture-to-gsi.py", apply_ir)
+            stage("add-ir-hal-to-gsi.py", apply_ir)
 
         if xrz:
             def apply_xrz():

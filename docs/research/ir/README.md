@@ -55,9 +55,9 @@ controller-built carrier. Exact optical carrier/timing, repeat behavior
 and other protocols remain unverified. The controller does not expose a
 generic Android timing/carrier API in the inspected kernel paths.
 
-Learning is not supported as a user feature. The attempted learning tests
-on the inspected firmware returned the same data for a button press and a
-no-button control; see the [historical experiment summary](historical-diagnostics.md). Do not
+Learning is not possible: the user reported that the phone has no IR
+receiver hardware. The attempted learning tests on the inspected firmware
+returned the same data for a button press and a no-button control; see the [historical experiment summary](historical-diagnostics.md). Do not
 treat a nonempty capture or successful device write as proof of signal
 reception or optical output.
 

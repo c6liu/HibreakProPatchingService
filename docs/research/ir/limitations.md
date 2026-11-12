@@ -19,9 +19,8 @@ would change its supported contract:
 4. **Broader protocol support:** add a protocol only when its input
    recognition, HXD encoding and on-device result are validated. RC5/RC6,
    Sony, air-conditioner protocols and arbitrary timings remain unsupported.
-5. **Learning:** do not spend effort exposing learning unless new evidence
-   establishes that this board has a usable optical receive path. Existing
-   button and no-button records matched.
+5. **Learning:** not possible; the user reported that the phone has no IR
+   receiver hardware. Existing button and no-button records matched.
 
 The existing host suite covers framing, input bounds, controller errors,
 serialization and the documented HAL/overlay contract. Passing those tests

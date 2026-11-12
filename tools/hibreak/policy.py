@@ -76,23 +76,17 @@ def extract_policy_inputs(source, vendor, work, *, allow_existing_ir=False):
     return platform, inputs
 
 
-def prepare_ir_policy(source, vendor, work, compiler, remote=False, hal=False,
-                      diagnostics=False, allow_existing_ir=False, diagnostics_out=None,
+def prepare_ir_policy(source, vendor, work, compiler, hal=False,
+                      allow_existing_ir=False, diagnostics_out=None,
                       parallel_compile=False):
-    if remote and not diagnostics:
-        raise ValueError("Remote app policy requires diagnostic service policy")
-    if allow_existing_ir and (remote or hal or diagnostics):
+    if allow_existing_ir and hal:
         raise ValueError("Cannot add another IR overlay when allowing existing IR policy")
     platform, inputs = extract_policy_inputs(source, vendor, work, allow_existing_ir=allow_existing_ir)
     text = platform.read_text()
     command = [compiler, "-m", "-M", "true", "-G", "-c", "30",
                *map(str, inputs), "-o", str(work / "validated.policy"),
                "-f", str(work / "validated.contexts")]
-    extra = (ROOT / "tools/ir/hibreak-ir-capture.cil").read_text() if diagnostics else ""
-    if remote:
-        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-remote.cil").read_text()
-    if hal:
-        extra += "\n" + (ROOT / "tools/ir/hibreak-ir-hal.cil").read_text()
+    extra = "\n" + (ROOT / "tools/ir/hibreak-ir-hal.cil").read_text() if hal else ""
     noassert = list(command)
     noassert[noassert.index("-o") + 1] = str(work / "validated-noassert.policy")
     noassert[noassert.index("-f") + 1] = str(work / "validated-noassert.contexts")
@@ -131,11 +125,6 @@ def prepare_ir_policy(source, vendor, work, compiler, remote=False, hal=False,
         else:
             image.run(*command, "-N")
     contexts = image.extract(source, f"{POLICY}/plat_file_contexts", work / "contexts")
-    if diagnostics:
-        contexts.write_text(
-            contexts.read_text() + "\n" +
-            (ROOT / "tools/ir/hibreak-ir-file-contexts").read_text(),
-        )
     if hal:
         contexts.write_text(
             contexts.read_text() +
