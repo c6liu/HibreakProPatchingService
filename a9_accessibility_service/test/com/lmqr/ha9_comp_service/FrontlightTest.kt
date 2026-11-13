@@ -3,6 +3,13 @@ package com.lmqr.ha9_comp_service
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
+import android.view.MotionEvent
+import android.os.Bundle
+import android.provider.Settings
+import android.os.Handler
+import android.os.Looper
+import android.view.accessibility.AccessibilityNodeInfo
+import com.google.android.material.slider.Slider
 import androidx.preference.PreferenceManager
 import com.lmqr.ha9_comp_service.command_runners.CommandRunner
 import org.junit.Assert.assertEquals
@@ -30,6 +37,7 @@ class FrontlightTest {
         override fun start(onChange: () -> Unit) { listener = onChange }
         override fun refresh() {}
         override fun stop() { listener = null }
+        override fun setBrightness(value: Float): Boolean { change(value); return true }
         fun change(value: Float) { brightness = value; listener?.invoke() }
     }
 
@@ -120,6 +128,39 @@ class FrontlightTest {
     }
 
     @Test
+    fun perceptualBrightnessRoundTripsAndKeepsEqualLightnessSteps() {
+        assertEquals(0.0, FrontlightMixer.outputForLightness(0.0), 0.0)
+        assertEquals(1.0, FrontlightMixer.outputForLightness(1.0), 1e-12)
+        assertEquals(0.18419, FrontlightMixer.outputForLightness(0.5), 0.00001)
+        for (step in 0..1000) {
+            val position = step / 1000.0
+            assertEquals(position, FrontlightMixer.lightnessForOutput(
+                FrontlightMixer.outputForLightness(position)), 1e-12)
+        }
+        for (step in 10..100) {
+            val desired = step / 100.0
+            val code = FrontlightMixer.codeForOutput(FrontlightMixer.outputForLightness(desired))
+            val actual = FrontlightMixer.lightnessForOutput(FrontlightMixer.outputForCode(code))
+            assertEquals(desired, actual, 0.006)
+        }
+    }
+
+    @Test
+    fun savingAndroidBrightnessDoesNotChangeAutomaticMode() {
+        val context = RuntimeEnvironment.getApplication()
+        val resolver = context.contentResolver
+        val source = DisplayBrightnessSource(context, Handler(Looper.getMainLooper()))
+        for (mode in listOf(Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
+                Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)) {
+            Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, mode)
+            assertTrue(source.setBrightness(0.25f))
+            assertEquals(0.25f, Settings.System.getFloat(resolver, "screen_brightness_float"))
+            assertEquals(0.25f, source.brightness)
+            assertEquals(mode, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE))
+        }
+    }
+
+    @Test
     fun dumpParserReadsTheDefaultDisplay() {
         val dump = """
             Display Power Controller:
@@ -185,35 +226,31 @@ class FrontlightTest {
         val source = FakeSource(1f)
         val manager = BrightnessManager(prefs, runner, source)
         prefs.edit().putBoolean(BrightnessManager.PREF_NATIVE_MODE, false).commit()
-        manager.setupSeekBars(menu.lightSeekbar, menu.lightWarmSeekbar, menu.lightTemperatureSeekbar)
-        fun update() = manager.updateOverlay(menu.lightSeekbar, menu.lightWarmSeekbar,
-            menu.lightTemperatureSeekbar, menu.independentLightControls, menu.nativeLightControls)
+        manager.setupSliders(menu)
+        fun update() = manager.updateOverlay(menu)
 
         update()
         assertTrue(menu.independentLightControls.all { it.visibility == View.VISIBLE })
         assertTrue(menu.nativeLightControls.all { it.visibility == View.GONE })
 
-        // Independent sliders write driver codes directly, without a gamma curve.
-        shadowListener(menu.lightSeekbar).onProgressChanged(menu.lightSeekbar, 100, true)
-        assertEquals(listOf("br_co100"), runner.commands)
+        changeFromUser(menu.lightSeekbar, 500f)
+        val halfLightness = FrontlightMixer.codeForOutput(FrontlightMixer.outputForLightness(0.5))
+        assertEquals(listOf("br_co$halfLightness"), runner.commands)
+        assertEquals(halfLightness, manager.coldBrightness)
 
         prefs.edit().putBoolean(BrightnessManager.PREF_NATIVE_MODE, true).commit()
         manager.onModeChanged()
         update()
         assertTrue(menu.independentLightControls.all { it.visibility == View.GONE })
         assertTrue(menu.nativeLightControls.all { it.visibility == View.VISIBLE })
-        assertEquals(BrightnessManager.NEUTRAL_PROGRESS, menu.lightTemperatureSeekbar.progress)
+        assertEquals(BrightnessManager.NEUTRAL_PROGRESS.toFloat(), menu.lightTemperatureSeekbar.value)
 
         // Drags near neutral white snap to the 4800 K stop where both channels are at full.
-        val listener = shadowListener(menu.lightTemperatureSeekbar)
-        listener.onStartTrackingTouch(menu.lightTemperatureSeekbar)
-        listener.onProgressChanged(menu.lightTemperatureSeekbar, BrightnessManager.NEUTRAL_PROGRESS + 20, true)
-        assertEquals(BrightnessManager.NEUTRAL_PROGRESS, menu.lightTemperatureSeekbar.progress)
+        changeFromUser(menu.lightTemperatureSeekbar, BrightnessManager.NEUTRAL_PROGRESS + 20f)
+        assertEquals(BrightnessManager.NEUTRAL_PROGRESS.toFloat(), menu.lightTemperatureSeekbar.value)
 
         runner.commands.clear()
-        menu.lightTemperatureSeekbar.setProgress(BrightnessManager.TEMPERATURE_STEPS, true)
-        // Programmatic changes are not user input; simulate a completed drag instead.
-        listener.onProgressChanged(menu.lightTemperatureSeekbar, BrightnessManager.TEMPERATURE_STEPS, true)
+        changeFromUser(menu.lightTemperatureSeekbar, BrightnessManager.TEMPERATURE_STEPS.toFloat())
         val warm = FrontlightMixer.mix(1.0, 1.0)
         assertEquals(listOf("br_co${warm.cool}", "br_wm${warm.warm}"), runner.commands)
 
@@ -223,10 +260,72 @@ class FrontlightTest {
         val dimWarm = FrontlightMixer.mix(0.3f.toDouble(), 1.0)
         assertEquals(listOf("br_co${dimWarm.cool}", "br_wm${dimWarm.warm}"), runner.commands)
 
-        listener.onStopTrackingTouch(menu.lightTemperatureSeekbar)
         assertEquals(1f, manager.temperature)
     }
 
-    private fun shadowListener(seekBar: android.widget.SeekBar) =
-        org.robolectric.Shadows.shadowOf(seekBar).onSeekBarChangeListener
+    @Test
+    fun nativeOverlayBrightnessAppliesImmediatelyAndFollowsLaterAndroidChanges() {
+        val context = ContextThemeWrapper(RuntimeEnvironment.getApplication(), R.style.Theme_Ha9_comp_service)
+        val menu = FloatingMenuViewAccessor(LayoutInflater.from(context).inflate(R.layout.floating_menu_layout, null))
+        val runner = RecordingRunner()
+        val source = FakeSource(0.5f)
+        val manager = BrightnessManager(prefs, runner, source)
+        manager.setupSliders(menu)
+        manager.applyBrightness()
+        runner.commands.clear()
+        changeFromUser(menu.lightBrightnessSeekbar, 500f)
+        val expected = FrontlightMixer.mix(FrontlightMixer.outputForLightness(0.5).toFloat().toDouble(), 0.5)
+        assertEquals(listOf("br_co${expected.cool}", "br_wm${expected.warm}"), runner.commands)
+        assertEquals(FrontlightMixer.outputForLightness(0.5).toFloat(), source.brightness)
+
+        source.change(0.7f)
+        assertEquals((FrontlightMixer.lightnessForOutput(0.7f.toDouble()) * 1000).toFloat(),
+            menu.lightBrightnessSeekbar.value)
+        runner.commands.clear()
+        menu.lightBrightnessSeekbar.value = 100f
+        assertTrue(runner.commands.isEmpty())
+        manager.onScreenStateChanged(false)
+        runner.commands.clear()
+        changeFromUser(menu.lightBrightnessSeekbar, 400f)
+        assertTrue(runner.commands.isEmpty())
+    }
+
+    @Test
+    fun brightnessDragIgnoresDelayedDisplayEventsAndKeepsLiveTemperature() {
+        val context = ContextThemeWrapper(RuntimeEnvironment.getApplication(), R.style.Theme_Ha9_comp_service)
+        val menu = FloatingMenuViewAccessor(LayoutInflater.from(context).inflate(R.layout.floating_menu_layout, null))
+        val source = FakeSource(0.5f)
+        val runner = RecordingRunner()
+        val manager = BrightnessManager(prefs, runner, source)
+        manager.setupSliders(menu)
+        manager.applyBrightness()
+        val slider = menu.lightBrightnessSeekbar
+        slider.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(100, View.MeasureSpec.EXACTLY))
+        slider.layout(0, 0, 600, 100)
+        MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 300f, 50f, 0).let {
+            try { assertTrue(slider.onTouchEvent(it)) } finally { it.recycle() }
+        }
+        changeFromUser(slider, 600f)
+        val liveBrightness = source.brightness
+        runner.commands.clear()
+        source.change(0.1f)
+        assertTrue(runner.commands.isEmpty())
+        assertEquals(600f, slider.value)
+        changeFromUser(menu.lightTemperatureSeekbar, 1000f)
+        val expected = FrontlightMixer.mix(liveBrightness.toDouble(), 1.0)
+        assertEquals(listOf("br_co${expected.cool}", "br_wm${expected.warm}"), runner.commands)
+        MotionEvent.obtain(0, 10, MotionEvent.ACTION_UP, 360f, 50f, 0).let {
+            try { slider.onTouchEvent(it) } finally { it.recycle() }
+        }
+        source.change(0.4f)
+        assertEquals((FrontlightMixer.lightnessForOutput(0.4f.toDouble()) * 1000).toFloat(),
+            slider.value)
+    }
+
+    private fun changeFromUser(slider: Slider, value: Float) {
+        assertTrue(slider.accessibilityNodeProvider.performAction(0,
+            AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.id,
+            Bundle().apply { putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE, value) }))
+    }
 }

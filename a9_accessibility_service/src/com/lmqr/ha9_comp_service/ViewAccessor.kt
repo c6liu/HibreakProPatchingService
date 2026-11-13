@@ -3,7 +3,7 @@ package com.lmqr.ha9_comp_service
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.Button
-import android.widget.SeekBar
+import com.google.android.material.slider.Slider
 import android.widget.CompoundButton
 
 /**
@@ -25,16 +25,17 @@ class FloatingMenuViewAccessor(val root: View) {
     val closeButton: View = root.findViewById<View>(R.id.close_menu).apply {
         setOnClickListener { root.visibility = View.GONE }
     }
-    val lightSeekbar: SeekBar = root.findViewById(R.id.light_seekbar)
-    val lightWarmSeekbar: SeekBar = root.findViewById(R.id.light_warm_seekbar)
-    val lightTemperatureSeekbar: SeekBar = root.findViewById(R.id.light_temperature_seekbar)
+    val lightSeekbar: Slider = root.findViewById(R.id.light_seekbar)
+    val lightWarmSeekbar: Slider = root.findViewById(R.id.light_warm_seekbar)
+    val lightTemperatureSeekbar: Slider = root.findViewById(R.id.light_temperature_seekbar)
+    val lightBrightnessSeekbar: Slider = root.findViewById(R.id.light_brightness_seekbar)
     val independentLightControls: List<View> = listOf(
         root.findViewById(R.id.light_seekbar_container),
         root.findViewById(R.id.light_warm_seekbar_container),
     )
     val nativeLightControls: List<View> = listOf(
+        root.findViewById(R.id.light_brightness_seekbar_container),
         root.findViewById(R.id.light_temperature_seekbar_container),
-        root.findViewById(R.id.light_native_hint),
     )
     
     companion object {

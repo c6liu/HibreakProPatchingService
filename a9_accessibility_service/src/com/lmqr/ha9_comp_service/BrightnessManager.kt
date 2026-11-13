@@ -3,7 +3,7 @@ package com.lmqr.ha9_comp_service
 import android.content.SharedPreferences
 import android.view.HapticFeedbackConstants
 import android.view.View
-import android.widget.SeekBar
+import com.google.android.material.slider.Slider
 import com.lmqr.ha9_comp_service.command_runners.CommandRunner
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -11,9 +11,8 @@ import kotlin.math.roundToInt
 /**
  * Manages frontlight settings and their persistence.
  *
- * In the default mode the popup sets the cold and warm channels independently. In native
- * mode Android's effective brightness sets the combined output and the popup only sets the
- * warm/cool mix (see [FrontlightMixer]). Only the active mode writes to the frontlights.
+ * Independent mode sets each channel; native mode follows Android brightness and offers
+ * live combined-brightness and temperature controls. Only the active mode writes the lights.
  */
 class BrightnessManager(
     private val sharedPreferences: SharedPreferences,
@@ -25,7 +24,6 @@ class BrightnessManager(
         private const val PREF_COLD_BRIGHTNESS = "cold_brightness_value"
         private const val PREF_WARM_BRIGHTNESS = "warm_brightness_value"
         private const val PREF_TEMPERATURE = "frontlight_temperature"
-        private const val MAX_BRIGHTNESS = 255
         const val TEMPERATURE_STEPS = 1000
         private val DEFAULT_TEMPERATURE = FrontlightMixer.NEUTRAL_TEMPERATURE.toFloat()
         /** Drags within this many steps of neutral white snap to it. */
@@ -39,12 +37,13 @@ class BrightnessManager(
     private var screenOn = true
     private var nativeActive = false
     private var lastCodes: FrontlightMixer.Codes? = null
-    // Position of an in-progress temperature drag; saved to preferences on release.
-    private var draggingTemperature: Double? = null
     private var draggingProgress: Int? = null
+    // Display events may lag behind a drag; they must not replace its live brightness.
+    private var draggingBrightness: Float? = null
+    private var brightnessSlider: Slider? = null
 
     private val activeTemperature: Double
-        get() = draggingTemperature ?: temperature.toDouble()
+        get() = temperature.toDouble()
 
     val isNativeMode: Boolean
         get() = sharedPreferences.getBoolean(PREF_NATIVE_MODE, true)
@@ -94,12 +93,14 @@ class BrightnessManager(
 
     /** Called when the control mode preference changes. */
     fun onModeChanged() {
+        draggingBrightness = null
         applyBrightness()
     }
 
     fun release() {
         if (nativeActive) nativeBrightness.stop()
         nativeActive = false
+        brightnessSlider = null
     }
 
     private fun updateNativeSource() {
@@ -108,7 +109,10 @@ class BrightnessManager(
         nativeActive = wanted
         if (wanted) {
             nativeBrightness.start {
-                if (screenOn && isNativeMode) applyNative(activeTemperature)
+                if (isNativeMode) {
+                    if (draggingBrightness == null) updateBrightnessSlider()
+                    if (screenOn) applyNative(activeTemperature)
+                }
             }
         } else {
             nativeBrightness.stop()
@@ -116,7 +120,8 @@ class BrightnessManager(
     }
 
     private fun applyNative(temperature: Double) {
-        val codes = FrontlightMixer.mix(nativeBrightness.brightness.toDouble(), temperature)
+        val codes = FrontlightMixer.mix(
+            (draggingBrightness ?: nativeBrightness.brightness).toDouble(), temperature)
         if (codes == lastCodes) return
         lastCodes = codes
         commandRunner.runCommands(arrayOf("br_co${codes.cool}", "br_wm${codes.warm}"))
@@ -142,91 +147,97 @@ class BrightnessManager(
     /**
      * Show the controls for the active mode and refresh their positions.
      */
-    fun updateOverlay(
-        lightSeekbar: SeekBar,
-        lightWarmSeekbar: SeekBar,
-        temperatureSeekbar: SeekBar,
-        independentControls: List<View>,
-        nativeControls: List<View>,
-    ) {
+    fun updateOverlay(menu: FloatingMenuViewAccessor) {
         val native = isNativeMode
-        independentControls.forEach { it.visibility = if (native) View.GONE else View.VISIBLE }
-        nativeControls.forEach { it.visibility = if (native) View.VISIBLE else View.GONE }
-        lightSeekbar.progress = coldBrightness
-        lightWarmSeekbar.progress = warmBrightness
-        temperatureSeekbar.progress = (temperature * TEMPERATURE_STEPS).roundToInt()
+        menu.independentLightControls.forEach { it.visibility = if (native) View.GONE else View.VISIBLE }
+        menu.nativeLightControls.forEach { it.visibility = if (native) View.VISIBLE else View.GONE }
+        menu.lightSeekbar.value = lightnessForCode(coldBrightness)
+        menu.lightWarmSeekbar.value = lightnessForCode(warmBrightness)
+        menu.lightTemperatureSeekbar.value = temperature * TEMPERATURE_STEPS
+        updateBrightnessSlider()
     }
 
-    /**
-     * Configure seekbars with current brightness values and listeners
-     */
-    fun setupSeekBars(lightSeekbar: SeekBar, lightWarmSeekbar: SeekBar, temperatureSeekbar: SeekBar) {
-        temperatureSeekbar.min = 0
-        temperatureSeekbar.max = TEMPERATURE_STEPS
-        temperatureSeekbar.progress = (temperature * TEMPERATURE_STEPS).roundToInt()
-        temperatureSeekbar.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    val snapped = snapToNeutral(progress)
-                    if (snapped != progress) seekBar?.progress = snapped
-                    if (snapped == NEUTRAL_PROGRESS && draggingProgress != NEUTRAL_PROGRESS) {
-                        seekBar?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    }
-                    draggingProgress = snapped
-                    draggingTemperature = FrontlightMixer.temperatureForProgress(snapped, TEMPERATURE_STEPS)
-                    if (screenOn && isNativeMode) applyNative(activeTemperature)
-                }
+    private fun lightnessForCode(code: Int): Float =
+        (FrontlightMixer.lightnessForOutput(FrontlightMixer.outputForCode(code)) * TEMPERATURE_STEPS).toFloat()
 
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                    draggingProgress = seekBar?.progress
-                }
+    private fun updateBrightnessSlider() {
+        brightnessSlider?.value =
+            (FrontlightMixer.lightnessForOutput(nativeBrightness.brightness.toDouble()) * TEMPERATURE_STEPS).toFloat()
+    }
 
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    temperature = (seekBar?.progress ?: 0).toFloat() / TEMPERATURE_STEPS
-                    draggingTemperature = null
-                    draggingProgress = null
-                    if (screenOn && isNativeMode) applyNative(activeTemperature)
-                }
+    fun setupSliders(menu: FloatingMenuViewAccessor) {
+        brightnessSlider = menu.lightBrightnessSeekbar
+        val sliders = listOf(menu.lightSeekbar, menu.lightWarmSeekbar,
+            menu.lightTemperatureSeekbar, menu.lightBrightnessSeekbar)
+        sliders.forEach {
+            it.valueFrom = 0f
+            it.valueTo = TEMPERATURE_STEPS.toFloat()
+            it.setLabelFormatter { value -> "${(value / 10).roundToInt()}%" }
+        }
+        updateOverlay(menu)
+        menu.lightTemperatureSeekbar.setLabelFormatter { value ->
+            when (value.roundToInt()) {
+                NEUTRAL_PROGRESS -> menu.root.context.getString(R.string.frontlight_neutral)
+                else -> "${(value / 10).roundToInt()}%"
             }
-        )
-
-        lightSeekbar.min = 0
-        lightSeekbar.max = MAX_BRIGHTNESS
-        lightSeekbar.progress = coldBrightness
-        lightSeekbar.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser && !isNativeMode) {
-                        commandRunner.runCommands(arrayOf("br_co${progress}"))
-                    }
+        }
+        menu.lightTemperatureSeekbar.addOnChangeListener { slider, value, fromUser ->
+            if (fromUser && isNativeMode) {
+                val snapped = snapToNeutral(value.roundToInt())
+                if (snapped == NEUTRAL_PROGRESS && draggingProgress != NEUTRAL_PROGRESS) {
+                    slider.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 }
-                
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    coldBrightness = seekBar?.progress ?: 0
-                }
+                draggingProgress = snapped
+                slider.value = snapped.toFloat()
+                temperature = snapped.toFloat() / TEMPERATURE_STEPS
+                if (screenOn) applyNative(activeTemperature)
             }
-        )
-
-        lightWarmSeekbar.min = 0
-        lightWarmSeekbar.max = MAX_BRIGHTNESS
-        lightWarmSeekbar.progress = warmBrightness
-        lightWarmSeekbar.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser && !isNativeMode) {
-                        commandRunner.runCommands(arrayOf("br_wm${progress}"))
-                    }
-                }
-                
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    warmBrightness = seekBar?.progress ?: 0
-                }
+        }
+        menu.lightTemperatureSeekbar.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) {
+                draggingProgress = slider.value.roundToInt()
             }
-        )
+            override fun onStopTrackingTouch(slider: Slider) {
+                draggingProgress = null
+            }
+        })
+        menu.lightBrightnessSeekbar.addOnChangeListener { _, value, fromUser ->
+            if (fromUser && isNativeMode) {
+                val brightness = FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()).toFloat()
+                val tracking = draggingBrightness != null
+                draggingBrightness = brightness
+                if (nativeBrightness.setBrightness(brightness)) {
+                    if (screenOn) applyNative(activeTemperature)
+                } else {
+                    draggingBrightness = null
+                    updateBrightnessSlider()
+                }
+                if (!tracking) draggingBrightness = null
+            }
+        }
+        menu.lightBrightnessSeekbar.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) {
+                draggingBrightness = nativeBrightness.brightness
+            }
+            override fun onStopTrackingTouch(slider: Slider) {
+                draggingBrightness = null
+                updateBrightnessSlider()
+                if (screenOn && isNativeMode) applyNative(activeTemperature)
+            }
+        })
+        menu.lightSeekbar.addOnChangeListener { _, value, fromUser ->
+            if (fromUser && !isNativeMode) {
+                coldBrightness = FrontlightMixer.codeForOutput(
+                    FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()))
+                if (screenOn) commandRunner.runCommands(arrayOf("br_co$coldBrightness"))
+            }
+        }
+        menu.lightWarmSeekbar.addOnChangeListener { _, value, fromUser ->
+            if (fromUser && !isNativeMode) {
+                warmBrightness = FrontlightMixer.codeForOutput(
+                    FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()))
+                if (screenOn) commandRunner.runCommands(arrayOf("br_wm$warmBrightness"))
+            }
+        }
     }
 }

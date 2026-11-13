@@ -23,7 +23,11 @@ Robolectric tests execute the source classes on Android API 35. They verify F9
 down/up/repeat consumption without gesture dispatch (including absent and
 side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
 in light/dark configurations, overlay close/reopen, and selection of all five
-refresh modes. Action tests cover screen-off Clear Screen migration and
+refresh modes. Adaptive-layout tests cover popup scrolling and width changes
+between portrait and landscape, retaining control values, accent-slider persistence
+and change vetoes, and Material choice-dialog selection/cancellation through
+activity rotation (including per-app integer storage and default removal).
+Action tests cover screen-off Clear Screen migration and
 dispatch rejection, independent shortcut routing for all 12 gestures, bounded
 screen-off wake locks, malformed assignments, searchable app selection,
 shortcut-provider results across activity recreation, rejection of previously
@@ -31,7 +35,8 @@ saved launcher shortcuts, and exclusion of modern shortcuts from the picker.
 Frontlight tests cover the exponential code inversion, the 90% output cap,
 constant output across achievable temperatures, colour-preserving endpoint
 dimming, display-dump parsing, exclusive mode ownership, screen-off handling,
-overlay control visibility, the neutral-white stop, and direct legacy codes.
+overlay control visibility, the neutral-white stop, CIE L* brightness spacing,
+live overlay brightness and delayed-event handling, and unchanged auto-brightness mode.
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 Java 27 can build the app but is not supported by this Robolectric/ASM version.
 If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's
@@ -80,7 +85,9 @@ and screen-off gestures and app/shortcut launch), quick settings, frontlight con
 AOD/video refresh, and fingerprint/F9 handling. Verify Material 3 text contrast,
 switches, sliders, selected-mode highlighting, dialogs, and back navigation in
 both light/dark modes on the physical panel. Check updates with the intended
-signing certificate. See [post-install verification](../reference/verification.md).
+signing certificate. Test both screen orientations, rotation while the popup or a
+choice dialog is open, and navigation-bar insets on different screen edges.
+See [post-install verification](../reference/verification.md).
 
 For the target picker, verify search and back/cancel, provider configuration,
 uninstalled apps and changed permissions, previously saved launcher shortcuts,

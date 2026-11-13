@@ -10,8 +10,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.graphics.Point
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -24,11 +24,11 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.WindowInsets
 import android.view.ContextThemeWrapper
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.CompoundButton
-import android.widget.SeekBar
 import android.widget.TextView
 import androidx.preference.PreferenceManager
 import com.lmqr.ha9_comp_service.button_mapper.ButtonActionManager
@@ -227,33 +227,28 @@ class A9AccessibilityService : AccessibilityService(),
         }
     }
 
-    private fun getAppUsableScreenSize(context: Context): Point {
-        val windowManager = context.getSystemService(WINDOW_SERVICE) as WindowManager
-        val display = windowManager.defaultDisplay
-        val size = Point()
-        display.getSize(size)
-        return size
-    }
-
-    private fun getRealScreenSize(context: Context): Point {
-        val windowManager = context.getSystemService(WINDOW_SERVICE) as WindowManager
-        val display = windowManager.defaultDisplay
-        val size = Point()
-        display.getRealSize(size)
-        return size
-    }
-
-    private fun getNavBarHeight(): Int {
-        val appUsableSize: Point = getAppUsableScreenSize(this)
-        val realScreenSize: Point = getRealScreenSize(this)
-
-        if (appUsableSize.y < realScreenSize.y)
-            return (realScreenSize.y - appUsableSize.y)
-
-        return 0
+    private fun menuWidth(wm: WindowManager): Int {
+        val metrics = wm.currentWindowMetrics
+        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+            WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        return minOf(metrics.bounds.width() - insets.left - insets.right,
+            resources.getDimensionPixelSize(R.dimen.floating_menu_max_width))
     }
 
     private var menuBinding: FloatingMenuViewAccessor? = null
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateMenuLayout()
+    }
+
+    private fun updateMenuLayout() {
+        val root = menuBinding?.root ?: return
+        val wm = getSystemService(WindowManager::class.java)
+        val params = root.layoutParams as WindowManager.LayoutParams
+        params.width = menuWidth(wm)
+        wm.updateViewLayout(root, params)
+    }
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams")
     fun openFloatingMenu() {
@@ -262,6 +257,7 @@ class A9AccessibilityService : AccessibilityService(),
                 if (root.visibility == View.VISIBLE) {
                     root.visibility = View.GONE
                 } else {
+                    updateMenuLayout()
                     root.visibility = View.VISIBLE
                     updateButtons(refreshModeManager.currentMode)
                     updateLightControls()
@@ -282,10 +278,11 @@ class A9AccessibilityService : AccessibilityService(),
                     format = PixelFormat.TRANSLUCENT
                     flags =
                         flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-                    width = WindowManager.LayoutParams.MATCH_PARENT
+                    width = menuWidth(wm)
                     height = WindowManager.LayoutParams.WRAP_CONTENT
-                    gravity = Gravity.BOTTOM
-                    y = getNavBarHeight()
+                    gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                    fitInsetsTypes = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                    isFitInsetsIgnoringVisibility = true
                 }
 
                 menuBinding = FloatingMenuViewAccessor(view).apply {
@@ -330,7 +327,7 @@ class A9AccessibilityService : AccessibilityService(),
                     }
 
 
-                    brightnessManager.setupSeekBars(lightSeekbar, lightWarmSeekbar, lightTemperatureSeekbar)
+                    brightnessManager.setupSliders(this)
                     updateLightControls()
                     updateButtons(refreshModeManager.currentMode)
 
@@ -343,10 +340,7 @@ class A9AccessibilityService : AccessibilityService(),
     }
 
     private fun FloatingMenuViewAccessor.updateLightControls() =
-        brightnessManager.updateOverlay(
-            lightSeekbar, lightWarmSeekbar, lightTemperatureSeekbar,
-            independentLightControls, nativeLightControls,
-        )
+        brightnessManager.updateOverlay(this)
 
     override fun onDestroy() {
         brightnessManager.release()

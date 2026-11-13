@@ -10,6 +10,7 @@ import android.view.accessibility.AccessibilityManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 
@@ -39,6 +40,21 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {
+        @Suppress("DEPRECATION")
+        override fun onDisplayPreferenceDialog(preference: Preference) {
+            if (preference !is ListPreference) {
+                super.onDisplayPreferenceDialog(preference)
+                return
+            }
+            val tag = "androidx.preference.PreferenceFragment.DIALOG"
+            if (parentFragmentManager.findFragmentByTag(tag) != null) return
+            MaterialListPreferenceDialogFragment().apply {
+                arguments = Bundle().apply { putString("key", preference.key) }
+                // AndroidX resolves the preference through its target fragment after recreation.
+                setTargetFragment(this@SettingsFragment, 0)
+            }.show(parentFragmentManager, tag)
+        }
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             ButtonActionSettings.migrateScreenOffClear(requireContext())
             setPreferencesFromResource(R.xml.root_preferences, rootKey)

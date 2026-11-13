@@ -21,7 +21,9 @@
     <string name="frontlight_temperature">Frontlight colour temperature</string>
     <string name="frontlight_cool">Cool</string>
     <string name="frontlight_warm">Warm</string>
-    <string name="frontlight_native_hint">Brightness follows Android\'s brightness control</string>
+    <string name="frontlight_brightness">Frontlight brightness</string>
+    <string name="frontlight_neutral">Neutral white (4800 K)</string>
+    <string name="frontlight_brightness_write_failed">Could not save Android brightness. Check the app\'s system settings permission.</string>
     <string name="additional_controls_text">Additional Controls</string>
     <string name="close_overlay">Close overlay</string>
     <string name="launch_app">Launch App</string>

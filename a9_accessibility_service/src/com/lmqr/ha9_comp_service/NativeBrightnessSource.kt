@@ -9,6 +9,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.util.Log
 import android.view.Display
+import android.widget.Toast
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,6 +23,8 @@ interface NativeBrightnessSource {
     fun start(onChange: () -> Unit)
     fun refresh()
     fun stop()
+    /** Saves Android brightness without changing its automatic/manual mode. */
+    fun setBrightness(value: Float): Boolean
 }
 
 /**
@@ -74,6 +77,7 @@ class DisplayBrightnessSource(
     private var listenerRegistered = false
     private var brightnessInfoAllowed = true
     private var dumpAllowed = true
+    private var writeGeneration = 0
 
     @Volatile
     override var brightness: Float = readSetting()
@@ -108,16 +112,39 @@ class DisplayBrightnessSource(
     override fun refresh() {
         // Coalesce bursts of events into one read.
         if (!refreshQueued.compareAndSet(false, true)) return
+        val generation = writeGeneration
         executor.execute {
             refreshQueued.set(false)
             val value = readBrightnessInfo() ?: readDump() ?: readSetting()
             handler.post {
+                if (generation != writeGeneration) return@post
                 if (value != brightness) {
                     brightness = value
                     onChange?.invoke()
                 }
             }
         }
+    }
+
+    override fun setBrightness(value: Float): Boolean {
+        val bounded = value.coerceIn(0f, 1f)
+        try {
+            check(Settings.System.putFloat(context.contentResolver, SCREEN_BRIGHTNESS_FLOAT, bounded)) {
+                "Android rejected the brightness setting"
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Cannot write Android brightness", e)
+            Toast.makeText(context, R.string.frontlight_brightness_write_failed, Toast.LENGTH_LONG).show()
+            return false
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Cannot save Android brightness", e)
+            Toast.makeText(context, R.string.frontlight_brightness_write_failed, Toast.LENGTH_LONG).show()
+            return false
+        }
+        writeGeneration++
+        brightness = bounded
+        onChange?.invoke()
+        return true
     }
 
     override fun stop() {

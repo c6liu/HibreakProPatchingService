@@ -35,6 +35,19 @@ object FrontlightMixer {
 
     data class Codes(val cool: Int, val warm: Int)
 
+    /** Inverse CIE L*: equal slider steps approximate equal perceived lightness steps. */
+    fun outputForLightness(position: Double): Double {
+        val lightness = position.coerceIn(0.0, 1.0) * 100.0
+        return if (lightness <= 8.0) lightness / (24389.0 / 27.0)
+        else ((lightness + 16.0) / 116.0).pow(3.0)
+    }
+
+    fun lightnessForOutput(output: Double): Double {
+        val luminance = output.coerceIn(0.0, 1.0)
+        return if (luminance <= 216.0 / 24389.0) luminance * (24389.0 / 27.0) / 100.0
+        else (116.0 * Math.cbrt(luminance) - 16.0) / 100.0
+    }
+
     /** Relative output (0..1 of full scale) produced by a brightness code. */
     fun outputForCode(code: Int): Double =
         if (code <= 0) 0.0

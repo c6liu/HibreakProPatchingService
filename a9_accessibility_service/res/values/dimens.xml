@@ -1,0 +1,3 @@
+<resources>
+    <dimen name="floating_menu_max_width">640dp</dimen>
+</resources>

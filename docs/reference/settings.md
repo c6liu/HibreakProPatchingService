@@ -5,6 +5,18 @@ Implementation details and limitations are in
 [app and daemon](app-and-daemon.md), and stock mode values are in
 [refresh-mode research](refresh-modes.md).
 
+## Layout and appearance
+
+The floating menu uses Material 3 controls, stays within system-bar and display
+cutout insets, and is capped at 640 dp wide. It resizes when the screen rotates
+and scrolls when the available height is short, without resetting control values.
+Settings choice dialogs use Material styling and retain their selected choice
+through rotation; cancelling does not change the setting.
+
+**Color Scheme → Accent Color** uses a Material 3 slider with a live hexadecimal
+greyscale value. Touch drags apply on release; keyboard and accessibility changes
+apply immediately. Existing saved accent values are retained.
+
 ## Button mappings
 
 The default single press of the E-Ink button refreshes the screen; a double
@@ -122,14 +134,16 @@ HiBreak; use the app's Clear Screen action instead.
 
 **Override Max Brightness** is removed on HiBreak: its legacy command only
 sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. With
-native control off, the popup's independent cold/warm sliders (0–255) send
-their positions directly as driver codes, with no gamma curve.
+native control off, the popup's independent cold/warm sliders use CIE L*
+lightness spacing for approximately equal perceived brightness steps, not
+gamma 2.2. These are converted through the driver's exponential curve.
+Saved channel codes are retained, so existing brightness levels do not change.
 
 **E-Ink Service Settings → Use Android brightness for frontlight** (on by
 default) switches to native control. Android's effective brightness — the
 system slider, automatic brightness, screen dimming and per-app window
 overrides — then sets the combined frontlight output, and the popup shows a
-single cool-to-warm slider instead of the two channel sliders. The saved
+combined brightness slider and a cool-to-warm slider instead of the two channel sliders. The saved
 independent values are kept and restored when the switch is turned off.
 
 - Combined output is capped at 90% of both channels at full code.
@@ -148,6 +162,12 @@ independent values are kept and restored when the switch is turned off.
   exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
 - Android only reports a finished brightness change, so the frontlight
   follows the system slider when it is released, not while dragging.
+  The popup brightness slider instead updates the lights live and saves Android's
+  brightness setting. It never changes the auto-brightness mode; subsequent
+  automatic adjustments or app brightness overrides can take over.
+- All popup sliders use Material 3 controls. Brightness sliders use CIE L*
+  spacing; the native slider converts between perceptual lightness and Android's
+  linear brightness value. Temperature retains its centred neutral-white stop.
 
 Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone
 8000 K, warm alone 3000 K, both at full 4800 K. That implies the warm channel's

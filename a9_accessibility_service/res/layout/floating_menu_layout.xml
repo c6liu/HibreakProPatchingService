@@ -1,262 +1,278 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="16dp"
     android:background="@drawable/menu_background"
-    android:orientation="vertical">
+    android:clipToOutline="true">
 
-    <LinearLayout
-        android:id="@+id/linear_layout_top"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_gravity="center">
-
-        <ImageView
-            android:id="@+id/settings_icon"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="12dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/title_activity_settings"
-            android:tint="?attr/colorOnSurfaceVariant"
-            android:src="@drawable/baseline_settings_24" />
-
-        <TextView
-            android:layout_weight="1"
-            android:id="@+id/refresh_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:gravity="center"
-            android:textAlignment="center"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:text="@string/refresh_mode" />
-
-        <ImageButton
-            android:id="@+id/close_menu"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="12dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/close_overlay"
-            app:tint="?attr/colorOnSurfaceVariant"
-            android:src="@drawable/baseline_close_24" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/linear_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:orientation="horizontal"
-        android:layout_gravity="center"
-        android:padding="5dp">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button1"
-            style="@style/MenuButtonStyle"
-            android:layout_weight="1"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="5dp"
-            android:text="@string/hd" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button2"
-            style="@style/MenuButtonStyle"
-            android:layout_weight="1"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="5dp"
-            android:text="@string/regal" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button3"
-            style="@style/MenuButtonStyle"
-            android:layout_weight="1"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="5dp"
-            android:text="@string/fast" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button4"
-            style="@style/MenuButtonStyle"
-            android:layout_weight="1"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="5dp"
-            android:text="@string/extreme" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button5"
-            style="@style/MenuButtonStyle"
-            android:layout_weight="1"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:text="@string/hyper" />
-
-    </LinearLayout>
-    
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:padding="16dp"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/frontlight_text"
+        <LinearLayout
+            android:id="@+id/linear_layout_top"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/frontlight_controls"
-            android:textAlignment="center"
-            android:textAppearance="?attr/textAppearanceTitleMedium" />
+            android:orientation="horizontal"
+            android:layout_gravity="center">
+
+            <ImageView
+                android:id="@+id/settings_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/title_activity_settings"
+                android:tint="?attr/colorOnSurfaceVariant"
+                android:src="@drawable/baseline_settings_24" />
+
+            <TextView
+                android:layout_weight="1"
+                android:id="@+id/refresh_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:gravity="center"
+                android:textAlignment="center"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:text="@string/refresh_mode" />
+
+            <ImageButton
+                android:id="@+id/close_menu"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/close_overlay"
+                app:tint="?attr/colorOnSurfaceVariant"
+                android:src="@drawable/baseline_close_24" />
+            </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/light_seekbar_container"
+            android:id="@+id/linear_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_marginTop="5dp"
             android:orientation="horizontal"
+            android:layout_gravity="center"
             android:padding="5dp">
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:tint="?attr/colorOnSurfaceVariant"
-                android:src="@drawable/baseline_brightness_high_24_dark" />
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/light_seekbar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button1"
+                style="@style/MenuButtonStyle"
                 android:layout_weight="1"
-                android:paddingVertical="10dp"
-                android:minHeight="48dp"
-                android:contentDescription="@string/frontlight_controls"
-                android:progressTint="?attr/colorPrimary"
-                android:thumbTint="?attr/colorPrimary" />
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="5dp"
+                android:text="@string/hd" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button2"
+                style="@style/MenuButtonStyle"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="5dp"
+                android:text="@string/regal" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button3"
+                style="@style/MenuButtonStyle"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="5dp"
+                android:text="@string/fast" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button4"
+                style="@style/MenuButtonStyle"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="5dp"
+                android:text="@string/extreme" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button5"
+                style="@style/MenuButtonStyle"
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:text="@string/hyper" />
+
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/light_warm_seekbar_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal"
-            android:padding="5dp">
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:tint="?attr/colorOnSurfaceVariant"
-                android:src="@drawable/baseline_moon_24" />
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/light_warm_seekbar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:paddingVertical="10dp"
-                android:minHeight="48dp"
-                android:contentDescription="@string/warm_frontlight"
-                android:progressTint="?attr/colorPrimary"
-                android:thumbTint="?attr/colorPrimary" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/light_temperature_seekbar_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal"
-            android:padding="5dp"
-            android:visibility="gone">
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/frontlight_cool"
-                android:tint="?attr/colorOnSurfaceVariant"
-                android:src="@drawable/baseline_brightness_high_24_dark" />
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/light_temperature_seekbar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:paddingVertical="10dp"
-                android:minHeight="48dp"
-                android:contentDescription="@string/frontlight_temperature"
-                android:progressTint="?attr/colorPrimary"
-                android:thumbTint="?attr/colorPrimary" />
-
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/frontlight_warm"
-                android:tint="?attr/colorOnSurfaceVariant"
-                android:src="@drawable/baseline_moon_24" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/light_native_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/frontlight_native_hint"
-            android:textAlignment="center"
-            android:textAppearance="?attr/textAppearanceBodySmall"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/additional_controls_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="5dp"
-            android:text="@string/additional_controls_text"
-            android:textAlignment="center"
-            android:textAppearance="?attr/textAppearanceTitleMedium" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
             android:orientation="vertical">
 
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/auto_refresh"
+            <TextView
+                android:id="@+id/frontlight_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="Auto Refresh" />
+                android:text="@string/frontlight_controls"
+                android:textAlignment="center"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
 
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/anti_shake"
+            <LinearLayout
+                android:id="@+id/light_seekbar_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:text="Anti-Shake" />
+                android:layout_gravity="center"
+                android:orientation="horizontal"
+                android:padding="5dp">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:tint="?attr/colorOnSurfaceVariant"
+                    android:src="@drawable/baseline_brightness_high_24_dark" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/light_seekbar"
+                    style="@style/Widget.Material3.Slider"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:contentDescription="@string/frontlight_cool" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/light_warm_seekbar_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="horizontal"
+                android:padding="5dp">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:tint="?attr/colorOnSurfaceVariant"
+                    android:src="@drawable/baseline_moon_24" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/light_warm_seekbar"
+                    style="@style/Widget.Material3.Slider"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:contentDescription="@string/warm_frontlight" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/light_brightness_seekbar_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:tint="?attr/colorOnSurfaceVariant"
+                    android:src="@drawable/baseline_brightness_high_24_dark" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/light_brightness_seekbar"
+                    style="@style/Widget.Material3.Slider"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:contentDescription="@string/frontlight_brightness" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/light_temperature_seekbar_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/frontlight_cool"
+                    android:tint="?attr/colorOnSurfaceVariant"
+                    android:src="@drawable/baseline_brightness_high_24_dark" />
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/light_temperature_seekbar"
+                    style="@style/Widget.Material3.Slider"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="48dp"
+                    android:contentDescription="@string/frontlight_temperature" />
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/frontlight_warm"
+                    android:tint="?attr/colorOnSurfaceVariant"
+                    android:src="@drawable/baseline_moon_24" />
+            </LinearLayout>
 
         </LinearLayout>
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/video_optimized_refresh"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="Video refresh (experimental)" />
+            android:layout_marginTop="5dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/additional_controls_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:text="@string/additional_controls_text"
+                android:textAlignment="center"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/auto_refresh"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="Auto Refresh" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/anti_shake"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="Anti-Shake" />
+
+            </LinearLayout>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/video_optimized_refresh"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="Video refresh (experimental)" />
+
+        </LinearLayout>
 
     </LinearLayout>
-
-</LinearLayout>
+</androidx.core.widget.NestedScrollView>

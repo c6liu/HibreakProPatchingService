@@ -23,13 +23,26 @@ Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
 navigation on the physical e-ink panel after updating the source-built APK.
+Rotate with the popup open and closed, with gesture navigation and three-button
+navigation. It should stay inside system bars/cutouts, remain centred and no wider
+than 640 dp, and scroll to all controls in landscape without resetting their values.
+Rotate again while a settings choice dialog is open; its selection should survive,
+and Back/cancel must leave the saved value unchanged. Check Accent Color's slider
+and hexadecimal readout, including changing it with accessibility input and rotating
+after a saved change.
 With **Use Android brightness for frontlight** on (the default), check that the system
 slider, auto-brightness and an app brightness override (e.g. a reader) change
-the frontlight, that the popup shows only the temperature slider, that it
+the frontlight, that the popup shows combined brightness and temperature sliders, that it
 snaps to the neutral-white stop, that moving
 it keeps brightness steady at medium brightness, and that turning the switch
 off restores the previous cold/warm values. `adb logcat -s DisplayBrightness`
 reports if the app fell back to the slider-only setting.
+Drag the popup brightness slider and check that output changes before release,
+Android's saved brightness updates, and auto-brightness remains in its previous
+mode (test both enabled and disabled). While dragging, delayed Android brightness
+events must not move the thumb or override the live output. Later auto-brightness
+adjustments should still take effect. Check the independent cold/warm sliders for
+approximately even perceived brightness steps, including off and full output.
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.

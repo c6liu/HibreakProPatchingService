@@ -49,6 +49,10 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   Updates are triggered by the hidden brightness-only display event. If both
   reads fail, it falls back to the saved slider setting, which ignores
   auto-brightness and app overrides. This mode targets Android 16 and later.
+  The popup's Material 3 combined-brightness slider applies the mix immediately
+  and writes `screen_brightness_float` through `WRITE_SETTINGS`, without changing
+  automatic/manual mode. It uses CIE L* perceptual spacing, as do the independent
+  channel sliders; temperature retains the centred neutral-white stop.
 - Auto Refresh and Anti-Shake use the init bridge by default to write
   `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
   The compatibility daemon uses direct writes instead. Request success does
