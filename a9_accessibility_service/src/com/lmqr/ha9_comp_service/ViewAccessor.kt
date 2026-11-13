@@ -27,6 +27,15 @@ class FloatingMenuViewAccessor(val root: View) {
     }
     val lightSeekbar: SeekBar = root.findViewById(R.id.light_seekbar)
     val lightWarmSeekbar: SeekBar = root.findViewById(R.id.light_warm_seekbar)
+    val lightTemperatureSeekbar: SeekBar = root.findViewById(R.id.light_temperature_seekbar)
+    val independentLightControls: List<View> = listOf(
+        root.findViewById(R.id.light_seekbar_container),
+        root.findViewById(R.id.light_warm_seekbar_container),
+    )
+    val nativeLightControls: List<View> = listOf(
+        root.findViewById(R.id.light_temperature_seekbar_container),
+        root.findViewById(R.id.light_native_hint),
+    )
     
     companion object {
         fun inflate(inflater: LayoutInflater): FloatingMenuViewAccessor {

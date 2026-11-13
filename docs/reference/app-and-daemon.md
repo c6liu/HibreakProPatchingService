@@ -40,6 +40,15 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
 - Frontlights use
   `/sys/devices/platform/11d01000.i2c7/i2c-7/7-0036/lm3630a_cold_light`
   and `lm3630a_warm_light` on the same path.
+- Native frontlight mode reads Android's effective brightness
+  (`BrightnessInfo.adjustedBrightness`). The hidden `getBrightnessInfo()` needs
+  the signature-only `CONTROL_DISPLAY_BRIGHTNESS`, which the standalone-signed
+  APK cannot hold, so the app instead parses the default display's
+  `mCachedBrightnessInfo.adjustedBrightness` from the display service dump
+  (privileged `DUMP`, allowlisted in `privapp-permissions-accessibility.xml`).
+  Updates are triggered by the hidden brightness-only display event. If both
+  reads fail, it falls back to the saved slider setting, which ignores
+  auto-brightness and app overrides. This mode targets Android 16 and later.
 - Auto Refresh and Anti-Shake use the init bridge by default to write
   `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
   The compatibility daemon uses direct writes instead. Request success does

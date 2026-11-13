@@ -28,6 +28,10 @@ dispatch rejection, independent shortcut routing for all 12 gestures, bounded
 screen-off wake locks, malformed assignments, searchable app selection,
 shortcut-provider results across activity recreation, rejection of previously
 saved launcher shortcuts, and exclusion of modern shortcuts from the picker.
+Frontlight tests cover the exponential code inversion, the 90% output cap,
+constant output across achievable temperatures, colour-preserving endpoint
+dimming, display-dump parsing, exclusive mode ownership, screen-off handling,
+overlay control visibility, the neutral-white stop, and direct legacy codes.
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 Java 27 can build the app but is not supported by this Robolectric/ASM version.
 If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's

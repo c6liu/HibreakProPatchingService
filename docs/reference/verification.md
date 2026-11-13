@@ -23,6 +23,13 @@ Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
 navigation on the physical e-ink panel after updating the source-built APK.
+With **Use Android brightness for frontlight** on (the default), check that the system
+slider, auto-brightness and an app brightness override (e.g. a reader) change
+the frontlight, that the popup shows only the temperature slider, that it
+snaps to the neutral-white stop, that moving
+it keeps brightness steady at medium brightness, and that turning the switch
+off restores the previous cold/warm values. `adb logcat -s DisplayBrightness`
+reports if the app fell back to the slider-only setting.
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.

@@ -87,6 +87,7 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertNotIn("disable_show_per_app_aod_settings", keyed)
         self.assertIn("aod_invert", keyed)
         self.assertNotIn("override_max_brightness", keyed)
+        self.assertEqual(keyed["frontlight_native_brightness"].get(APP + "defaultValue"), "true")
         self.assertIn("allow_custom_broadcast", keyed)
         self.assertEqual(keyed["per_app_refresh_modes"].tag,
                          "com.lmqr.ha9_comp_service.PerAppRefreshPagePreference")
@@ -95,6 +96,15 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertNotIn(APP + "dependency", keyed["refresh_setting"].attrib)
         for node in root.iter("SwitchPreferenceCompat"):
             self.assertEqual(node.get(APP + "widgetLayout"), "@layout/preference_material_switch")
+
+    def test_native_brightness_dump_permission_is_allowlisted(self):
+        app = ROOT / "a9_accessibility_service"
+        requested = {node.get(ANDROID + "name") for node in
+                     ET.parse(app / "AndroidManifest.xml").getroot().findall("uses-permission")}
+        allowed = {node.get("name") for node in
+                   ET.parse(app / "privapp-permissions-accessibility.xml").getroot().iter("permission")}
+        self.assertIn("android.permission.DUMP", requested)
+        self.assertIn("android.permission.DUMP", allowed)
 
     def test_per_app_page_has_reset_and_no_expansion(self):
         root = ET.parse(SOURCE.with_name("per_app_preferences.xml")).getroot()

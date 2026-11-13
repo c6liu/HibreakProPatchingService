@@ -62,14 +62,14 @@ class A9AccessibilityService : AccessibilityService(),
                         handler.postDelayed({
                             commandRunner.runCommands(arrayOf(Commands.SPEED_CLEAR))
                         }, 150)
-                    brightnessManager.turnOffBrightness()
+                    brightnessManager.onScreenStateChanged(false)
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     isScreenOn = true
                     cameraLiveRefresh?.setScreenOn(true)
                     if (sharedPreferences.getBoolean("refresh_on_lock", false))
                         refreshModeManager.applyMode()
-                    brightnessManager.applyBrightness()
+                    brightnessManager.onScreenStateChanged(true)
                 }
             }
         }
@@ -120,7 +120,11 @@ class A9AccessibilityService : AccessibilityService(),
             commandRunner
         )
         buttonActionManager = ButtonActionManager(commandRunner, refreshModeManager)
-        brightnessManager = BrightnessManager(sharedPreferences, commandRunner)
+        brightnessManager = BrightnessManager(
+            sharedPreferences,
+            commandRunner,
+            DisplayBrightnessSource(this, handler),
+        )
         displaySettingsManager = DisplaySettingsManager(sharedPreferences, commandRunner)
         displaySettingsManager.attach(this)
 
@@ -260,6 +264,7 @@ class A9AccessibilityService : AccessibilityService(),
                 } else {
                     root.visibility = View.VISIBLE
                     updateButtons(refreshModeManager.currentMode)
+                    updateLightControls()
                 }
             } ?: run {
 
@@ -325,7 +330,8 @@ class A9AccessibilityService : AccessibilityService(),
                     }
 
 
-                    brightnessManager.setupSeekBars(lightSeekbar, lightWarmSeekbar)
+                    brightnessManager.setupSeekBars(lightSeekbar, lightWarmSeekbar, lightTemperatureSeekbar)
+                    updateLightControls()
                     updateButtons(refreshModeManager.currentMode)
 
                     wm.addView(root, layoutParams)
@@ -336,7 +342,14 @@ class A9AccessibilityService : AccessibilityService(),
         }
     }
 
+    private fun FloatingMenuViewAccessor.updateLightControls() =
+        brightnessManager.updateOverlay(
+            lightSeekbar, lightWarmSeekbar, lightTemperatureSeekbar,
+            independentLightControls, nativeLightControls,
+        )
+
     override fun onDestroy() {
+        brightnessManager.release()
         screenOffKeyReceiver.close()
         cameraLiveRefresh?.stop()
         cameraLiveRefresh = null
@@ -363,7 +376,7 @@ class A9AccessibilityService : AccessibilityService(),
             
             handler.postDelayed({
                 brightnessManager.applyBrightness()
-                Log.d("A9Service", "Applied brightness: cold=${brightnessManager.coldBrightness}, warm=${brightnessManager.warmBrightness}")
+                Log.d("A9Service", "Applied brightness: native=${brightnessManager.isNativeMode}, cold=${brightnessManager.coldBrightness}, warm=${brightnessManager.warmBrightness}")
                 
                 handler.postDelayed({
                     displaySettingsManager.applySettings()
@@ -422,6 +435,11 @@ class A9AccessibilityService : AccessibilityService(),
 
             "color_scheme_type", "color_scheme_color" -> {
                 sharedPreferences?.let { updateColorScheme(it) }
+            }
+
+            BrightnessManager.PREF_NATIVE_MODE -> {
+                brightnessManager.onModeChanged()
+                menuBinding?.updateLightControls()
             }
 
             "aod_invert" -> {

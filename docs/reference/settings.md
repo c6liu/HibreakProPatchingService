@@ -121,8 +121,38 @@ HiBreak; use the app's Clear Screen action instead.
 ## Frontlight and AOD
 
 **Override Max Brightness** is removed on HiBreak: its legacy command only
-sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. Use
-the popup's independent cold/warm frontlight sliders (0–255).
+sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. With
+native control off, the popup's independent cold/warm sliders (0–255) send
+their positions directly as driver codes, with no gamma curve.
+
+**E-Ink Service Settings → Use Android brightness for frontlight** (on by
+default) switches to native control. Android's effective brightness — the
+system slider, automatic brightness, screen dimming and per-app window
+overrides — then sets the combined frontlight output, and the popup shows a
+single cool-to-warm slider instead of the two channel sliders. The saved
+independent values are kept and restored when the switch is turned off.
+
+- Combined output is capped at 90% of both channels at full code.
+- Changing the colour temperature keeps the combined output constant wherever
+  both channels can supply it. Near pure cool or pure warm at high brightness
+  one channel saturates; the light then dims instead of shifting colour.
+- The slider keeps the full 8000–3000 K range, but neutral white (4800 K)
+  sits exactly at the centre. Each half is evenly spaced in CIE 1976 u'v':
+  colour changes about 0.82× as fast as the old uniform spacing on the cool
+  half and 1.18× on the warm half (about 1:1.45). The two rates blend
+  smoothly between 40% and 60% of the slider, so there is no kink.
+- The slider snaps to the neutral-white centre within ±3%. There both channels
+  run equally at full, so it gives the most output. It is also the default
+  position.
+- Mixing is done in linear light and converted through the LM3630A's
+  exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
+- Android only reports a finished brightness change, so the frontlight
+  follows the system slider when it is released, not while dragging.
+
+Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone
+8000 K, warm alone 3000 K, both at full 4800 K. That implies the warm channel's
+full output is about 0.82 of the cool channel's. At full brightness the slider
+centre reaches the full cap; the cool end gives about 61% and the warm end 50%.
 
 **E-Ink Service Settings → Invert colours on Always-On Display** is on by
 default. It controls whether `hibreak-aod.sh` inverts colours while dozing.

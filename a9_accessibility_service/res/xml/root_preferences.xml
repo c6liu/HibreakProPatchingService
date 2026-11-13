@@ -126,6 +126,14 @@
             app:summary="Show the Always-On Display as dark content on a white background"
             app:title="Invert colours on Always-On Display" />
 
+        <SwitchPreferenceCompat
+            app:widgetLayout="@layout/preference_material_switch"
+            app:defaultValue="true"
+            app:key="frontlight_native_brightness"
+            app:summaryOff="The popup sets the cold and warm frontlights separately"
+            app:summaryOn="Android brightness (slider, auto-brightness and app overrides) sets the frontlight; the popup sets the warm/cool mix"
+            app:title="Use Android brightness for frontlight" />
+
     </PreferenceCategory>
 
 
