@@ -12,9 +12,11 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.NestedScrollView
+import androidx.core.view.descendants
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceManager
 import androidx.preference.PreferenceViewHolder
@@ -89,9 +91,15 @@ class MaterialAndKeyTest {
             ))
             val settings = LayoutInflater.from(context).inflate(R.layout.settings_activity, null)
             assertTrue(settings.findViewById<android.view.View>(R.id.settings_toolbar) is MaterialToolbar)
-            val binding = FloatingMenuViewAccessor(
-                LayoutInflater.from(context).inflate(R.layout.floating_menu_layout, null)
+            val overlay = LayoutInflater.from(context)
+                .inflate(R.layout.floating_menu_layout, null) as NestedScrollView
+            val binding = FloatingMenuViewAccessor(overlay)
+            val iconTint = MaterialColors.getColor(
+                context, com.google.android.material.R.attr.colorOnSurfaceVariant, 0
             )
+            for (icon in overlay.descendants.filterIsInstance<ImageView>()) {
+                assertEquals(iconTint, icon.imageTintList?.defaultColor)
+            }
             val buttons = listOf(binding.button1, binding.button2, binding.button3, binding.button4, binding.button5)
             assertTrue(buttons.all { it is MaterialButton })
             assertTrue(binding.autoRefresh is MaterialSwitch)

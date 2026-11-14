@@ -35,6 +35,9 @@ refresh modes only, not these controls. The camera-preview keep-alive remains
 independent of the per-app Video Refresh choice.
 It has `sharedUserId` removed so it can run without the GSI's platform signing
 key. The AOSP module keeps its platform-signed integration configuration.
+Manifest lint suppressions are scoped to the intentional protected-permission
+requests: `WRITE_SECURE_SETTINGS` and `DUMP` are privileged-allowlisted;
+`CONTROL_DISPLAY_BRIGHTNESS` is only grantable in the platform-signed build.
 
 All builders refuse to overwrite existing outputs. Choose new filenames when
 rebuilding. A failed image build can leave an incomplete output; do not flash it.

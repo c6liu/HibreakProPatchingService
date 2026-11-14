@@ -19,14 +19,14 @@
             android:orientation="horizontal"
             android:layout_gravity="center">
 
-            <ImageView
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/settings_icon"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:padding="12dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/title_activity_settings"
-                android:tint="?attr/colorOnSurfaceVariant"
+                app:tint="?attr/colorOnSurfaceVariant"
                 android:src="@drawable/baseline_settings_24" />
 
             <TextView
@@ -40,7 +40,7 @@
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:text="@string/refresh_mode" />
 
-            <ImageButton
+            <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/close_menu"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
@@ -128,10 +128,10 @@
                 android:orientation="horizontal"
                 android:padding="5dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:tint="?attr/colorOnSurfaceVariant"
+                    app:tint="?attr/colorOnSurfaceVariant"
                     android:src="@drawable/material_mode_cool_24" />
 
                 <com.google.android.material.slider.Slider
@@ -152,10 +152,10 @@
                 android:orientation="horizontal"
                 android:padding="5dp">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:tint="?attr/colorOnSurfaceVariant"
+                    app:tint="?attr/colorOnSurfaceVariant"
                     android:src="@drawable/material_sunny_24" />
 
                 <com.google.android.material.slider.Slider
@@ -178,10 +178,10 @@
                 android:padding="5dp"
                 android:visibility="gone">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:tint="?attr/colorOnSurfaceVariant"
+                    app:tint="?attr/colorOnSurfaceVariant"
                     android:src="@drawable/baseline_brightness_high_24_dark" />
 
                 <com.google.android.material.slider.Slider
@@ -203,11 +203,11 @@
                 android:padding="5dp"
                 android:visibility="gone">
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:contentDescription="@string/frontlight_cool"
-                    android:tint="?attr/colorOnSurfaceVariant"
+                    app:tint="?attr/colorOnSurfaceVariant"
                     android:src="@drawable/material_mode_cool_24" />
 
                 <com.google.android.material.slider.Slider
@@ -219,11 +219,11 @@
                     android:minHeight="48dp"
                     android:contentDescription="@string/frontlight_temperature" />
 
-                <ImageView
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:contentDescription="@string/frontlight_warm"
-                    android:tint="?attr/colorOnSurfaceVariant"
+                    app:tint="?attr/colorOnSurfaceVariant"
                     android:src="@drawable/material_sunny_24" />
             </LinearLayout>
 
