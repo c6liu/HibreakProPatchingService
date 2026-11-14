@@ -14,14 +14,25 @@ from tools.hibreak import display_migration as migration
 
 
 class DisplayMigrationTests(unittest.TestCase):
-    def test_init_changes_only_five_service_labels(self):
+    def test_init_uses_shell_entrypoints_and_preserves_service_arguments(self):
         source = (ROOT / "tools/display/hibreak-display.rc").read_text()
         result = migration.migrate_init(source)
         self.assertEqual(result.count("seclabel u:r:hibreak_display:s0"), 5)
+        services = [line.split() for line in result.splitlines() if line.startswith("service ")]
+        self.assertEqual([service[2] for service in services], ["/system/bin/sh"] * 5)
         self.assertEqual(result.replace("seclabel u:r:hibreak_display:s0",
-                                        "seclabel u:r:phhsu_daemon:s0"), source)
+                                        "seclabel u:r:phhsu_daemon:s0")
+                         .replace(" /system/bin/sh /system/bin/", " /system/bin/"), source)
         with self.assertRaises(ValueError):
             migration.migrate_init(source.replace("seclabel u:r:phhsu_daemon:s0", "", 1))
+
+    def test_init_rejects_missing_or_duplicate_helper_commands(self):
+        source = (ROOT / "tools/display/hibreak-display.rc").read_text()
+        command = "service hibreak_aod_doze /system/bin/hibreak-aod.sh doze\n"
+        for replacement in ("", command * 2):
+            with self.subTest(replacement=replacement), self.assertRaisesRegex(
+                    ValueError, "Expected exactly one original display helper service"):
+                migration.migrate_init(source.replace(command, replacement))
 
     def test_contexts_are_exact_and_do_not_override_legacy(self):
         source = "persist.sys. u:object_r:system_prop:s0\n"

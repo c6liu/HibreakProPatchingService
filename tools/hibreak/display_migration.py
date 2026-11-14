@@ -24,6 +24,17 @@ def migrate_init(text):
     old = "    seclabel u:r:phhsu_daemon:s0"
     if text.count(old) != 5:
         raise ValueError("Expected exactly five original display helper labels")
+    for service, command in (
+        ("hibreak_disable_hwc", "hibreak-disable-hwc.sh"),
+        ("hibreak_wake_cycle", "hibreak-wake-cycle.sh"),
+        ("hibreak_aod_setup", "hibreak-aod.sh setup"),
+        ("hibreak_aod_doze", "hibreak-aod.sh doze"),
+        ("hibreak_aod_wake", "hibreak-aod.sh wake"),
+    ):
+        original = f"service {service} /system/bin/{command}\n"
+        if text.count(original) != 1:
+            raise ValueError(f"Expected exactly one original display helper service: {service}")
+        text = text.replace(original, f"service {service} /system/bin/sh /system/bin/{command}\n")
     return text.replace(old, "    seclabel u:r:hibreak_display:s0")
 
 

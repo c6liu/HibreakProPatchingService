@@ -50,6 +50,23 @@ image uses `u:r:phhsu_daemon:s0` instead. Running the earlier service as shell p
 The script inspects the Parcel reply, retries for 30 seconds and logs failure.
 Do not interpret a successful shell exit alone as a successful Binder call.
 
+The enforcing migration launches all five display/AOD helpers through
+`/system/bin/sh`. Their scripts retain the `system_file` label, which is not
+an allowed `entrypoint` for `hibreak_display`; the shell's `shell_exec` label
+is allowed. Direct script entrypoints were observed to fail with enforcing
+SELinux, preventing the disable-HW-overlays, wake-cycle and AOD helpers from
+starting. No broader entrypoint permission is needed.
+
+With the disable-HW-overlays helper blocked, switching from Boosted
+(saturation 1.1) to Natural (1.0, identity matrix) was observed to switch
+from client/GPU to vendor device composition and freeze physical updates.
+Restoring Boosted recovered the panel without restarting Android or
+SurfaceFlinger. This is a recovery workaround, not a replacement for forcing
+client composition. After rebuilding and flashing the corrected image,
+verify `h/w composer disabled` in `adb shell dumpsys SurfaceFlinger` and test
+both color modes, sleep/wake and AOD on the physical panel. The correction
+must remain effective after boot and any separately required SF restart.
+
 Setting properties before startup avoids restarting SF at boot. Runtime
 restarts can desynchronize panel power and should be recovery operations only:
 

@@ -159,7 +159,10 @@ or physical behavior; request-property success is not a hardware-write
 acknowledgement.
 
 The migration moves all five HiBreak display/AOD services into an enforcing
-`hibreak_display` domain. AOD inversion is retained; the migration imports
+`hibreak_display` domain and launches their scripts through `/system/bin/sh`,
+the permitted SELinux entrypoint. The scripts keep their `system_file` labels;
+launching them directly would prevent the enforcing helpers from starting.
+AOD inversion is retained; the migration imports
 existing setup/inversion markers into separate, scoped persistent state
 properties. The existing AOD toggle and original property labels remain
 unchanged. The default release build includes this migration. It does not
@@ -172,6 +175,9 @@ display, screen wake, AOD on/off, inversion on doze and restoration on wake,
 and user-enabled inversion. Also retest frontlights, refresh modes and side
 keys. The helpers are short-lived, so their domain may not appear in a later
 process listing; look for `hibreak_display` in AVCs if a helper fails.
+Confirm `adb shell dumpsys SurfaceFlinger` reports `h/w composer disabled`,
+then switch between Natural and Boosted color modes and check physical
+screen updates. GPU composition must not depend on a nonidentity color matrix.
 
 ### Experimental PHH grant reduction
 
