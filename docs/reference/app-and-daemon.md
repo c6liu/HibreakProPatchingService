@@ -73,7 +73,7 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   so a later display read reset the slider and lights. Own setting notifications
   no longer trigger an early read of the stale display cache, and releasing a
   drag reaffirms its final value before returning to Android tracking.
-  For requested linear brightness `b`, the write is
+  For requested Android brightness `b`, the write is
   `screen_brightness = round(clamp(b, 0, 1) * 254) + 1`; the setting fallback
   reads `clamp((screen_brightness - 1) / 254, 0, 1)`.
   Reads queued before a newer local write are discarded. During a drag, live
@@ -86,8 +86,13 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   remained correct; the exact startup writer/timing was not isolated.
   The source change still needs physical post-flash verification. It does
   not write Android brightness or change automatic/manual mode.
-  The combined-brightness slider uses CIE L* spacing, as do the independent
-  channel sliders; temperature retains the centred neutral-white stop with
+  `FrontlightMixer.outputForAndroidBrightness` maps `b` to light. It is linear
+  from 0.4 up and logarithmic below, so the 255 integer levels reach down to
+  about LED code 8 in steps of at most ~7%. The combined and independent
+  brightness sliders share `outputForSlider`, which is CIE L* from 60% of travel
+  and spreads the dark range evenly across LED codes below that. Inverses
+  (`androidBrightnessForOutput`, `sliderForOutput`) place the thumb when the popup
+  reopens, so saved codes and Android values are reproduced exactly. Temperature retains the centred neutral-white stop with
   a percentage-only label. Material Symbols `mode_cool` and `sunny` identify
   the cool and warm channels and the temperature slider's endpoints.
 - Auto Refresh and Anti-Shake use the init bridge by default to write

@@ -1,5 +1,6 @@
 package com.lmqr.eink_settings
 
+import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
 import kotlin.math.pow
@@ -46,6 +47,103 @@ object FrontlightMixer {
         val luminance = output.coerceIn(0.0, 1.0)
         return if (luminance <= 216.0 / 24389.0) luminance * (24389.0 / 27.0) / 100.0
         else (116.0 * Math.cbrt(luminance) - 16.0) / 100.0
+    }
+
+    /**
+     * Extends a curve below [join] with a smooth logarithmic tail: the log-slope starts at
+     * [joinSlope] (matching the curve above, so there is no kink) and settles at a constant
+     * rate further down, so equal steps change light by an equal ratio.
+     * The tail passes through [floorValue] at [floorAt].
+     */
+    private class DarkTail(
+        private val join: Double,
+        private val joinValue: Double,
+        private val joinSlope: Double,
+        private val width: Double,
+        floorAt: Double,
+        floorValue: Double,
+    ) {
+        private val rate: Double
+
+        init {
+            val distance = join - floorAt
+            val blend = width * (1.0 - exp(-distance / width))
+            rate = (ln(joinValue / floorValue) - joinSlope * blend) / (distance - blend)
+        }
+
+        fun value(x: Double): Double {
+            val d = join - x
+            return joinValue * exp(-(rate * d - (rate - joinSlope) * width * (1.0 - exp(-d / width))))
+        }
+    }
+
+    /** Bisection inverse of a strictly increasing [f] on [low]..[high]. */
+    private fun invert(target: Double, low: Double, high: Double, f: (Double) -> Double): Double {
+        var lo = low
+        var hi = high
+        repeat(64) {
+            val mid = (lo + hi) / 2.0
+            if (f(mid) < target) lo = mid else hi = mid
+        }
+        return (lo + hi) / 2.0
+    }
+
+    /** Android brightness at and above this value drives the lights linearly, as before. */
+    const val NATIVE_JOIN = 0.4
+
+    /** LED code (at neutral white) of the lowest non-off Android brightness setting. */
+    const val NATIVE_FLOOR_CODE = 8
+
+    private const val ANDROID_SETTING_STEPS = 254.0
+
+    private val nativeTail = DarkTail(
+        join = NATIVE_JOIN, joinValue = NATIVE_JOIN, joinSlope = 1.0 / NATIVE_JOIN, width = 0.05,
+        floorAt = 1.0 / ANDROID_SETTING_STEPS,
+        floorValue = EXP_BASE.pow(EXP_OFFSET - (NATIVE_FLOOR_CODE + 1) / EXP_STEPS) / OUTPUT_CAP,
+    )
+
+    /**
+     * Light output (0..1, before [OUTPUT_CAP]) for Android's linear brightness.
+     * Android only stores 255 integer levels; a linear mapping wastes them in the dark
+     * (the first steps double the light). Below [NATIVE_JOIN] each level instead changes
+     * light by a similar ratio, reaching down to about [NATIVE_FLOOR_CODE].
+     */
+    fun outputForAndroidBrightness(brightness: Double): Double = when {
+        brightness.isNaN() || brightness <= 0.0 -> 0.0
+        brightness >= NATIVE_JOIN -> brightness.coerceAtMost(1.0)
+        else -> nativeTail.value(brightness)
+    }
+
+    fun androidBrightnessForOutput(output: Double): Double = when {
+        output.isNaN() || output <= 0.0 -> 0.0
+        output >= NATIVE_JOIN -> output.coerceAtMost(1.0)
+        else -> invert(output, 0.0, NATIVE_JOIN, ::outputForAndroidBrightness)
+    }
+
+    /** Overlay brightness sliders follow CIE L* from this position up. */
+    const val SLIDER_JOIN = 0.6
+
+    private val sliderTail = DarkTail(
+        join = SLIDER_JOIN, joinValue = outputForLightness(SLIDER_JOIN),
+        joinSlope = 300.0 / (SLIDER_JOIN * 100.0 + 16.0), width = 0.1,
+        floorAt = 0.0, floorValue = EXP_BASE.pow(EXP_OFFSET - 2 / EXP_STEPS),
+    )
+
+    /**
+     * Light output (0..1 of a channel or of native full scale) for an overlay slider position.
+     * Above [SLIDER_JOIN] this is CIE L*. Below it, the dark range spreads evenly across the
+     * LED codes instead of crowding them into the first few percent of travel.
+     */
+    fun outputForSlider(position: Double): Double = when {
+        position.isNaN() || position <= 0.0 -> 0.0
+        position >= SLIDER_JOIN -> outputForLightness(position)
+        else -> sliderTail.value(position)
+    }
+
+    fun sliderForOutput(output: Double): Double = when {
+        output.isNaN() || output <= 0.0 -> 0.0
+        output >= outputForLightness(SLIDER_JOIN) -> lightnessForOutput(output)
+        else -> invert(output, 0.0, SLIDER_JOIN, ::outputForSlider)
     }
 
     /** Relative output (0..1 of full scale) produced by a brightness code. */
@@ -116,7 +214,7 @@ object FrontlightMixer {
 
     /** Combined output relative to both channels at full code, for the requested inputs. */
     fun combinedOutput(brightness: Double, temperature: Double): Double {
-        val target = brightness.coerceIn(0.0, 1.0) * OUTPUT_CAP * (COOL_MAX_OUTPUT + WARM_MAX_OUTPUT)
+        val target = outputForAndroidBrightness(brightness) * OUTPUT_CAP * (COOL_MAX_OUTPUT + WARM_MAX_OUTPUT)
         val warm = warmShare(temperature)
         val coolLimit = if (warm < 1.0) COOL_MAX_OUTPUT / (1.0 - warm) else Double.MAX_VALUE
         val warmLimit = if (warm > 0.0) WARM_MAX_OUTPUT / warm else Double.MAX_VALUE
@@ -125,7 +223,7 @@ object FrontlightMixer {
     }
 
     /**
-     * @param brightness Android's effective brightness, 0..1 in linear backlight space.
+     * @param brightness Android's effective brightness, 0..1; see [outputForAndroidBrightness].
      * @param temperature 0 = fully cool, 1 = fully warm.
      */
     fun mix(brightness: Double, temperature: Double): Codes {

@@ -30,6 +30,15 @@ class BrightnessManager(
         private const val NEUTRAL_SNAP_STEPS = 30
         val NEUTRAL_PROGRESS = (FrontlightMixer.NEUTRAL_TEMPERATURE * TEMPERATURE_STEPS).roundToInt()
 
+        /** Android brightness requested by a native overlay slider value. */
+        fun brightnessForValue(value: Float): Float =
+            FrontlightMixer.androidBrightnessForOutput(
+                FrontlightMixer.outputForSlider(value / TEMPERATURE_STEPS.toDouble())).toFloat()
+
+        fun sliderValueForBrightness(brightness: Float): Float =
+            (FrontlightMixer.sliderForOutput(FrontlightMixer.outputForAndroidBrightness(brightness.toDouble())) *
+                TEMPERATURE_STEPS).toFloat()
+
         fun snapToNeutral(progress: Int): Int =
             if (abs(progress - NEUTRAL_PROGRESS) <= NEUTRAL_SNAP_STEPS) NEUTRAL_PROGRESS else progress
     }
@@ -164,15 +173,14 @@ class BrightnessManager(
     }
 
     private fun lightnessForCode(code: Int): Float =
-        (FrontlightMixer.lightnessForOutput(FrontlightMixer.outputForCode(code)) * TEMPERATURE_STEPS).toFloat()
+        (FrontlightMixer.sliderForOutput(FrontlightMixer.outputForCode(code)) * TEMPERATURE_STEPS).toFloat()
 
     private fun updateBrightnessSlider() {
-        brightnessSlider?.value =
-            (FrontlightMixer.lightnessForOutput(nativeBrightness.brightness.toDouble()) * TEMPERATURE_STEPS).toFloat()
+        brightnessSlider?.value = sliderValueForBrightness(nativeBrightness.brightness)
     }
 
-    private fun brightnessForValue(value: Float): Float =
-        FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()).toFloat()
+    private fun codeForValue(value: Float): Int =
+        FrontlightMixer.codeForOutput(FrontlightMixer.outputForSlider(value / TEMPERATURE_STEPS.toDouble()))
 
     fun setupSliders(menu: FloatingMenuViewAccessor) {
         brightnessSlider = menu.lightBrightnessSeekbar
@@ -233,15 +241,13 @@ class BrightnessManager(
         })
         menu.lightSeekbar.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isNativeMode) {
-                coldBrightness = FrontlightMixer.codeForOutput(
-                    FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()))
+                coldBrightness = codeForValue(value)
                 if (screenOn) commandRunner.runCommands(arrayOf("br_co$coldBrightness"))
             }
         }
         menu.lightWarmSeekbar.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isNativeMode) {
-                warmBrightness = FrontlightMixer.codeForOutput(
-                    FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()))
+                warmBrightness = codeForValue(value)
                 if (screenOn) commandRunner.runCommands(arrayOf("br_wm$warmBrightness"))
             }
         }

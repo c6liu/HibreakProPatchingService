@@ -59,13 +59,20 @@ mode (test both enabled and disabled). While dragging, delayed Android brightnes
 events must not move the thumb or override the live output. Later auto-brightness
 adjustments should still take effect. Check the independent cold/warm sliders for
 approximately even perceived brightness steps, including off and full output.
+In a dark room, sweep each brightness slider (combined, cold and warm) slowly
+from off to about 60%. The light should rise gradually with no visible jumps
+or dead zone beyond the first ~2% of the combined slider, and there should be no
+change in behaviour at the 60% join. Repeat with Android's system slider in
+native mode: its lowest settings should be dim and step finely, not double per
+step. Above 40% Android brightness, the output should match the previous build.
 After releasing the popup brightness slider, wait for Android display events
 and reopen the popup: it must not return to the previous brightness. Compare
 `adb shell settings get system screen_brightness` with the display service's
 cached brightness; the obsolete `screen_brightness_float` setting is not authoritative.
 For manual brightness without dimming or an app override, the expected linear
 value is approximately `(screen_brightness - 1) / 254`, clamped to 0–1.
-The popup percentage uses perceptual CIE L* spacing, so it is not the saved
+Below 0.4 the light output follows the logarithmic dark curve rather than
+this linear value. The popup percentage is a slider position, not the saved
 integer divided by 255. Inspect the authoritative values with:
 
 ```bash

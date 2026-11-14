@@ -78,8 +78,9 @@ class FrontlightTest {
 
     @Test
     fun brightnessStaysConstantAcrossAchievableTemperatures() {
-        for (brightness in listOf(0.05, 0.2, 0.5)) {
-            val expected = brightness * FrontlightMixer.OUTPUT_CAP * physicalMax
+        for (output in listOf(0.05, 0.2, 0.5)) {
+            val brightness = FrontlightMixer.androidBrightnessForOutput(output)
+            val expected = output * FrontlightMixer.OUTPUT_CAP * physicalMax
             for (step in 0..100) {
                 val actual = total(FrontlightMixer.mix(brightness, step / 100.0))
                 assertTrue("b=$brightness t=$step: $actual vs $expected",
@@ -143,6 +144,54 @@ class FrontlightTest {
             val code = FrontlightMixer.codeForOutput(FrontlightMixer.outputForLightness(desired))
             val actual = FrontlightMixer.lightnessForOutput(FrontlightMixer.outputForCode(code))
             assertEquals(desired, actual, 0.006)
+        }
+    }
+
+    @Test
+    fun androidBrightnessLevelsUseFinerDarkSteps() {
+        val join = FrontlightMixer.NATIVE_JOIN
+        for (b in listOf(join, 0.5, 0.75, 1.0)) {
+            assertEquals(b, FrontlightMixer.outputForAndroidBrightness(b), 0.0)
+        }
+        val h = 1e-6
+        val below = (FrontlightMixer.outputForAndroidBrightness(join) -
+            FrontlightMixer.outputForAndroidBrightness(join - h)) / h
+        assertEquals("no kink at the join", 1.0, below, 1e-3)
+
+        val neutral = FrontlightMixer.NEUTRAL_TEMPERATURE
+        val levels = (1..255).map { (it - 1) / 254.0 }
+        assertEquals(FrontlightMixer.Codes(0, 0), FrontlightMixer.mix(levels[0], neutral))
+        assertEquals(FrontlightMixer.NATIVE_FLOOR_CODE, FrontlightMixer.mix(levels[1], neutral).cool)
+        val outputs = levels.drop(1).map { FrontlightMixer.outputForAndroidBrightness(it) }
+        for (i in 1 until outputs.size) {
+            val ratio = outputs[i] / outputs[i - 1]
+            assertTrue("setting ${i + 2}: step $ratio", ratio > 1.0 && ratio < 1.07)
+        }
+        val codes = levels.map { FrontlightMixer.mix(it, neutral).cool }.toSet()
+        assertTrue("distinct codes ${codes.size}", codes.size >= 130)
+        for (b in levels) {
+            assertEquals(b, FrontlightMixer.androidBrightnessForOutput(
+                FrontlightMixer.outputForAndroidBrightness(b)), 1e-9)
+        }
+    }
+
+    @Test
+    fun overlaySliderSpreadsDarkCodesAndKeepsTheUpperCurve() {
+        for (step in 600..1000) {
+            val position = step / 1000.0
+            assertEquals(FrontlightMixer.outputForLightness(position),
+                FrontlightMixer.outputForSlider(position), 0.0)
+        }
+        val codes = (0..1000).map { FrontlightMixer.codeForOutput(FrontlightMixer.outputForSlider(it / 1000.0)) }
+        assertEquals(0, codes[0])
+        assertEquals(1, codes[1])
+        assertEquals((0..255).toList(), codes.distinct().sorted())
+        assertTrue("monotonic", codes.zipWithNext().all { (a, b) -> b >= a })
+        assertTrue("bottom tenth spans ${codes[100]} codes", codes[100] <= 45)
+        // Every saved code reopens at a slider position that reproduces it.
+        for (code in 0..255) {
+            val position = FrontlightMixer.sliderForOutput(FrontlightMixer.outputForCode(code))
+            assertEquals(code, FrontlightMixer.codeForOutput(FrontlightMixer.outputForSlider(position)))
         }
     }
 
@@ -271,7 +320,7 @@ class FrontlightTest {
         assertTrue(menu.nativeLightControls.all { it.visibility == View.GONE })
 
         changeFromUser(menu.lightSeekbar, 500f)
-        val halfLightness = FrontlightMixer.codeForOutput(FrontlightMixer.outputForLightness(0.5))
+        val halfLightness = FrontlightMixer.codeForOutput(FrontlightMixer.outputForSlider(0.5))
         assertEquals(listOf("br_co$halfLightness"), runner.commands)
         assertEquals(halfLightness, manager.coldBrightness)
 
@@ -314,13 +363,13 @@ class FrontlightTest {
         manager.applyBrightness()
         runner.commands.clear()
         changeFromUser(menu.lightBrightnessSeekbar, 500f)
-        val expected = FrontlightMixer.mix(FrontlightMixer.outputForLightness(0.5).toFloat().toDouble(), 0.5)
+        val requested = BrightnessManager.brightnessForValue(500f)
+        val expected = FrontlightMixer.mix(requested.toDouble(), 0.5)
         assertEquals(listOf("br_co${expected.cool}", "br_wm${expected.warm}"), runner.commands)
-        assertEquals(FrontlightMixer.outputForLightness(0.5).toFloat(), source.brightness)
+        assertEquals(requested, source.brightness)
 
         source.change(0.7f)
-        assertEquals((FrontlightMixer.lightnessForOutput(0.7f.toDouble()) * 1000).toFloat(),
-            menu.lightBrightnessSeekbar.value)
+        assertEquals(BrightnessManager.sliderValueForBrightness(0.7f), menu.lightBrightnessSeekbar.value)
         runner.commands.clear()
         menu.lightBrightnessSeekbar.value = 100f
         assertTrue(runner.commands.isEmpty())
@@ -362,8 +411,7 @@ class FrontlightTest {
         assertEquals(500f, slider.value, 0.001f)
         assertTrue(runner.commands.isEmpty())
         source.change(0.4f)
-        assertEquals((FrontlightMixer.lightnessForOutput(0.4f.toDouble()) * 1000).toFloat(),
-            slider.value)
+        assertEquals(BrightnessManager.sliderValueForBrightness(0.4f), slider.value)
     }
 
     private fun changeFromUser(slider: Slider, value: Float) {

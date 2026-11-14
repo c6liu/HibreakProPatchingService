@@ -149,9 +149,12 @@ HiBreak; use the app's Clear Screen action instead.
 
 **Override Max Brightness** is removed on HiBreak: its legacy command only
 sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. With
-native control off, the popup's independent cold/warm sliders use CIE L*
-lightness spacing for approximately equal perceived brightness steps, not
-gamma 2.2. These are converted through the driver's exponential curve.
+native control off, the popup's independent cold/warm sliders follow CIE L*
+lightness from 60% of travel upward. Below that, they move through the
+driver's exponential codes at a steady rate (about 3.5 codes, roughly 10% light,
+per 1% of travel), blending smoothly into L* with no kink. Every code from 1 to
+255 is reachable. The bottom tenth of the slider covers about 40 codes instead
+of the 94 that pure L* would cover, so dark adjustments are gentler.
 Saved channel codes are retained within the same app package, so changing
 control modes does not reset independent brightness levels. The
 [package-identity migration](../install/update.md#one-time-app-and-daemon-identity-migration)
@@ -180,6 +183,14 @@ Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
   equal driver codes there, giving the most available combined output. It is
   also the default position. All slider labels remain percentages, including
   50% at neutral white; the centre snap and haptic feedback are retained.
+- Android stores 255 integer brightness levels. At and above 40% Android
+  brightness, light output stays linear, as before. Below 40%, a smooth logarithmic
+  curve (no kink at the join) spreads the remaining levels across the LED range.
+  Each Android step changes light by at most about 7%; previously the first
+  steps doubled it. The lowest non-off setting gives LED code 8 at neutral
+  white (previously code 53), and Android's lowest level remains off. This also
+  applies to the system slider, automatic brightness and app overrides, which
+  are finer and dimmer than before below 40%.
 - Mixing is done in linear light and converted through the LM3630A's
   exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
 - On the tested GSI, Android reports the system slider's brightness change
@@ -191,9 +202,11 @@ Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
   not become the released position. Small rounding changes are possible.
   It never changes the auto-brightness mode; subsequent automatic adjustments
   or app brightness overrides can take over.
-- All popup sliders use Material 3 controls. Brightness sliders use CIE L*
-  spacing; the native slider converts between perceptual lightness and Android's
-  linear brightness value. Temperature retains its centred neutral-white stop.
+- All popup sliders use Material 3 controls. The combined brightness slider
+  uses the same curve as the independent sliders, CIE L* from 60% with a
+  gentler dark range below, converted to Android brightness through the curve
+  above. As a result, the same slider position gives a similar share of each mode's
+  maximum light. Temperature retains its centred neutral-white stop.
 
 Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone
 8000 K, warm alone 3000 K, both at full 4800 K. That implies the warm channel's
