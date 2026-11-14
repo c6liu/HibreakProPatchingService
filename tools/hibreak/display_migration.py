@@ -34,7 +34,8 @@ def migrate_init(text):
         original = f"service {service} /system/bin/{command}\n"
         if text.count(original) != 1:
             raise ValueError(f"Expected exactly one original display helper service: {service}")
-        text = text.replace(original, f"service {service} /system/bin/sh /system/bin/{command}\n")
+        mode = " --aidl" if service in ("hibreak_disable_hwc", "hibreak_wake_cycle") else ""
+        text = text.replace(original, f"service {service} /system/bin/sh /system/bin/{command}{mode}\n")
     return text.replace(old, "    seclabel u:r:hibreak_display:s0")
 
 
@@ -104,6 +105,8 @@ def validate_display_policy(candidate, original_system):
         ("hibreak_display", "system_file", "file", "execute_no_trans"),
         ("hibreak_display", "servicemanager", "binder", "call"),
         ("hibreak_display", "surfaceflinger", "binder", "call"),
+        ("surfaceflinger", "hibreak_display", "fd", "use"),
+        ("surfaceflinger", "hibreak_display", "fifo_file", "write"),
         ("hibreak_display", "system_server", "binder", "call"),
         ("system_server", "hibreak_display", "binder", "call"),
         ("hibreak_display", "surfaceflinger_service", "service_manager", "find"),

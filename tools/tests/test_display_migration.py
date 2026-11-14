@@ -20,8 +20,11 @@ class DisplayMigrationTests(unittest.TestCase):
         self.assertEqual(result.count("seclabel u:r:hibreak_display:s0"), 5)
         services = [line.split() for line in result.splitlines() if line.startswith("service ")]
         self.assertEqual([service[2] for service in services], ["/system/bin/sh"] * 5)
+        self.assertEqual([service[1] for service in services if service[-1] == "--aidl"],
+                         ["hibreak_disable_hwc", "hibreak_wake_cycle"])
         self.assertEqual(result.replace("seclabel u:r:hibreak_display:s0",
                                         "seclabel u:r:phhsu_daemon:s0")
+                         .replace(".sh --aidl\n", ".sh\n")
                          .replace(" /system/bin/sh /system/bin/", " /system/bin/"), source)
         with self.assertRaises(ValueError):
             migration.migrate_init(source.replace("seclabel u:r:phhsu_daemon:s0", "", 1))
@@ -156,6 +159,16 @@ class DisplayMigrationTests(unittest.TestCase):
                 mock.patch.object(migration, "effective_permissions",
                                   side_effect=lambda _policy, target, *_args: permissions[target]):
             migration.validate_display_policy(policy, baseline)
+            for cls, permission in (("fd", "use"), ("fifo_file", "write")):
+                with self.subTest(cls=cls):
+                    query.side_effect = lambda *args, **kwargs: SimpleNamespace(
+                        results=lambda: [] if (
+                            kwargs["source"], kwargs["target"], kwargs["tclass"]
+                        ) == ("surfaceflinger", "hibreak_display", [cls]) else [object()])
+                    with self.assertRaisesRegex(
+                            ValueError, f"Missing helper grant surfaceflinger->hibreak_display:{cls}"):
+                        migration.validate_display_policy(policy, baseline)
+            query.side_effect = None
             permissions["hibreak_display_state_prop"].add(("untrusted_app", "property_service", "set"))
             with self.assertRaisesRegex(ValueError, "Unexpected display state property writers"):
                 migration.validate_display_policy(policy, baseline)

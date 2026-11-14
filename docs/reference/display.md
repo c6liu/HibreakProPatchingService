@@ -29,9 +29,16 @@ debug.sf.enable_gl_backpressure
 debug.sf.enable_hwc_backpressure
 ```
 
-Disable HW overlays using `service call SurfaceFlinger 1008 i32 1`. This is
-the Developer Options setting, not a switch to disable the physical panel's
-vendor HWC driver. SurfaceFlinger forgets it on restart, so init re-applies it.
+Force GPU/client composition rather than the vendor device-composition path.
+This does not disable the physical panel's vendor HWC driver. SurfaceFlinger
+forgets the override on restart, so init re-applies it.
+
+The tested enforcing migration selects `hibreak-disable-hwc.sh --aidl`,
+which calls `service call SurfaceFlingerAIDL 65 i32 1`. Transaction 65 was
+verified from this exact EvoX compositor's `forceClientComposition(bool)`
+proxy and tested on the physical phone. It is not a portable AIDL transaction
+number: do not use it on an unverified compositor. Compatibility builds keep
+the legacy `service call SurfaceFlinger 1008 i32 1` path.
 
 The root-enabled diagnostic that originally fixed the screen was:
 
@@ -47,7 +54,10 @@ checked-in init services run as **uid 0**, in the enforcing
 `u:r:hibreak_display:s0` domain in the default release. The base compatibility
 image uses `u:r:phhsu_daemon:s0` instead. Running the earlier service as shell produced
 `Parcel(Error: ... "Operation not permitted")` even with exit status 0.
-The script inspects the Parcel reply, retries for 30 seconds and logs failure.
+The helper logs its selected method, accepts whitespace in Parcel replies,
+and verifies `h/w composer disabled` in SurfaceFlinger's dump before reporting
+success. It retries for 30 seconds and logs failures, including unavailable
+services, rejected transactions and unconfirmed composition state.
 Do not interpret a successful shell exit alone as a successful Binder call.
 
 The enforcing migration launches all five display/AOD helpers through
@@ -66,6 +76,15 @@ client composition. After rebuilding and flashing the corrected image,
 verify `h/w composer disabled` in `adb shell dumpsys SurfaceFlinger` and test
 both color modes, sleep/wake and AOD on the physical panel. The correction
 must remain effective after boot and any separately required SF restart.
+The shell-entrypoint correction alone did not establish forced composition
+on the subsequently flashed image. EvoX also deliberately grays out its
+Developer Options overlay switch. A direct AIDL request did set `h/w composer
+disabled`; Natural then retained client composition and physical updates
+were confirmed working. This live test did not require an SF restart or
+broader SELinux permissions.
+The new dump-based verification additionally needs SurfaceFlinger to use
+and write the helper's output pipe. The migration grants only that `fd use`
+and `fifo_file write` access; the previously flashed policy lacked both.
 
 Setting properties before startup avoids restarting SF at boot. Runtime
 restarts can desynchronize panel power and should be recovery operations only:

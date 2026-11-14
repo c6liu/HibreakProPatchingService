@@ -162,6 +162,11 @@ The migration moves all five HiBreak display/AOD services into an enforcing
 `hibreak_display` domain and launches their scripts through `/system/bin/sh`,
 the permitted SELinux entrypoint. The scripts keep their `system_file` labels;
 launching them directly would prevent the enforcing helpers from starting.
+The disable-overlays and wake-cycle services also select the helper's
+`--aidl` mode, verified against the exact tested EvoX compositor. The wake
+helper forwards this mode to both of its composition requests. Compatibility
+builds retain the legacy transaction; the AIDL transaction number must not
+be assumed valid on other GSIs.
 AOD inversion is retained; the migration imports
 existing setup/inversion markers into separate, scoped persistent state
 properties. The existing AOD toggle and original property labels remain
@@ -178,6 +183,8 @@ process listing; look for `hibreak_display` in AVCs if a helper fails.
 Confirm `adb shell dumpsys SurfaceFlinger` reports `h/w composer disabled`,
 then switch between Natural and Boosted color modes and check physical
 screen updates. GPU composition must not depend on a nonidentity color matrix.
+Look for `Verified forced GPU composition` in `hibreak-display` logs; a
+successful Binder reply without state readback is not considered success.
 
 ### Experimental PHH grant reduction
 

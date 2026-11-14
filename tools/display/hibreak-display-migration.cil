@@ -15,6 +15,9 @@
 (allow system_server hibreak_display (binder (call)))
 (allow hibreak_display system_server (fd (use)))
 (allow hibreak_display surfaceflinger (binder (call transfer)))
+; dumpsys sends the helper's output pipe to SurfaceFlinger over Binder.
+(allow surfaceflinger hibreak_display (fd (use)))
+(allow surfaceflinger hibreak_display (fifo_file (write)))
 (allow hibreak_display surfaceflinger_service (service_manager (find)))
 (allow hibreak_display input_service (service_manager (find)))
 (allow hibreak_display settings_service (service_manager (find)))

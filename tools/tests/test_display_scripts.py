@@ -8,6 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 AOD_SCRIPT = ROOT / "tools/display/hibreak-aod.sh"
+HWC_SCRIPT = ROOT / "tools/display/hibreak-disable-hwc.sh"
 RELEASE_SCRIPT = ROOT / "tools/internal/prepare-release-init.py"
 
 
@@ -31,9 +32,17 @@ class DisplayScriptTests(unittest.TestCase):
             "    print(os.environ.get('PROP_' + args[0], ''))\n"
             "elif name == 'cmd' and args[:2] == ['settings', 'get']:\n"
             "    print(os.environ.get('SETTING_' + args[-1], '0'))\n"
+            "elif name == 'service':\n"
+            "    if args[0] == 'check': print('Service ' + args[1] + ': found')\n"
+            "    else:\n"
+            "        print(os.environ.get('SERVICE_REPLY', \"Result: Parcel(\\t00000000 '....')\"))\n"
+            "        sys.exit(int(os.environ.get('SERVICE_STATUS', '0')))\n"
+            "elif name == 'dumpsys':\n"
+            "    print(os.environ.get('HWC_STATE', '  h/w composer disabled'))\n"
         )
         stub.chmod(0o755)
-        for command in ("getprop", "cmd", "setprop", "log"):
+        for command in ("getprop", "cmd", "setprop", "log", "service", "dumpsys", "sleep",
+                        "input", "hibreak-disable-hwc.sh"):
             (self.bin / command).symlink_to(stub)
 
     def run_aod(self, action, values=None):
@@ -50,6 +59,49 @@ class DisplayScriptTests(unittest.TestCase):
 
     def commands(self):
         return self.log.read_text().splitlines() if self.log.exists() else []
+
+    def run_hwc(self, arguments=(), values=None):
+        environment = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
+                           COMMAND_LOG=str(self.log), **(values or {}))
+        return subprocess.run(["sh", str(HWC_SCRIPT), *arguments],
+                              capture_output=True, text=True, env=environment)
+
+    def test_hwc_verifies_state_after_legacy_or_aidl_request(self):
+        for arguments, service, transaction in (
+            ((), "SurfaceFlinger", 1008),
+            (("--aidl",), "SurfaceFlingerAIDL", 65),
+        ):
+            with self.subTest(arguments=arguments):
+                self.log.unlink(missing_ok=True)
+                result = self.run_hwc(arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                commands = self.commands()
+                self.assertIn(f"service call {service} {transaction} i32 1", commands)
+                self.assertIn("dumpsys SurfaceFlinger", commands)
+                self.assertTrue(any("Verified forced GPU composition" in c for c in commands))
+
+    def test_hwc_rejects_success_reply_when_composition_remains_enabled(self):
+        result = self.run_hwc(("--aidl",), {"HWC_STATE": "  h/w composer enabled"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.commands().count("service call SurfaceFlingerAIDL 65 i32 1"), 30)
+        self.assertFalse(any("Verified forced GPU composition" in c for c in self.commands()))
+
+    def test_hwc_rejects_parcel_permission_error_with_zero_exit_status(self):
+        result = self.run_hwc(
+            ("--aidl",), {"SERVICE_REPLY": 'Result: Parcel(Error: "Operation not permitted")'})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("dumpsys SurfaceFlinger", self.commands())
+        self.assertTrue(any("transaction failed" in c for c in self.commands()))
+
+    def test_wake_cycle_passes_aidl_mode_to_both_composition_requests(self):
+        source = (ROOT / "tools/display/hibreak-wake-cycle.sh").read_text()
+        source = source.replace("/system/bin/hibreak-disable-hwc.sh", "hibreak-disable-hwc.sh")
+        environment = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
+                           COMMAND_LOG=str(self.log))
+        result = subprocess.run(["sh", "-s", "--", "--aidl"], input=source,
+                                capture_output=True, text=True, env=environment)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.commands().count("hibreak-disable-hwc.sh --aidl"), 2)
 
     def test_doze_inverts_only_when_aod_is_enabled_and_not_already_inverted(self):
         result = self.run_aod(
