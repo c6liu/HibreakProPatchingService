@@ -34,8 +34,9 @@ class FrontlightTest {
 
     private class FakeSource(override var brightness: Float) : NativeBrightnessSource {
         var listener: (() -> Unit)? = null
+        var refreshAction: (() -> Unit)? = null
         override fun start(onChange: () -> Unit) { listener = onChange }
-        override fun refresh() {}
+        override fun refresh() { refreshAction?.invoke() }
         override fun stop() { listener = null }
         override fun setBrightness(value: Float): Boolean { change(value); return true }
         fun change(value: Float) { brightness = value; listener?.invoke() }
@@ -219,6 +220,37 @@ class FrontlightTest {
         manager.onModeChanged()
         assertNull(source.listener)
         assertEquals(listOf("br_co40", "br_wm90"), runner.commands)
+    }
+
+    @Test
+    fun bootReapplyRestoresUnchangedBrightnessAndRefreshesPastTheBootOverride() {
+        val runner = RecordingRunner()
+        val source = FakeSource(0.1f)
+        val manager = BrightnessManager(prefs, runner, source)
+        manager.applyBrightness()
+        val savedCommands = runner.commands.toList()
+
+        runner.commands.clear()
+        manager.reapplyBrightness()
+        assertEquals(savedCommands, runner.commands)
+
+        runner.commands.clear()
+        source.refreshAction = { source.change(0.2f) }
+        manager.reapplyBrightness()
+        val refreshed = FrontlightMixer.mix(0.2f.toDouble(), manager.temperature.toDouble())
+        assertEquals(listOf("br_co${refreshed.cool}", "br_wm${refreshed.warm}"),
+            runner.commands.takeLast(2))
+
+        manager.onScreenStateChanged(false)
+        runner.commands.clear()
+        manager.reapplyBrightness()
+        assertTrue(runner.commands.isEmpty())
+
+        prefs.edit().putBoolean(BrightnessManager.PREF_NATIVE_MODE, false).commit()
+        manager.onScreenStateChanged(true)
+        runner.commands.clear()
+        manager.reapplyBrightness()
+        assertEquals(listOf("br_co64", "br_wm64"), runner.commands)
     }
 
     @Test

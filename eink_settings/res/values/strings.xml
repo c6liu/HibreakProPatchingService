@@ -1,6 +1,7 @@
 <resources>
-    <string name="app_name">A9 Accessibility Service</string>
-    <string name="title_activity_settings">E-Ink Settings</string>
+    <string name="app_name">Eink Settings</string>
+    <string name="accessibility_service_name">Eink Accessibility Service</string>
+    <string name="title_activity_settings">@string/app_name</string>
     <string name="night_mode">Night Mode</string>
     <string name="speed">Speed</string>
     <string name="smooth">Smooth</string>
@@ -41,7 +42,8 @@
     <string name="app_to_launch">App to launch</string>
     <string name="shortcut_to_launch">Shortcut to launch</string>
     <string name="choose_app">Choose an app to launch</string>
-    <string name="choose_shortcut">Choose a shortcut in E-Ink Settings</string>
+    <string name="choose_shortcut">Choose a shortcut in Eink Settings</string>
+    <string name="choose_launch_app">Choose an app to launch in Eink Settings</string>
     <string name="assign_action">Assign action</string>
     <string name="apps_tab">Apps</string>
     <string name="shortcuts_tab">Shortcuts</string>
@@ -58,8 +60,8 @@
     <string name="unsupported_shortcut">This shortcut uses temporary or complex data that cannot be saved. Try another shortcut.</string>
     <string name="launcher_shortcut_removed">Launcher shortcuts are no longer supported. Choose an app-provided shortcut.</string>
     <string name="unavailable_app">Selected app is unavailable. Choose another app.</string>
-    <string name="unavailable_shortcut">Selected shortcut is unavailable. Choose it again in E-Ink Settings.</string>
-    <string name="unavailable_target">The selected app or shortcut cannot be launched. Choose it again in E-Ink Settings.</string>
+    <string name="unavailable_shortcut">Selected shortcut is unavailable. Choose it again in Eink Settings.</string>
+    <string name="unavailable_target">The selected app or shortcut cannot be launched. Choose it again in Eink Settings.</string>
     <string name="blocked_target">Android blocked access to the selected app or shortcut</string>
     <string name="locked_target">Unlock the phone before accessing this shortcut</string>
     <string name="top_button">Top button</string>

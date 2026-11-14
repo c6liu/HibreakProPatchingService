@@ -1,7 +1,7 @@
 # Download build tools and input images
 
 Use the original publishers below, not repackaged executables from forums.
-The E-Ink APK is built only from checked-in Kotlin/resources. A full AOSP build,
+The Eink Settings APK is built only from checked-in Kotlin/resources. A full AOSP build,
 emulator, CMake, or original APK extraction is not needed.
 
 | Release-builder selection | APK prerequisites |

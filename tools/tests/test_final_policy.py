@@ -41,7 +41,7 @@ class FinalPolicyTests(unittest.TestCase):
                 return destination
 
             def run(*args):
-                if "stat system/priv-app/HiBreakEink" in args:
+                if "stat system/priv-app/EinkSettings" in args:
                     return SimpleNamespace(stdout=(
                         b"Mode:  0755 User:     0   Group:     0 u:object_r:system_file:s0"))
                 return SimpleNamespace(stdout=stat[0].encode())

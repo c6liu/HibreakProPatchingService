@@ -58,30 +58,30 @@ the crash buffer records the same composer `processImage+1308` SIGSEGV at
 13:29:27.275. Evidence is local in
 `build/wake-restored-crash-20261027-1329/`. Restoring the helper therefore
 did not resolve the original first-lock failure. The next isolation test is
-a boot with A9 accessibility temporarily disabled, preserving all init display
+a boot with Eink Accessibility Service temporarily disabled, preserving all init display
 fixes, to distinguish app-triggered display changes from the underlying
 vendor sleep-transition path. This test has not yet been performed.
 
-An attempted A9 isolation test at 13:31–13:33 was **inconclusive**. Android
+An attempted Eink Settings isolation test at 13:31–13:33 was **inconclusive**. Android
 rejected a component-level shell disable. A package-level `pm disable-user`
-initially succeeded, but did not remain effective through reboot: A9's process
+initially succeeded, but did not remain effective through reboot: the app's process
 started at 13:31:57 and its accessibility service connected at 13:32:07,
 applying refresh, brightness and display settings before the reported first-lock
 crash at 13:32:38.465. Post-crash package state was already `enabled=0`
 (default), and accessibility was bound. The cause of the enablement reset is
 not established. The package was explicitly returned to its original default
 state and its accessibility binding verified. This run does **not** exclude
-A9 as a contributor. Evidence is local in
+Eink Settings as a contributor. Evidence is local in
 `build/a9-disabled-first-lock-20261027/`.
 
 A second attempt cleared enabled accessibility services after boot while the
 phone was still locked. Dumps verified `Bound services:{}`,
 `Enabled services:{}` and `deviceLocked=1` before the user unlocked. First lock
 again produced the same composer crash at 13:36:18.624. However, the post-crash
-snapshot already showed A9 enabled and bound again. A9's boot receiver can
+snapshot already showed Eink Accessibility Service enabled and bound again. The app's boot receiver can
 enable accessibility on `BOOT_COMPLETED`, which may arrive after first unlock;
 retained logs do not establish whether re-enablement preceded the crash or
-followed framework recovery. This test therefore also cannot exclude A9.
+followed framework recovery. This test therefore also cannot exclude Eink Settings.
 Saved accessibility settings were restored and binding verified. Evidence is
 local in `build/a9-unbound-first-lock-20261027/`. A better runtime isolation
 requires disabling and verifying accessibility **after first unlock and before

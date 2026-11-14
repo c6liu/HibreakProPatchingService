@@ -60,7 +60,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(self.base.read_bytes(), original)
         files = {
             "system/bin/a9_eink_server": self.daemon,
-            "system/priv-app/HiBreakEink/HiBreakEink.apk": self.apk,
+            "system/priv-app/EinkSettings/HiBreakEink.apk": self.apk,
             "system/bin/hibreak-disable-hwc.sh": ROOT / "tools/display/hibreak-disable-hwc.sh",
             "system/bin/hibreak-aod.sh": ROOT / "tools/display/hibreak-aod.sh",
             "system/bin/hibreak-wake-cycle.sh": ROOT / "tools/display/hibreak-wake-cycle.sh",
@@ -80,6 +80,9 @@ class ToolTests(unittest.TestCase):
         self.assertFalse(self.out.exists())
 
     def test_can_update_previously_patched_image(self):
+        self.debug("mkdir system/priv-app/HiBreakEink", write=True)
+        self.debug(f'write "{self.apk}" system/priv-app/HiBreakEink/HiBreakEink.apk',
+                   write=True)
         old_helper = self.work / "old-adb-helper"
         old_helper.write_text("settings put global adb_enabled 1\n")
         self.debug(f'write "{old_helper}" system/bin/hibreak-enable-adb.sh', write=True)
@@ -88,6 +91,10 @@ class ToolTests(unittest.TestCase):
         self.debug(f'write "{old_wake_helper}" system/bin/hibreak-wake-cycle.sh', write=True)
         result = self.patch()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Inode:", self.debug(
+            "stat system/priv-app/HiBreakEink", image=self.out).stdout.decode())
+        self.assertEqual(self.read_image_text("system/priv-app/EinkSettings/HiBreakEink.apk"),
+                         self.apk.read_text())
         self.assertNotIn("Inode:", self.debug(
             "stat system/bin/hibreak-enable-adb.sh", image=self.out).stdout.decode())
         self.assertEqual(self.read_image_text("system/bin/hibreak-wake-cycle.sh"),

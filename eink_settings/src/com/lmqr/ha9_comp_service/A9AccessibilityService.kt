@@ -54,6 +54,7 @@ class A9AccessibilityService : AccessibilityService(),
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
+                Intent.ACTION_BOOT_COMPLETED -> brightnessManager.reapplyBrightness()
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenOn = false
                     cameraLiveRefresh?.setScreenOn(false)
@@ -131,6 +132,7 @@ class A9AccessibilityService : AccessibilityService(),
         val filterScreen = IntentFilter()
         filterScreen.addAction(Intent.ACTION_SCREEN_ON)
         filterScreen.addAction(Intent.ACTION_SCREEN_OFF)
+        filterScreen.addAction(Intent.ACTION_BOOT_COMPLETED)
         registerReceiver(receiver, filterScreen)
 
         val filterEink = IntentFilter()

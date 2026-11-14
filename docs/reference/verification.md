@@ -5,14 +5,14 @@
 On 2026-11-11, the user reported that the updated overlay, screen-off actions,
 and app/shortcut assignments work on the HiBreak. ADB subsequently confirmed
 that the active system APK at
-`/system/priv-app/HiBreakEink/HiBreakEink.apk` matches the supplied release APK
+`/system/priv-app/EinkSettings/HiBreakEink.apk` matches the supplied release APK
 byte-for-byte. This is a successful user-reported device check, not an
 independent exhaustive test of every gesture, shortcut provider, permission
 state, or lock-screen condition; use the remaining checks below for broader
 release validation. The subsequent removal of modern launcher shortcuts
 requires a fresh device check.
 
-Press Power right after the Bigme logo flashes, wait for boot, open E-Ink Settings and enable the accessibility service and
+Press Power right after the Bigme logo flashes, wait for boot, open Eink Settings and enable Eink Accessibility Service and
 draw-over-other-apps permission. Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
 With the accessibility service enabled, fingerprint-sensor F9 events are consumed
@@ -102,7 +102,7 @@ HWC. Init oneshot services normally show `stopped` **after successful completion
 inspect logs, not that state alone. A running daemon also does not prove that
 the app can send commands or that the panel responds.
 
-The E-Ink app is a persistent system app: `adb install` fails with
+Eink Settings is a persistent system app: `adb install` fails with
 "persistent app, not updateable". Update it by building and flashing a new image.
 
 If the popup still shows the old order after flashing, check the active APK:
@@ -120,7 +120,7 @@ adb shell cmd package uninstall-system-updates com.lmqr.ha9_comp_service
 adb shell pm path com.lmqr.ha9_comp_service
 ```
 
-The path should now be `/system/priv-app/HiBreakEink/HiBreakEink.apk`.
+The path should now be `/system/priv-app/EinkSettings/HiBreakEink.apk`.
 Check accessibility and overlay permissions again. The popup order is
 **HD, Regal, Fast, Extreme, Hyper**.
 

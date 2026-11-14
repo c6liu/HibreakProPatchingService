@@ -1,7 +1,7 @@
 # First-lock composer crash investigation (2026-10-27)
 
 The user reports needing to unlock once and lock again after each reboot,
-followed by an apparent UI restart before the display and A9 popup work.
+followed by an apparent UI restart before the display and Eink Settings popup work.
 Read-only collection from the connected device confirms a graphics crash on
 the latest boot:
 
@@ -44,7 +44,7 @@ Relevant installed startup behavior:
   No `hibreak-display` messages survived in the captured logs, so neither
   helper completion nor its ordering against the crash is established.
 - At collection time, both backpressure properties were false,
-  SurfaceFlinger reported `h/w composer disabled`, and A9 accessibility was
+  SurfaceFlinger reported `h/w composer disabled`, and Eink Accessibility Service was
   enabled and bound with no service listed as crashed. These are
   **post-recovery** observations, not proof of correct first-boot state.
 - `doze_always_on=0`, AOD inversion preference was false, and inversion was off.
@@ -54,12 +54,12 @@ Relevant installed startup behavior:
 There is no captured first-unlock/lock event sequence proving which interaction
 triggers the crash, nor a snapshot of the unresponsive state before recovery.
 The popup failure could accompany loss of display/framework services, but a
-separate early A9 initialization failure has not been excluded.
+separate early Eink Settings initialization failure has not been excluded.
 
 Next: capture continuously from a cold boot through first unlock and lock,
 with helper lifecycle and SurfaceFlinger state timestamps. Then compare a
 build without the automatic post-boot wake helper, keeping the early display
-properties and SurfaceFlinger-start overlay fix unchanged. Test A9 startup
+properties and SurfaceFlinger-start overlay fix unchanged. Test Eink Settings startup
 separately if necessary; do not remove all display fixes together or add an
 automatic SurfaceFlinger restart as a speculative workaround.
 
@@ -87,7 +87,7 @@ The relevant new boot has this sequence:
 | 13:09:23.096 | PowerManager starts sleep explicitly due to `power_button`. |
 | 13:09:23.538 | Vendor composer SIGSEGV, 442 ms after the sleep request. |
 | 13:09:24.536 | Replacement zygote starts at kernel uptime 43.048 s. |
-| 13:09:33.799 | A9 logs service connection and applies its settings after recovery. |
+| 13:09:33.799 | Eink Accessibility Service logs service connection and applies its settings after recovery. |
 
 The crash buffer again shows `processImage+1308`, `x1=-1` and comparison length
 `0x52e200`. This capture ties the crash much more closely to the **first

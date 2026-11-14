@@ -11,7 +11,7 @@ owns. It leaves pre-existing user-enabled inversion alone and cleans up a
 stale owned inversion marker during boot setup. This is a workaround through
 global color inversion, not a new native AOD renderer.
 
-**EInk Service Settings > Invert colours on Always-On Display** defaults on.
+**Eink Accessibility Service > Invert colours on Always-On Display** defaults on.
 The app sends `aoi1`/`aoi0` to the root daemon, setting
 `persist.sys.hibreak.aod_invert=true/false`. The daemon accepts only 0 or 1.
 The preference is resent when the service connects. The next doze entry

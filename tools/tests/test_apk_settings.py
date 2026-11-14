@@ -6,21 +6,21 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 APP = "{http://schemas.android.com/apk/res-auto}"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
-SOURCE = ROOT / "a9_accessibility_service/res/xml/root_preferences.xml"
+SOURCE = ROOT / "eink_settings/res/xml/root_preferences.xml"
 
 
 class SettingsResourceTests(unittest.TestCase):
     def test_hd_label_and_saved_mode_remain_compatible(self):
-        arrays = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        arrays = ET.parse(ROOT / "eink_settings/res/values/arrays.xml").getroot()
         self.assertEqual(arrays.find("string-array[@name='refresh_options']")[0].text,
                          "@string/hd")
         self.assertEqual(arrays.find("string-array[@name='refresh_values']")[0].text, "2")
-        strings = ET.parse(ROOT / "a9_accessibility_service/res/values/strings.xml").getroot()
+        strings = ET.parse(ROOT / "eink_settings/res/values/strings.xml").getroot()
         self.assertEqual(strings.find("string[@name='hd']").text, "HD")
-        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                    "RefreshModeManager.kt").read_text()
         self.assertIn("SMOOTH(Commands.SPEED_SMOOTH, 2)", manager)
-        commands = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        commands = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                     "command_runners/Commands.kt").read_text()
         self.assertIn('const val SPEED_SMOOTH = "s"', commands)
 
@@ -29,34 +29,34 @@ class SettingsResourceTests(unittest.TestCase):
         refresh = next(node for node in root.iter()
                        if node.get(APP + "key") == "refresh_setting")
         self.assertEqual(refresh.get(APP + "defaultValue"), "1")
-        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                    "RefreshModeManager.kt").read_text()
         self.assertIn('getString("refresh_setting", "1")', manager)
-        controls = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        controls = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                     "DisplaySettingsManager.kt").read_text()
         self.assertIn("index < 2 && sharedPreferences.getBoolean(keys[index], true)", controls)
 
     def test_settings_and_menu_use_standard_material3(self):
-        themes = ET.parse(ROOT / "a9_accessibility_service/res/values/themes.xml").getroot()
+        themes = ET.parse(ROOT / "eink_settings/res/values/themes.xml").getroot()
         base = themes.find("style[@name='Theme.Ha9_comp_service']")
         self.assertEqual(base.get("parent"), "Theme.Material3.DayNight.NoActionBar")
         settings = themes.find("style[@name='Theme.Ha9_comp_service.Settings']")
         self.assertEqual(settings.get("parent"), "Theme.Ha9_comp_service")
         self.assertFalse(any((item.text or "").startswith("#") for item in base))
 
-        night = ET.parse(ROOT / "a9_accessibility_service/res/values-night/themes.xml").getroot()
+        night = ET.parse(ROOT / "eink_settings/res/values-night/themes.xml").getroot()
         self.assertEqual(len(night), 0)
 
         toolbar = ET.parse(
-            ROOT / "a9_accessibility_service/res/layout/settings_activity.xml"
+            ROOT / "eink_settings/res/layout/settings_activity.xml"
         ).getroot().find("com.google.android.material.appbar.MaterialToolbar")
         self.assertEqual(toolbar.get(ANDROID + "background"), "?attr/colorSurface")
         self.assertNotIn(ANDROID + "theme", toolbar.attrib)
-        menu = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()
+        menu = ET.parse(ROOT / "eink_settings/res/layout/floating_menu_layout.xml").getroot()
         self.assertEqual(len(menu.findall(".//com.google.android.material.button.MaterialButton")), 5)
         self.assertEqual(len(menu.findall(".//com.google.android.material.materialswitch.MaterialSwitch")), 3)
         for source in ("SettingsActivity.kt", "A9AccessibilityService.kt"):
-            text = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service" / source).read_text()
+            text = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service" / source).read_text()
             self.assertIn("ThemeOverlay_Material3_DynamicColors_DayNight", text)
 
     def test_category_order_and_button_mappings(self):
@@ -64,7 +64,7 @@ class SettingsResourceTests(unittest.TestCase):
         categories = sorted(root, key=lambda node: int(node.get(APP + "order")))
         self.assertEqual([node.get(APP + "title") for node in categories], [
             "Top Action Button Settings", "Bottom Action Button Settings",
-            "EInk Service Settings", "Refresh Mode Settings",
+            "@string/accessibility_service_name", "Refresh Mode Settings",
             "Per-App Refresh Modes", "Color Scheme",
         ])
         for category, prefix in zip(categories, ("top_", "")):
@@ -98,7 +98,7 @@ class SettingsResourceTests(unittest.TestCase):
             self.assertEqual(node.get(APP + "widgetLayout"), "@layout/preference_material_switch")
 
     def test_native_brightness_dump_permission_is_allowlisted(self):
-        app = ROOT / "a9_accessibility_service"
+        app = ROOT / "eink_settings"
         requested = {node.get(ANDROID + "name") for node in
                      ET.parse(app / "AndroidManifest.xml").getroot().findall("uses-permission")}
         allowed = {node.get("name") for node in
@@ -114,7 +114,7 @@ class SettingsResourceTests(unittest.TestCase):
                              for node in root.iter()))
 
     def test_directional_actions_replace_unsupported_lcd_controls(self):
-        root = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        root = ET.parse(ROOT / "eink_settings/res/values/arrays.xml").getroot()
         entries = root.find("string-array[@name='button_action_entries']")
         values = root.find("string-array[@name='button_action_values']")
         self.assertEqual(
@@ -142,17 +142,17 @@ class SettingsResourceTests(unittest.TestCase):
             "double_press_eink_action_screen_off",
             "long_press_eink_action_screen_off",
         )
-        settings = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        settings = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                     "AppLaunchSettings.kt").read_text()
-        manager = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                    "button_mapper/ButtonActionManager.kt").read_text()
-        action = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        action = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                   "button_mapper/LaunchAppButtonAction.kt").read_text()
-        shared = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        shared = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                   "ButtonActionSettings.kt").read_text()
-        picker = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        picker = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                   "ActionTargetPickerActivity.kt").read_text()
-        launch = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        launch = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                   "button_mapper/LaunchTarget.kt").read_text()
         for key in action_keys:
             with self.subTest(action=key):
@@ -167,29 +167,29 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertIn("ListPreference.SimpleSummaryProvider.getInstance()", settings)
 
     def test_screen_off_clear_is_not_offered(self):
-        root = ET.parse(ROOT / "a9_accessibility_service/res/values/arrays.xml").getroot()
+        root = ET.parse(ROOT / "eink_settings/res/values/arrays.xml").getroot()
         entries = root.find("string-array[@name='button_action_entries_screen_off']")
         values = root.find("string-array[@name='button_action_values_screen_off']")
         self.assertEqual(len(entries), len(values))
         self.assertNotIn("clear", [item.text for item in values])
 
     def test_target_picker_is_internal_and_material3(self):
-        manifest = ET.parse(ROOT / "a9_accessibility_service/AndroidManifest.xml").getroot()
+        manifest = ET.parse(ROOT / "eink_settings/AndroidManifest.xml").getroot()
         picker = manifest.find("application/activity[@android:name='.ActionTargetPickerActivity']",
                                {"android": ANDROID[1:-1]})
         self.assertEqual(picker.get(ANDROID + "exported"), "false")
-        layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/action_target_picker.xml").getroot()
+        layout = ET.parse(ROOT / "eink_settings/res/layout/action_target_picker.xml").getroot()
         for tag in ("appbar.MaterialToolbar", "tabs.TabLayout", "textfield.TextInputLayout"):
             self.assertIsNotNone(layout.find("com.google.android.material." + tag))
 
     def test_video_refresh_toggle_defaults_off_and_is_explicit(self):
-        layout = ET.parse(ROOT / "a9_accessibility_service/res/layout/floating_menu_layout.xml").getroot()
+        layout = ET.parse(ROOT / "eink_settings/res/layout/floating_menu_layout.xml").getroot()
         toggle = next(node for node in layout.iter()
                       if node.get("{http://schemas.android.com/apk/res/android}id")
                       == "@+id/video_optimized_refresh")
         self.assertEqual(toggle.get("{http://schemas.android.com/apk/res/android}text"),
                          "Video refresh (experimental)")
-        refresh_source = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        refresh_source = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                           "CameraLiveRefresh.kt").read_text()
         self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
 
@@ -198,11 +198,11 @@ class SettingsResourceTests(unittest.TestCase):
         cameras = [node for node in root.iter() if node.get(APP + "key") == "camera_live_refresh"]
         self.assertEqual(len(cameras), 1)
         self.assertEqual(cameras[0].get(APP + "defaultValue"), "true")
-        service = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        service = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                    "A9AccessibilityService.kt").read_text()
         self.assertIn('"camera_live_refresh" -> cameraLiveRefresh?.update()', service)
 
     def test_app_picker_uses_standard_preference_layout(self):
-        settings = (ROOT / "a9_accessibility_service/src/com/lmqr/ha9_comp_service/"
+        settings = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
                     "AppLaunchSettings.kt").read_text()
         self.assertNotIn("layoutResource", settings)

@@ -40,16 +40,16 @@ def source_apk_inputs(parser):
         ROOT / "settings.gradle.kts",
         ROOT / "build.gradle.kts",
         ROOT / "gradle.properties",
-        ROOT / "a9_accessibility_service/build.gradle.kts",
-        ROOT / "a9_accessibility_service/AndroidManifest.xml",
+        ROOT / "eink_settings/build.gradle.kts",
+        ROOT / "eink_settings/AndroidManifest.xml",
         ROOT / "tools/android-system-api-stubs/build.gradle.kts",
         ROOT / "tools/build/build-source-apk.sh",
         ROOT / "tools/lib/build-common.sh",
     ]
     for path in files:
         require_input(parser, path, "source APK build input")
-    for name in ("a9_accessibility_service/src", "a9_accessibility_service/res",
-                 "a9_accessibility_service/standalone", "tools/android-system-api-stubs/src"):
+    for name in ("eink_settings/src", "eink_settings/res",
+                 "eink_settings/standalone", "tools/android-system-api-stubs/src"):
         directory = ROOT / name
         if not directory.is_dir():
             parser.error(f"Missing source APK input directory: {directory}")

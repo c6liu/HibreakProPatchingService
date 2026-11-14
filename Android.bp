@@ -1,5 +1,5 @@
 subdirs = [
-    "a9_accessibility_service",
+    "eink_settings",
     "a9_eink_daemon",
     "sepolicy",
 ]

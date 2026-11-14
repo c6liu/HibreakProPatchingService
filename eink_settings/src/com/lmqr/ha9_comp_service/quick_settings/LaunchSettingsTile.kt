@@ -13,7 +13,7 @@ class LaunchSettingsTile : TileService() {
     private fun updateTile() {
         val tile = qsTile
         tile.state = Tile.STATE_INACTIVE
-        tile.label = "E-Ink settings"
+        tile.label = getString(R.string.app_name)
         tile.icon = Icon.createWithResource(
             this,
             R.drawable.baseline_settings_24

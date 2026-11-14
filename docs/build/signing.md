@@ -42,7 +42,7 @@ Without all three variables, it either refuses an incomplete configuration
 or uses debug signing when none are set. Debug signing is not for release.
 
 **Updating a debug-signed or differently signed image:** do not assume the
-new E-Ink APK will preserve its old data. Android signature mismatches may
+new Eink Settings APK will preserve its old data. Android signature mismatches may
 require app-data cleanup or a clean install. Back up first.
 
 ## How the builder uses the key
@@ -56,7 +56,7 @@ as command-line arguments or save them. To return to a debug build, run
 The builder requires all three settings together,
 asks the signer to verify the expected certificate, and verifies the resulting
 APK. Keep the keystore backed up and privately managed; never commit it or its
-passwords. Use this same key for every future A9 build. Changing the
+passwords. Use this same key for every future Eink Settings build. Changing the
 certificate may cause Android to reject an update or reset the app's data.
 Moving an already-flashed debug-signed system app to the release certificate
 requires a fresh migration plan; test on a disposable device before publishing.

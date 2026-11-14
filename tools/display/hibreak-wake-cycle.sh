@@ -13,3 +13,14 @@ sleep 1
 /system/bin/hibreak-disable-hwc.sh "$@"
 log -t hibreak-display "Post-boot display wake completed"
 trap - EXIT
+# TrebleApp replays its "Disable HW overlays" preference after BOOT_COMPLETED;
+# while that switch is off, it re-enables HWC behind the requests above.
+remaining=180
+while [ $remaining -gt 0 ]; do
+    sleep 5
+    remaining=$((remaining - 5))
+    if dumpsys SurfaceFlinger 2>/dev/null | grep -q 'h/w composer enabled$'; then
+        log -p w -t hibreak-display "HWC re-enabled after boot; reapplying forced GPU composition"
+        /system/bin/hibreak-disable-hwc.sh "$@" || true
+    fi
+done

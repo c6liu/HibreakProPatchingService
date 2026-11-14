@@ -84,11 +84,17 @@ class BrightnessManager(
     fun onScreenStateChanged(on: Boolean) {
         screenOn = on
         if (on) {
-            applyBrightness()
-            if (nativeActive) nativeBrightness.refresh()
+            reapplyBrightness()
         } else {
             turnOffBrightness()
         }
+    }
+
+    /** Boot/display initialization can overwrite the physical lights without changing Android brightness. */
+    fun reapplyBrightness() {
+        lastCodes = null
+        applyBrightness()
+        if (nativeActive) nativeBrightness.refresh()
     }
 
     /** Called when the control mode preference changes. */

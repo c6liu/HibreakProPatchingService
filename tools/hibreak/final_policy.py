@@ -44,7 +44,7 @@ def prepare(target, gsi, vendor, hal, daemon, compiler, work, load, *, parallel_
 
     files = {}
     base_files = {
-        "system/priv-app/HiBreakEink/HiBreakEink.apk": ("0644", SYSTEM),
+        "system/priv-app/EinkSettings/HiBreakEink.apk": ("0644", SYSTEM),
         "system/etc/permissions/privapp-permissions-hibreak-eink.xml": ("0644", SYSTEM),
         "system/bin/hibreak-disable-hwc.sh": ("0755", SYSTEM),
         "system/bin/hibreak-wake-cycle.sh": ("0755", SYSTEM),
@@ -219,7 +219,7 @@ def verify(target, vendor, compiler, work, prepared, *, parallel_compile):
     (files, inputs, input_hashes, baseline, xrz_baseline, old_debugfs, baseline_permissions,
      bridge_permissions, sysfs_file, sysfs_xperms, original_system, xrz) = prepared
     migration = eink_migration.migration
-    directory = "system/priv-app/HiBreakEink"
+    directory = "system/priv-app/EinkSettings"
     stat = image.run("debugfs", "-R", f"stat {directory}", str(target)).stdout.decode()
     if "Mode:  0755" not in stat or "User:     0   Group:     0" not in stat or SYSTEM not in stat:
         raise ValueError(f"Final image directory metadata mismatch: {directory}")

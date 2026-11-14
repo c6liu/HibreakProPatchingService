@@ -22,5 +22,9 @@ tools/device/flash-system.sh "$IMAGE" a --flash
 ```
 
 This preserves userdata; it does not guarantee every upstream GSI update is
-compatible. **Press Power after reboot.** The E-Ink APK is a persistent
+compatible. **Press Power after reboot.** The Eink Settings APK is a persistent
 system app, so update it through a new image, not `adb install`.
+The installed app folder is now `/system/priv-app/EinkSettings/`. When
+repatching an older image, the patcher removes the previous `HiBreakEink`
+folder so the image does not contain two copies of the package. The package
+ID and signing-key requirements are unchanged.

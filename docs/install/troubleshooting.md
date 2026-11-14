@@ -14,6 +14,7 @@
 | `Invalid sparse file format at header magic` | Alone, this can be harmless while fastboot converts a raw image. The entire flash must still finish successfully. |
 | Recovery says "Can't load Android system" on first install | After confirming the system flash succeeded, use **Factory data reset**; this erases data. |
 | IR app reports no emitter | Confirm you flashed the IR image, not just the display base. A test APK alone cannot add the HAL. |
+| Screen stops updating while touch still works (for example after choosing Natural colors or adjusting the frontlight) | Enable **Treble Settings → Display settings → Disable HW overlays**. Then confirm `adb shell dumpsys SurfaceFlinger` reports `h/w composer disabled`. |
 | IR emitter exists but the appliance does not respond | Check NEC/NECext, carrier alias and repeat settings. Changing frequency cannot turn an unsupported protocol into NEC. |
 
 For display/app problems, enable USB debugging and collect read-only logs:

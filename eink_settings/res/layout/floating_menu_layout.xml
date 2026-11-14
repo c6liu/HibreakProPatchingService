@@ -132,7 +132,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:tint="?attr/colorOnSurfaceVariant"
-                    android:src="@drawable/baseline_brightness_high_24_dark" />
+                    android:src="@drawable/material_mode_cool_24" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/light_seekbar"
@@ -208,7 +208,7 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@string/frontlight_cool"
                     android:tint="?attr/colorOnSurfaceVariant"
-                    android:src="@drawable/baseline_brightness_high_24_dark" />
+                    android:src="@drawable/material_mode_cool_24" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/light_temperature_seekbar"

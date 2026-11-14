@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.preference.PreferenceManager
+import com.lmqr.ha9_comp_service.R
 
 class LaunchAppButtonAction(private val packagePreferenceKey: String) : ButtonAction {
     override fun execute(context: Context) {
@@ -12,7 +13,7 @@ class LaunchAppButtonAction(private val packagePreferenceKey: String) : ButtonAc
             .getString(packagePreferenceKey, null)
         if (packageName.isNullOrBlank()) {
             Log.w(TAG, "No app selected for side-key action $packagePreferenceKey")
-            Toast.makeText(context, "Choose an app to launch in E-Ink Settings", Toast.LENGTH_SHORT)
+            Toast.makeText(context, R.string.choose_launch_app, Toast.LENGTH_SHORT)
                 .show()
             return
         }

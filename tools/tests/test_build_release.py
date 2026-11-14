@@ -158,7 +158,7 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_source_apk_inputs_are_recorded(self):
         manifest = self.run_build(["--compatibility", "--source-apk"])
         self.assertIn("apk_source:settings.gradle.kts", manifest["inputs"])
-        self.assertIn("apk_source:a9_accessibility_service/standalone/AndroidManifest.xml",
+        self.assertIn("apk_source:eink_settings/standalone/AndroidManifest.xml",
                       manifest["inputs"])
 
     def test_invalid_inputs_and_unsupported_combinations_fail_before_build(self):

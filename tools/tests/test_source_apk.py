@@ -220,7 +220,7 @@ class SourceApkArtifactTests(unittest.TestCase):
     def test_preferences_are_packaged_with_the_expected_defaults(self):
         root = ET.parse(self.decoded / "res/xml/root_preferences.xml").getroot()
         keyed = {node.get(APP + "key"): node for node in root.iter() if node.get(APP + "key")}
-        source = ET.parse(ROOT / "a9_accessibility_service/res/xml/root_preferences.xml").getroot()
+        source = ET.parse(ROOT / "eink_settings/res/xml/root_preferences.xml").getroot()
         expected = {node.get(APP + "key"): node for node in source.iter() if node.get(APP + "key")}
         self.assertEqual(set(keyed), set(expected))
         for key in expected:

@@ -1,8 +1,14 @@
-# E-Ink app and daemon
+# Eink Settings and daemon
 
-What the patched E-Ink app and native daemon contain. Build them with
+What Eink Settings and its native daemon contain. Build them with
 [Build a release image](../build/build-image.md); user-visible settings are
 summarized in the [settings reference](settings.md).
+
+The app is named **Eink Settings**, and its accessibility service is
+**Eink Accessibility Service**. The package `com.lmqr.ha9_comp_service`
+and component IDs are unchanged to preserve saved settings and bindings.
+Source lives in `eink_settings/`; the image installs the APK at
+`/system/priv-app/EinkSettings/HiBreakEink.apk`.
 
 The APK gains five modes, the in-layout toolbar, the AOD inversion switch,
 screen-on DPAD button actions, an opt-in video-refresh popup toggle, and per-app
@@ -64,9 +70,15 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   Reads queued before a newer local write are discarded. During a drag, live
   output uses the thumb's requested brightness rather than delayed display
   events. Later genuine Android brightness changes still take effect.
+  At boot completion and on screen-on, the app reapplies the physical channel
+  codes even when Android brightness is unchanged and refreshes the effective
+  brightness. This handles startup/display initialization overwriting the
+  lights without changing the saved level; it does not write Android brightness
+  or change automatic/manual mode.
   The combined-brightness slider uses CIE L* spacing, as do the independent
   channel sliders; temperature retains the centred neutral-white stop with
-  a percentage-only label.
+  a percentage-only label. Material Symbols `mode_cool` and `sunny` identify
+  the cool and warm channels and the temperature slider's endpoints.
 - Auto Refresh and Anti-Shake use the init bridge by default to write
   `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
   The compatibility daemon uses direct writes instead. Request success does

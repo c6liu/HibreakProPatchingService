@@ -110,7 +110,7 @@
             app:defaultValue="dummy"
             app:dialogTitle="Choose an action for long press when screen is off" />
     </PreferenceCategory>
-    <PreferenceCategory app:order="2" app:title="EInk Service Settings">
+    <PreferenceCategory app:order="2" app:title="@string/accessibility_service_name">
         <SwitchPreferenceCompat
             app:widgetLayout="@layout/preference_material_switch"
             app:defaultValue="true"

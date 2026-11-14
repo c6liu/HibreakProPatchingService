@@ -103,6 +103,17 @@ class DisplayScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.commands().count("hibreak-disable-hwc.sh --aidl"), 2)
 
+    def test_wake_cycle_reapplies_when_hwc_is_reenabled_after_boot(self):
+        source = (ROOT / "tools/display/hibreak-wake-cycle.sh").read_text()
+        source = source.replace("/system/bin/hibreak-disable-hwc.sh", "hibreak-disable-hwc.sh")
+        environment = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
+                           COMMAND_LOG=str(self.log), HWC_STATE="  h/w composer enabled")
+        result = subprocess.run(["sh", "-s", "--", "--aidl"], input=source,
+                                capture_output=True, text=True, env=environment)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertGreater(self.commands().count("hibreak-disable-hwc.sh --aidl"), 2)
+        self.assertTrue(any("HWC re-enabled after boot" in c for c in self.commands()))
+
     def test_doze_inverts_only_when_aod_is_enabled_and_not_already_inverted(self):
         result = self.run_aod(
             "doze", {

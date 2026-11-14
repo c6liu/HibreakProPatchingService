@@ -11,7 +11,7 @@ Keep the stock vendor, boot and kernel; do not install a Color HWC shim.
 > or lose functionality on another version. Do not flash it on a different
 > firmware baseline merely because the phone model matches.
 
-The result includes E-Ink settings, the matching display daemon, and AOD fixes.
+The result includes Eink Settings, the matching display daemon, and AOD fixes.
 Optional IR support lets ordinary Android IR apps transmit single NEC/NECext
 commands. Root/Magisk is not required. Release images remove `su`, omit
 project diagnostic hooks, and do not embed a computer's ADB key.

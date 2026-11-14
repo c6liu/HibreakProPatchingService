@@ -1,6 +1,6 @@
-# E-Ink settings
+# Eink Settings
 
-This page describes the user-visible controls in the patched E-Ink app.
+This page describes the user-visible controls in Eink Settings.
 Implementation details and limitations are in
 [app and daemon](app-and-daemon.md), and stock mode values are in
 [refresh-mode research](refresh-modes.md).
@@ -36,7 +36,7 @@ are no longer used; enabling the override uses the new preset or custom shade.
 
 The default single press of the E-Ink button refreshes the screen; a double
 press opens the E-Ink menu with per-app refresh modes. These mappings can be
-changed in E-Ink Settings. Button mappings are shown **top button first, then
+changed in Eink Settings. Button mappings are shown **top button first, then
 bottom button**. Available screen-on actions include **Up, Down, Left, and
 Right**, which send Android DPAD key presses to the focused app. Screen-off
 actions include media, **Launch App**, **Launch Shortcut**, and Nothing.
@@ -154,7 +154,7 @@ lightness spacing for approximately equal perceived brightness steps, not
 gamma 2.2. These are converted through the driver's exponential curve.
 Saved channel codes are retained, so existing brightness levels do not change.
 
-**E-Ink Service Settings → Use Android brightness for frontlight** (on by
+**Eink Accessibility Service → Use Android brightness for frontlight** (on by
 default) switches to native control. Android's effective brightness — the
 system slider, automatic brightness, screen dimming and per-app window
 overrides — then sets the combined frontlight output, and the popup shows a
@@ -197,7 +197,7 @@ Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone
 full output is about 0.82 of the cool channel's. At full brightness the slider
 centre reaches the full cap; the cool end gives about 61% and the warm end 50%.
 
-**E-Ink Service Settings → Invert colours on Always-On Display** is on by
+**Eink Accessibility Service → Invert colours on Always-On Display** is on by
 default. It controls whether `hibreak-aod.sh` inverts colours while dozing.
 The setting is re-sent whenever the accessibility service connects. Configure
 the actual AOD in Android's lockscreen settings; inversion is a separate

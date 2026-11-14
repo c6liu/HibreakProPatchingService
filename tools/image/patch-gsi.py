@@ -144,21 +144,30 @@ def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=T
             if exists("system/bin/hibreak-enable-adb.sh", output):
                 image.run("debugfs", "-w", "-R", "rm system/bin/hibreak-enable-adb.sh", str(output))
 
-            if not exists("system/priv-app/HiBreakEink", output):
-                image.run("debugfs", "-w", "-R", "mkdir system/priv-app/HiBreakEink", str(output))
+            legacy_app_directory = "system/priv-app/HiBreakEink"
+            if exists(legacy_app_directory, output):
+                legacy_apk = f"{legacy_app_directory}/HiBreakEink.apk"
+                if exists(legacy_apk, output):
+                    image.run("debugfs", "-w", "-R", f"rm {legacy_apk}", str(output))
+                image.run("debugfs", "-w", "-R", f"rmdir {legacy_app_directory}", str(output))
+                if exists(legacy_app_directory, output):
+                    raise ValueError(f"Could not remove legacy APK directory: {legacy_app_directory}")
+
+            if not exists("system/priv-app/EinkSettings", output):
+                image.run("debugfs", "-w", "-R", "mkdir system/priv-app/EinkSettings", str(output))
             image.ensure_directory(
-                output, "system/priv-app/HiBreakEink", "u:object_r:system_file:s0", work,
+                output, "system/priv-app/EinkSettings", "u:object_r:system_file:s0", work,
             )
             if exists("system/etc/init/a9_eink_daemon.rc", output):
                 raise ValueError("Conflicting AOSP daemon init file exists; start from the unmodified GSI.")
-            put(output, apk, "system/priv-app/HiBreakEink/HiBreakEink.apk",
+            put(output, apk, "system/priv-app/EinkSettings/HiBreakEink.apk",
                 "0100644", "u:object_r:system_file:s0", work)
             put(output, daemon, "system/bin/a9_eink_server",
                 "0100755", "u:object_r:system_file:s0", work)
             put(output, eink_rc, "system/etc/init/a9_eink_gsi.rc",
                 "0100644", "u:object_r:system_file:s0", work)
             put(
-                output, ROOT / "a9_accessibility_service/privapp-permissions-accessibility.xml",
+                output, ROOT / "eink_settings/privapp-permissions-accessibility.xml",
                 "system/etc/permissions/privapp-permissions-hibreak-eink.xml",
                 "0100644", "u:object_r:system_file:s0", work,
             )

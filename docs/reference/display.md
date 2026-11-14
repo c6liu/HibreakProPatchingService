@@ -17,6 +17,26 @@
   daemon accepts Hyper and AOD commands, but physical speed improvements and
   every AOD edge case have not been independently measured.
 
+## Optional display tweaks
+
+- Refresh modes are per application by default. Enable **Disable Per-App
+  Refresh Mode** in **Eink Settings → Eink Accessibility Service** to use
+  one global refresh mode.
+- In **Phh Treble Settings** (**Treble Settings** on the tested GSI), enable:
+  - **Mediatek settings → Mediatek GED KPI support**.
+  - **Display settings → Disable SF GL backpressure**.
+  - **Display settings → Disable SF HWC backpressure**.
+- Reboot after changing the Treble settings. Both backpressure settings are
+  already disabled at boot by the patched image; the toggles align the
+  Treble Settings preferences with that configuration.
+- Optionally select **High** in Android **Settings → Accessibility →
+  Color contrast** for higher-contrast interface colors. This does not
+  adjust the physical panel's contrast or black/white points.
+
+For the complete setup sequence, see [first-boot setup](../install/first-boot-setup.md).
+These preferences do not replace **Display settings → Disable HW overlays**,
+which is required to keep GPU composition enabled as described below.
+
 ## Display: the working recipe
 
 Keep the stock vendor. Set both persistent phh backpressure properties and
@@ -85,6 +105,18 @@ broader SELinux permissions.
 The new dump-based verification additionally needs SurfaceFlinger to use
 and write the helper's output pipe. The migration grants only that `fd use`
 and `fifo_file write` access; the previously flashed policy lacked both.
+
+A captured reboot then showed the helper verifying `h/w composer disabled`
+before TrebleApp started, yet HWC was enabled afterwards. Root cause:
+TrebleApp (system UID) replays its **Disable HW overlays** preference
+(`key_display_no_hwcomposer`, default off) on startup, about 20 seconds
+after `sys.boot_completed`. With the switch off, it sends
+`SurfaceFlinger 1008` with 0, re-enabling device composition. Enable that
+switch in Treble Settings so TrebleApp forces GPU composition itself at
+every boot. As a fallback for fresh installs, the wake helper also checks
+SurfaceFlinger every 5 seconds for 180 seconds after boot and reapplies if
+HWC was re-enabled. A later TrebleApp restart outside that window still
+depends on the switch.
 
 Setting properties before startup avoids restarting SF at boot. Runtime
 restarts can desynchronize panel power and should be recovery operations only:

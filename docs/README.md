@@ -18,7 +18,7 @@ Start from the [Guide](../Guide.md), which lists these in order.
 - [backup-stock.md](install/backup-stock.md) — mtkclient stock backup
 - [unlock-bootloader.md](install/unlock-bootloader.md)
 - [first-install.md](install/first-install.md) — vbmeta, fastbootd, destructive first flash
-- [first-boot-setup.md](install/first-boot-setup.md) — E-Ink settings and IR use
+- [first-boot-setup.md](install/first-boot-setup.md) — Eink Settings and IR use
 - [update.md](install/update.md) — same-GSI, no-wipe update
 - [switch-gsi.md](install/switch-gsi.md) — change GSI family (wipes data)
 - [troubleshooting.md](install/troubleshooting.md) — common errors, returning to stock
