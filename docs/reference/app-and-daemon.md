@@ -50,9 +50,16 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   reads fail, it falls back to the saved slider setting, which ignores
   auto-brightness and app overrides. This mode targets Android 16 and later.
   The popup's Material 3 combined-brightness slider applies the mix immediately
-  and writes `screen_brightness_float` through `WRITE_SETTINGS`, without changing
-  automatic/manual mode. It uses CIE L* perceptual spacing, as do the independent
-  channel sliders; temperature retains the centred neutral-white stop.
+  and writes `Settings.System.SCREEN_BRIGHTNESS` through `WRITE_SETTINGS`, without
+  changing automatic/manual mode. On the tested GSI, Android's brightness
+  synchronizer maps setting 1–255 to linear output 0–1. The old
+  `screen_brightness_float` key is not the display service's float brightness
+  setting and is ignored: writing it left the effective brightness unchanged,
+  so a later display read reset the slider and lights. Own setting notifications
+  no longer trigger an early read of the stale display cache, and releasing a
+  drag reaffirms its final value before returning to Android tracking.
+  The combined-brightness slider uses CIE L* spacing, as do the independent channel sliders;
+  temperature retains the centred neutral-white stop with a percentage-only label.
 - Auto Refresh and Anti-Shake use the init bridge by default to write
   `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
   The compatibility daemon uses direct writes instead. Request success does

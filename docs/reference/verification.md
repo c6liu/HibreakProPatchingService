@@ -30,6 +30,9 @@ Rotate again while a settings choice dialog is open; its selection should surviv
 and Back/cancel must leave the saved value unchanged. Check Accent Color's slider
 and hexadecimal readout, including changing it with accessibility input and rotating
 after a saved change.
+Check that the accent slider is thin, has no tick marks/end stops, and moves
+smoothly between saved integer values. At the temperature slider's centre the
+label should be 50%, not a neutral-white label.
 With **Use Android brightness for frontlight** on (the default), check that the system
 slider, auto-brightness and an app brightness override (e.g. a reader) change
 the frontlight, that the popup shows combined brightness and temperature sliders, that it
@@ -43,6 +46,10 @@ mode (test both enabled and disabled). While dragging, delayed Android brightnes
 events must not move the thumb or override the live output. Later auto-brightness
 adjustments should still take effect. Check the independent cold/warm sliders for
 approximately even perceived brightness steps, including off and full output.
+After releasing the popup brightness slider, wait for Android display events
+and reopen the popup: it must not return to the previous brightness. Compare
+`adb shell settings get system screen_brightness` with the display service's
+cached brightness; the obsolete `screen_brightness_float` setting is not authoritative.
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.

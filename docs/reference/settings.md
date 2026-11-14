@@ -13,9 +13,11 @@ and scrolls when the available height is short, without resetting control values
 Settings choice dialogs use Material styling and retain their selected choice
 through rotation; cancelling does not change the setting.
 
-**Color Scheme → Accent Color** uses a Material 3 slider with a live hexadecimal
-greyscale value. Touch drags apply on release; keyboard and accessibility changes
-apply immediately. Existing saved accent values are retained.
+**Color Scheme → Accent Color** uses the compact Material 3 slider style with
+a thin track and a 48 dp minimum touch target. It moves continuously without
+tick marks or end stops and shows a live hexadecimal greyscale value. Touch
+drags apply on release; keyboard and accessibility changes apply immediately.
+Existing saved integer accent values are retained.
 
 ## Button mappings
 
@@ -157,13 +159,14 @@ independent values are kept and restored when the switch is turned off.
   smoothly between 40% and 60% of the slider, so there is no kink.
 - The slider snaps to the neutral-white centre within ±3%. There both channels
   run equally at full, so it gives the most output. It is also the default
-  position.
+  position. Its label remains a percentage, including 50% at neutral white.
 - Mixing is done in linear light and converted through the LM3630A's
   exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
 - Android only reports a finished brightness change, so the frontlight
   follows the system slider when it is released, not while dragging.
   The popup brightness slider instead updates the lights live and saves Android's
-  brightness setting. It never changes the auto-brightness mode; subsequent
+  supported integer brightness setting (rounded to its 1–255 range). It never
+  changes the auto-brightness mode; subsequent
   automatic adjustments or app brightness overrides can take over.
 - All popup sliders use Material 3 controls. Brightness sliders use CIE L*
   spacing; the native slider converts between perceptual lightness and Android's

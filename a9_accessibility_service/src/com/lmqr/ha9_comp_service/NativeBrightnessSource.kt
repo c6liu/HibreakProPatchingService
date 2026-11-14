@@ -3,6 +3,7 @@ package com.lmqr.ha9_comp_service
 import android.content.Context
 import android.database.ContentObserver
 import android.hardware.display.DisplayManager
+import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
@@ -13,6 +14,7 @@ import android.widget.Toast
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
 
 /** Android's effective display brightness (0..1, linear backlight space). */
 interface NativeBrightnessSource {
@@ -42,7 +44,6 @@ class DisplayBrightnessSource(
 ) : NativeBrightnessSource {
     companion object {
         private const val TAG = "DisplayBrightness"
-        private const val SCREEN_BRIGHTNESS_FLOAT = "screen_brightness_float"
 
         // DisplayManager.PRIVATE_EVENT_TYPE_DISPLAY_BRIGHTNESS
         private const val PRIVATE_EVENT_BRIGHTNESS = 1L shl 0
@@ -92,7 +93,10 @@ class DisplayBrightnessSource(
     }
 
     private val settingsObserver = object : ContentObserver(handler) {
-        override fun onChange(selfChange: Boolean) {
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            // Our setting write is already applied locally; the display cache may still be old.
+            if (uri == Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS) &&
+                readSetting() == brightness) return
             refresh()
         }
     }
@@ -102,8 +106,7 @@ class DisplayBrightnessSource(
         this.onChange = onChange
         listenerRegistered = registerBrightnessListener()
         val resolver = context.contentResolver
-        for (name in listOf(SCREEN_BRIGHTNESS_FLOAT, Settings.System.SCREEN_BRIGHTNESS,
-                Settings.System.SCREEN_BRIGHTNESS_MODE)) {
+        for (name in listOf(Settings.System.SCREEN_BRIGHTNESS, Settings.System.SCREEN_BRIGHTNESS_MODE)) {
             resolver.registerContentObserver(Settings.System.getUriFor(name), false, settingsObserver)
         }
         refresh()
@@ -128,8 +131,10 @@ class DisplayBrightnessSource(
 
     override fun setBrightness(value: Float): Boolean {
         val bounded = value.coerceIn(0f, 1f)
+        // Android's BrightnessSynchronizer maps setting 1..255 to linear brightness 0..1.
+        val setting = (bounded * 254f).roundToInt() + 1
         try {
-            check(Settings.System.putFloat(context.contentResolver, SCREEN_BRIGHTNESS_FLOAT, bounded)) {
+            check(Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, setting)) {
                 "Android rejected the brightness setting"
             }
         } catch (e: SecurityException) {
@@ -142,7 +147,7 @@ class DisplayBrightnessSource(
             return false
         }
         writeGeneration++
-        brightness = bounded
+        brightness = (setting - 1) / 254f
         onChange?.invoke()
         return true
     }
@@ -195,9 +200,8 @@ class DisplayBrightnessSource(
 
     private fun readSetting(): Float {
         val resolver = context.contentResolver
-        val value = Settings.System.getFloat(resolver, SCREEN_BRIGHTNESS_FLOAT, Float.NaN)
-        if (!value.isNaN()) return value.coerceIn(0f, 1f)
-        return Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+        val value = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128)
+        return ((value - 1) / 254f).coerceIn(0f, 1f)
     }
 
     private fun registerBrightnessListener(): Boolean {

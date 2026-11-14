@@ -1,4 +1,5 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -37,11 +38,12 @@
 
     <com.google.android.material.slider.Slider
         android:id="@+id/color_slider"
-        style="@style/Widget.Material3.Slider"
+        style="@style/Widget.Material3.Slider.Legacy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
         android:valueFrom="0"
         android:valueTo="100"
-        android:stepSize="1" />
+        app:tickVisible="false"
+        app:trackStopIndicatorSize="0dp" />
 </LinearLayout>

@@ -36,6 +36,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.util.ReflectionHelpers
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -210,16 +211,18 @@ class MaterialAndKeyTest {
             }
             val (slider, label) = bind()
             assertEquals(27f, slider.value)
+            assertTrue(slider.trackHeight < Slider(controller.get()).trackHeight)
             slider.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(100, View.MeasureSpec.EXACTLY))
             slider.layout(0, 0, 600, 100)
             fun touch(action: Int) {
-                val event = MotionEvent.obtain(0, 0, action, 300f, 50f, 0)
+                val event = MotionEvent.obtain(0, 0, action, 315.3f, 50f, 0)
                 try { slider.onTouchEvent(event) } finally { event.recycle() }
             }
             touch(MotionEvent.ACTION_DOWN)
             assertEquals(27, prefs.getInt("color_scheme_color", -1))
-            assertEquals("0x${slider.value.toInt().progressToHex()}", label.text.toString())
+            assertTrue(slider.value != slider.value.roundToInt().toFloat())
+            assertEquals("0x${slider.value.roundToInt().progressToHex()}", label.text.toString())
             touch(MotionEvent.ACTION_UP)
             assertEquals(slider.value.toInt(), prefs.getInt("color_scheme_color", -1))
             changeSlider(slider, 65f)

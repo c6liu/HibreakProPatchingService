@@ -165,6 +165,9 @@ class BrightnessManager(
             (FrontlightMixer.lightnessForOutput(nativeBrightness.brightness.toDouble()) * TEMPERATURE_STEPS).toFloat()
     }
 
+    private fun brightnessForValue(value: Float): Float =
+        FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()).toFloat()
+
     fun setupSliders(menu: FloatingMenuViewAccessor) {
         brightnessSlider = menu.lightBrightnessSeekbar
         val sliders = listOf(menu.lightSeekbar, menu.lightWarmSeekbar,
@@ -175,12 +178,6 @@ class BrightnessManager(
             it.setLabelFormatter { value -> "${(value / 10).roundToInt()}%" }
         }
         updateOverlay(menu)
-        menu.lightTemperatureSeekbar.setLabelFormatter { value ->
-            when (value.roundToInt()) {
-                NEUTRAL_PROGRESS -> menu.root.context.getString(R.string.frontlight_neutral)
-                else -> "${(value / 10).roundToInt()}%"
-            }
-        }
         menu.lightTemperatureSeekbar.addOnChangeListener { slider, value, fromUser ->
             if (fromUser && isNativeMode) {
                 val snapped = snapToNeutral(value.roundToInt())
@@ -203,7 +200,7 @@ class BrightnessManager(
         })
         menu.lightBrightnessSeekbar.addOnChangeListener { _, value, fromUser ->
             if (fromUser && isNativeMode) {
-                val brightness = FrontlightMixer.outputForLightness(value / TEMPERATURE_STEPS.toDouble()).toFloat()
+                val brightness = brightnessForValue(value)
                 val tracking = draggingBrightness != null
                 draggingBrightness = brightness
                 if (nativeBrightness.setBrightness(brightness)) {
@@ -217,9 +214,12 @@ class BrightnessManager(
         }
         menu.lightBrightnessSeekbar.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
             override fun onStartTrackingTouch(slider: Slider) {
-                draggingBrightness = nativeBrightness.brightness
+                draggingBrightness = brightnessForValue(slider.value)
             }
             override fun onStopTrackingTouch(slider: Slider) {
+                if (isNativeMode) {
+                    draggingBrightness?.let { nativeBrightness.setBrightness(it) }
+                }
                 draggingBrightness = null
                 updateBrightnessSlider()
                 if (screenOn && isNativeMode) applyNative(activeTemperature)

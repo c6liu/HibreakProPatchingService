@@ -149,14 +149,19 @@ class FrontlightTest {
     fun savingAndroidBrightnessDoesNotChangeAutomaticMode() {
         val context = RuntimeEnvironment.getApplication()
         val resolver = context.contentResolver
+        Settings.System.putFloat(resolver, "screen_brightness_float", 0.9f)
+        Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 19)
         val source = DisplayBrightnessSource(context, Handler(Looper.getMainLooper()))
+        assertEquals(18 / 254f, source.brightness)
         for (mode in listOf(Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)) {
             Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, mode)
-            assertTrue(source.setBrightness(0.25f))
-            assertEquals(0.25f, Settings.System.getFloat(resolver, "screen_brightness_float"))
-            assertEquals(0.25f, source.brightness)
-            assertEquals(mode, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE))
+            for ((requested, setting) in listOf(0f to 1, 0.25f to 65, 0.437f to 112, 1f to 255)) {
+                assertTrue(source.setBrightness(requested))
+                assertEquals(setting, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS))
+                assertEquals((setting - 1) / 254f, source.brightness)
+                assertEquals(mode, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE))
+            }
         }
     }
 
@@ -244,6 +249,9 @@ class FrontlightTest {
         assertTrue(menu.independentLightControls.all { it.visibility == View.GONE })
         assertTrue(menu.nativeLightControls.all { it.visibility == View.VISIBLE })
         assertEquals(BrightnessManager.NEUTRAL_PROGRESS.toFloat(), menu.lightTemperatureSeekbar.value)
+        val temperatureNode = requireNotNull(
+            menu.lightTemperatureSeekbar.accessibilityNodeProvider.createAccessibilityNodeInfo(0))
+        assertTrue(temperatureNode.contentDescription.toString().contains("50%"))
 
         // Drags near neutral white snap to the 4800 K stop where both channels are at full.
         changeFromUser(menu.lightTemperatureSeekbar, BrightnessManager.NEUTRAL_PROGRESS + 20f)
@@ -306,18 +314,21 @@ class FrontlightTest {
         MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 300f, 50f, 0).let {
             try { assertTrue(slider.onTouchEvent(it)) } finally { it.recycle() }
         }
-        changeFromUser(slider, 600f)
         val liveBrightness = source.brightness
         runner.commands.clear()
         source.change(0.1f)
         assertTrue(runner.commands.isEmpty())
-        assertEquals(600f, slider.value)
+        assertEquals(500f, slider.value)
         changeFromUser(menu.lightTemperatureSeekbar, 1000f)
         val expected = FrontlightMixer.mix(liveBrightness.toDouble(), 1.0)
         assertEquals(listOf("br_co${expected.cool}", "br_wm${expected.warm}"), runner.commands)
-        MotionEvent.obtain(0, 10, MotionEvent.ACTION_UP, 360f, 50f, 0).let {
+        runner.commands.clear()
+        MotionEvent.obtain(0, 10, MotionEvent.ACTION_UP, 300f, 50f, 0).let {
             try { slider.onTouchEvent(it) } finally { it.recycle() }
         }
+        assertEquals(liveBrightness, source.brightness)
+        assertEquals(500f, slider.value, 0.001f)
+        assertTrue(runner.commands.isEmpty())
         source.change(0.4f)
         assertEquals((FrontlightMixer.lightnessForOutput(0.4f.toDouble()) * 1000).toFloat(),
             slider.value)
