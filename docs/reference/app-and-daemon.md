@@ -27,8 +27,9 @@ The popup's Auto Refresh, Anti-Shake, and Video Refresh controls are saved
 per app, independently of the per-app refresh-mode enable/disable setting.
 Auto Refresh and Anti-Shake default on when no global or app-specific value has
 been saved; Video Refresh defaults off and the old global video flag is ignored.
-The default refresh mode for new apps is Fast. Existing saved global and
-per-app choices are preserved. Changing apps applies the new app's controls and updates popup switches
+The default refresh mode for new apps is Fast. Within the same app package,
+existing saved global and per-app choices are preserved. Changing apps applies
+the new app's controls and updates popup switches
 without saving the previous app's values into the new app. Controls remain
 disabled until an active app is detected. The per-app page's reset action resets
 refresh modes only, not these controls. The camera-preview keep-alive remains
@@ -80,9 +81,11 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   events. Later genuine Android brightness changes still take effect.
   At boot completion and on screen-on, the app reapplies the physical channel
   codes even when Android brightness is unchanged and refreshes the effective
-  brightness. This handles startup/display initialization overwriting the
-  lights without changing the saved level; it does not write Android brightness
-  or change automatic/manual mode.
+  brightness. This is intended to address a physical post-boot mismatch
+  that was corrected by screen off/on while Android's saved brightness
+  remained correct; the exact startup writer/timing was not isolated.
+  The source change still needs physical post-flash verification. It does
+  not write Android brightness or change automatic/manual mode.
   The combined-brightness slider uses CIE L* spacing, as do the independent
   channel sliders; temperature retains the centred neutral-white stop with
   a percentage-only label. Material Symbols `mode_cool` and `sunny` identify
@@ -110,10 +113,12 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   default 128) as equal R/G/B channels. Turning the override off makes no
   palette write and does not restore an older palette. The old
   `color_scheme_color` value is not read or overwritten.
-- Settings now uses a no-action-bar theme plus an in-layout Toolbar and window
-  insets. The prebuilt APK is R8-shrunk: `setSupportActionBar` was missing,
-  causing a `NoSuchMethodError`. XML toolbar title/navigation plus a click
-  listener avoid that call. The resulting header was checked on-device.
+- Settings uses a no-action-bar theme plus an in-layout Toolbar and window
+  insets. XML toolbar title/navigation plus a click listener avoid
+  `setSupportActionBar`, which caused a `NoSuchMethodError` in an earlier
+  R8-shrunk prebuilt. The overlay uses explicit AppCompat image widgets
+  and `app:tint` so light/dark theme icon colors work with service-context
+  inflation, without depending on an activity's inflater factory.
 - The APK is standalone rather than using the platform shared UID.
   A matching signature is necessary for updates; `/data/app` updates can
   override system copies. Do not mistake a new system image for a guaranteed

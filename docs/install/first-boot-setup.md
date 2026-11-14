@@ -27,6 +27,9 @@
 USB debugging is not forced on by these release commands. Enable it in
 Developer options when needed and authorize the PC on-screen. Updates
 without a wipe preserve saved debugging settings and authorizations.
+If upgrading from the previous app identity, repeat the app setup above:
+its saved preferences and accessibility/overlay access do not carry over
+automatically. See the [migration notes](update.md#one-time-app-and-daemon-identity-migration).
 
 ## Optional display tweaks
 

@@ -50,6 +50,11 @@ steps 3–6 above, using your own image instead of a downloaded one.
 
 Already running a patched image of the same GSI? Use
 [Update the same GSI](docs/install/update.md). It keeps your data.
+The app-identity rename is an exception for app preferences: shared userdata
+is preserved, but Eink Settings needs fresh configuration and accessibility
+access. Read the
+[one-time migration notes](docs/install/update.md#one-time-app-and-daemon-identity-migration)
+before updating.
 
 ## Switching GSIs
 

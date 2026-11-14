@@ -4,16 +4,21 @@
 
 On 2026-11-11, the user reported that the updated overlay, screen-off actions,
 and app/shortcut assignments work on the HiBreak. ADB subsequently confirmed
-that the active system APK at
-`/system/priv-app/EinkSettings/HiBreakEink.apk` matches the supplied release APK
-byte-for-byte. This is a successful user-reported device check, not an
+that the then-active system APK matched the supplied release APK
+byte-for-byte. That check predates the package/daemon identity rename and
+AppCompat icon-tint changes; it does not validate the current build.
+This is a successful user-reported device check, not an
 independent exhaustive test of every gesture, shortcut provider, permission
 state, or lock-screen condition; use the remaining checks below for broader
 release validation. The subsequent removal of modern launcher shortcuts
 requires a fresh device check.
 
-Press Power right after the Bigme logo flashes, wait for boot, open Eink Settings and enable Eink Accessibility Service and
-draw-over-other-apps permission. Top/bottom customization buttons have separate
+Press Power right after the Bigme logo flashes, wait for boot, open **Eink
+Settings**, enable **Eink Accessibility Service**, and allow **Display over
+other apps**. When crossing the package-identity rename, configure preferences
+again; old app data and bindings are not migrated automatically. See the
+[migration notes](../install/update.md#one-time-app-and-daemon-identity-migration).
+Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
 With the accessibility service enabled, fingerprint-sensor F9 events are consumed
 without running a custom-button action. Verify that touching the power button
@@ -23,6 +28,9 @@ Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
 navigation on the physical e-ink panel after updating the source-built APK.
+Check the settings/close icons and all frontlight icons for visible,
+theme-appropriate tints in both light and dark mode. Cool indicators should
+use **mode_cool** and warm indicators **sunny**.
 Rotate with the popup open and closed, with gesture navigation and three-button
 navigation. It should stay inside system bars/cutouts, remain centred and no wider
 than 640 dp, and scroll to all controls in landscape without resetting their values.
@@ -72,6 +80,17 @@ by release without moving the thumb again, then change temperature and rotate
 or reopen the popup. The released brightness must not revert merely because
 a stale display event arrived during the drag. Allow for integer rounding.
 
+For boot-brightness verification, select a manual brightness and record both
+Android values above. After a separately authorized reboot, inspect the
+physical frontlight **before touching any sliders or cycling the screen**.
+It should match the pre-reboot level while the saved brightness and
+automatic/manual mode remain unchanged. Repeat in independent-channel mode.
+With auto-brightness enabled, the mode must remain enabled, but the effective
+level may legitimately change. If the physical output is wrong despite
+correct Android values, record that mismatch first; screen off/on was a
+confirmed workaround on the earlier build. Host reapply tests do not prove
+the physical boot fix.
+
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.
@@ -90,6 +109,8 @@ bypass a secure lock screen.
 ```bash
 adb devices
 adb shell getprop sys.boot_completed
+adb shell pm path com.lmqr.eink_settings
+adb shell getprop init.svc.eink_server
 adb shell getprop debug.sf.enable_gl_backpressure
 adb shell getprop debug.sf.enable_hwc_backpressure
 adb shell dumpsys SurfaceFlinger | grep 'h/w composer disabled'
@@ -97,8 +118,11 @@ adb logcat -d -s hibreak-display EinkDaemon
 tools/device/collect-diagnostics.sh build/diagnostics-after-boot
 ```
 
-Expect boot completion `1`, both backpressure properties `false`, and disabled
-HWC. Init oneshot services normally show `stopped` **after successful completion**;
+Expect boot completion `1`, the APK at
+`/system/priv-app/EinkSettings/HiBreakEink.apk`, daemon state `running`,
+both backpressure properties `false`, and disabled HWC. The daemon should
+remain running; the display-helper init oneshot services normally show
+`stopped` **after successful completion**;
 inspect logs, not that state alone. A running daemon also does not prove that
 the app can send commands or that the panel responds.
 

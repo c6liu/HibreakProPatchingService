@@ -4,6 +4,12 @@ Return to the project folder. Use the same terminal in which you set the
 variables. If you opened another one, set `ANDROID_NDK_HOME` and `BASE`
 ([inputs](inputs.md)), the three [signing variables](signing.md),
 `VENDOR` and `AOSP_HEADERS` ([IR inputs](ir-inputs.md)) again.
+`BASE` must be the original unmodified GSI, not a previously patched image.
+Build and deploy the renamed app and daemon together; the package, socket,
+and side-key broadcast identities must match. APKs reused with `--built-apk`
+must also come from the renamed source. For updates across the identity
+change, read the
+[migration notes](../install/update.md#one-time-app-and-daemon-identity-migration).
 
 For a single-command release build, use the orchestrator. It creates a new
 timestamped directory under `build/`, writes a `manifest.json` with
@@ -137,7 +143,7 @@ Keep a working image and recovery path before testing. Compare all five modes
 against the working image. `adb logcat -s EinkDaemon:I '*:S'` shows
 `Property-only refresh test: requested ...` when a property request succeeds
 and an error if setting it fails; that log confirms neither composer receipt
-nor physical panel behavior. See the [investigation](../reference/verification.md#debugfs-alternative-investigation-2026-11-11).
+nor physical panel behavior. See the [refresh-mode reference](../reference/refresh-modes.md).
 
 ### Init bridge and enforcing migrations
 

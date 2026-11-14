@@ -45,6 +45,11 @@ or uses debug signing when none are set. Debug signing is not for release.
 new Eink Settings APK will preserve its old data. Android signature mismatches may
 require app-data cleanup or a clean install. Back up first.
 
+Keeping the same key does not migrate data between different package IDs.
+The renamed `com.lmqr.eink_settings` app is a new installation relative to
+the previous identity; follow the
+[one-time migration notes](../install/update.md#one-time-app-and-daemon-identity-migration).
+
 ## How the builder uses the key
 
 When none of the three variables is set, the offline builder uses

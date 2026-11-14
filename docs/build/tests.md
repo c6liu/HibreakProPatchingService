@@ -16,14 +16,15 @@ instrumentation tests have been removed.
 ## Source-app runtime tests
 
 ```bash
-ANDROID_HOME="$HOME/Android/Sdk" gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease
+ANDROID_HOME="$HOME/Android/Sdk" gradle --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
 ```
 
 Robolectric tests execute the source classes on Android API 35. They verify F9
 down/up/repeat consumption without gesture dispatch (including absent and
 side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
-in light/dark configurations, overlay close/reopen, and selection of all five
-refresh modes. Adaptive-layout tests cover popup scrolling and width changes
+in light/dark configurations, themed icon tints when inflated outside an
+activity, overlay close/reopen, and selection of all five refresh modes.
+Adaptive-layout tests cover popup scrolling and width changes
 between portrait and landscape, retaining control values, continuous movement
 of the custom-gray slider, custom-value persistence and change vetoes,
 and Material choice-dialog selection/cancellation through
@@ -44,10 +45,20 @@ CIE L* brightness spacing, live overlay brightness and delayed-event handling
 through drag release, and unchanged auto-brightness mode. Brightness-setting
 tests check the integer Android setting, its 1–255 conversion (including the
 endpoints), and rejection of the obsolete float setting as a source of truth.
+Boot-reapply tests check resending unchanged channel codes, refreshing past
+the boot brightness override, screen-off safety, and independent mode.
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 Java 27 can build the app but is not supported by this Robolectric/ASM version.
 If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's
 `Test` task launcher separately from the compiler.
+
+Full release lint now passes without errors; warnings remain. The overlay
+uses explicit AppCompat image widgets with `app:tint`, so theme tints work
+in the service's inflater as well as activities. Protected-permission lint
+suppressions apply only to the intentional system/platform requests; they
+do not grant permissions or disable other lint checks. The APK builder runs
+release assembly and its vital lint checks, not the full `lintRelease` task,
+so run the command above before distributing a release.
 
 ## Signed source-APK inspection
 
@@ -59,8 +70,9 @@ HIBREAK_SOURCE_APK="$PWD/build/HiBreakEink-source.apk" \
 ```
 
 This opt-in inspection requires apktool and Android build tools 36.0.0.
-It checks the manifest, hidden-API boot reference, compile-only stub exclusion,
-settings resources, version, and signature. Without `HIBREAK_SOURCE_APK`,
+It checks the renamed package and components, hidden-API boot reference,
+compile-only stub exclusion, settings resources, version, and signature.
+Without `HIBREAK_SOURCE_APK`,
 the artifact test class is skipped. It does not access a device.
 
 ## Other host tests
@@ -95,6 +107,9 @@ both light/dark modes on the physical panel. Check updates with the intended
 signing certificate. Test both screen orientations, rotation while the popup or a
 choice dialog is open, and navigation-bar insets on different screen edges.
 See [post-install verification](../reference/verification.md).
+The package-identity rename does not migrate old app data; verify fresh app
+setup when crossing that boundary. Historical device checks predate the
+rename and do not validate the current package, socket, or icon-tint changes.
 
 For the target picker, verify search and back/cancel, provider configuration,
 uninstalled apps and changed permissions, previously saved launcher shortcuts,

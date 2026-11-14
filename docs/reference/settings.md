@@ -152,7 +152,10 @@ sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. With
 native control off, the popup's independent cold/warm sliders use CIE L*
 lightness spacing for approximately equal perceived brightness steps, not
 gamma 2.2. These are converted through the driver's exponential curve.
-Saved channel codes are retained, so existing brightness levels do not change.
+Saved channel codes are retained within the same app package, so changing
+control modes does not reset independent brightness levels. The
+[package-identity migration](../install/update.md#one-time-app-and-daemon-identity-migration)
+requires fresh app configuration.
 
 **Eink Accessibility Service → Use Android brightness for frontlight** (on by
 default) switches to native control. Android's effective brightness — the
@@ -161,8 +164,8 @@ overrides — then sets the combined frontlight output, and the popup shows a
 combined brightness slider and a cool-to-warm slider instead of the two
 channel sliders. The saved independent values are kept and restored when
 the switch is turned off. There is no explanatory hint row beneath the sliders.
-The warm-light slider and the warm end of the temperature slider use the
-Material Symbols **sunny** indicator.
+The cool-light slider and cool end of the temperature slider use Material
+Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
 
 - Combined output is capped at 90% of both channels at full code.
 - Changing the colour temperature keeps the combined output constant wherever

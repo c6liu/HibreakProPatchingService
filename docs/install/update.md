@@ -28,6 +28,8 @@ The installed app folder is now `/system/priv-app/EinkSettings/`. When
 repatching an older image, the patcher removes the previous `HiBreakEink`
 folder so the image does not contain two APKs in those locations.
 
+## One-time app and daemon identity migration
+
 The identity-renaming release changes the app package to
 `com.lmqr.eink_settings` and renames the daemon service to `eink_server`.
 Build this release from the original unmodified GSI, not an older patched

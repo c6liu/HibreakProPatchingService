@@ -36,6 +36,12 @@ Some app controls remain unsupported. Back up the exact stock firmware first.
 
 ## Settings and tools
 
+The app is **Eink Settings** (`com.lmqr.eink_settings`), with **Eink
+Accessibility Service** and the matching `eink_server` daemon. Upgrading
+from the previous app identity requires reconfiguring its preferences and
+accessibility/overlay access; see the
+[one-time migration notes](docs/install/update.md#one-time-app-and-daemon-identity-migration).
+
 - [Settings reference](docs/reference/settings.md): button mappings, refresh
   modes, per-app controls, frontlight and AOD behavior.
 - [Tools reference](docs/reference/tools.md): scripts and their purposes.
