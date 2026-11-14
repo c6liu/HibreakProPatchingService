@@ -1,6 +1,7 @@
 package com.lmqr.eink_settings
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.lmqr.eink_settings.command_runners.CommandRunner
 import com.lmqr.eink_settings.command_runners.Commands
 
@@ -54,15 +55,16 @@ class RefreshModeManager(
     fun changeMode(refreshMode: RefreshMode) {
         if (refreshMode != currentMode) {
             currentMode = refreshMode
-            sharedPreferences.edit()
-                .putInt(
+            sharedPreferences.edit {
+                putInt(
                     currentClassifier.toSharedPreferencesKey(
                         !sharedPreferences.getBoolean(
                             "disable_perapprefresh",
                             false
                         )
                     ), refreshMode.mode
-                ).apply()
+                )
+            }
         }
     }
 

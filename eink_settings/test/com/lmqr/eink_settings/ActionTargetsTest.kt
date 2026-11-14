@@ -1,11 +1,10 @@
 package com.lmqr.eink_settings
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.pm.ApplicationInfo
+import android.content.IntentFilter
 import android.content.pm.LauncherApps
-import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.net.Uri
 import android.os.Looper
@@ -33,7 +32,7 @@ import org.robolectric.shadows.ShadowPowerManager
 import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35, 36, 37])
 class ActionTargetsTest {
     private val context get() = RuntimeEnvironment.getApplication()
     private val preferences get() = PreferenceManager.getDefaultSharedPreferences(context)
@@ -141,11 +140,11 @@ class ActionTargetsTest {
         val key = ButtonActionSettings.actionKeys.first()
         ShortcutAssignment.saveLegacy(context, key, "Example", Intent(Intent.ACTION_VIEW))
         val power = context.getSystemService(PowerManager::class.java)
-        shadowOf(power).setIsInteractive(true)
+        shadowOf(power).turnScreenOn(true)
         ShadowPowerManager.clearWakeLocks()
         LaunchShortcutButtonAction(key).execute(context)
         assertNull(ShadowPowerManager.getLatestWakeLock())
-        shadowOf(power).setIsInteractive(false)
+        shadowOf(power).turnScreenOn(false)
         LaunchShortcutButtonAction(key).execute(context)
         val wakeLock = requireNotNull(ShadowPowerManager.getLatestWakeLock())
         assertTrue(wakeLock.isHeld)
@@ -363,21 +362,21 @@ class ActionTargetsTest {
         .putExtra(ActionTargetPickerActivity.EXTRA_ACTION_KEY, key)
 
     private fun addActivity(intent: Intent, packageName: String, label: String) {
-        val info = ResolveInfo().apply {
+        val shadow = shadowOf(context.packageManager)
+        val component = ComponentName(packageName, "$packageName.MainActivity")
+        shadow.addActivityIfNotPresent(component).apply {
             nonLocalizedLabel = label
-            activityInfo = ActivityInfo().apply {
-                this.packageName = packageName
-                name = "$packageName.MainActivity"
-                exported = true
+            exported = true
+            enabled = true
+            applicationInfo.apply {
+                nonLocalizedLabel = label
                 enabled = true
-                applicationInfo = ApplicationInfo().apply {
-                    this.packageName = packageName
-                    nonLocalizedLabel = label
-                    enabled = true
-                }
             }
         }
-        shadowOf(context.packageManager).addResolveInfoForIntent(intent, info)
+        shadow.addIntentFilterForActivity(component, IntentFilter().apply {
+            addAction(requireNotNull(intent.action))
+            intent.categories?.forEach { addCategory(it) }
+        })
     }
 
     private fun waitForTargets(activity: Activity, expectedCount: Int? = null) {

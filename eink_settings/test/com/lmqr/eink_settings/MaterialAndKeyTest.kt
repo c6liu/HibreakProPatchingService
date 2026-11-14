@@ -1,10 +1,12 @@
 package com.lmqr.eink_settings
 
 import android.content.res.Configuration
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.drawable.InsetDrawable
 import android.os.Bundle
 import android.os.Looper
+import android.provider.Settings
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -42,8 +44,30 @@ import org.robolectric.util.ReflectionHelpers
 import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35, 36, 37])
 class MaterialAndKeyTest {
+    @Test
+    fun bootReceiverOnlyEnablesAccessibilityForDeclaredActions() {
+        val context = RuntimeEnvironment.getApplication()
+        val resolver = context.contentResolver
+        val receiver = BootReceiver()
+        for (action in listOf(null, "com.lmqr.eink_settings.UNEXPECTED")) {
+            Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, "")
+            Settings.Secure.putInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0)
+            receiver.onReceive(context, Intent(action))
+            assertEquals("", Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES))
+            assertEquals(0, Settings.Secure.getInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED))
+        }
+        for (action in listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_LOCKED_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED)) {
+            Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, "")
+            receiver.onReceive(context, Intent(action))
+            assertEquals("${context.packageName}/${EinkAccessibilityService::class.java.canonicalName}",
+                Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES))
+            assertEquals(1, Settings.Secure.getInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED))
+        }
+    }
+
     @Test
     fun fingerprintF9IsConsumedWithoutDispatch() {
         val service = Robolectric.buildService(EinkAccessibilityService::class.java).get()

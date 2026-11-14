@@ -3,6 +3,7 @@ package com.lmqr.eink_settings
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
 import android.util.AttributeSet
+import androidx.core.content.edit
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
@@ -16,10 +17,10 @@ class ResetAppRefreshPreference(context: Context, attrs: AttributeSet?) :
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton("Reset") { _, _ ->
                 val prefs = requireNotNull(sharedPreferences)
-                val editor = prefs.edit()
-                prefs.all.keys.filter { it.startsWith("package:") && it != "package:None" }
-                    .forEach { editor.remove(it) }
-                editor.apply()
+                prefs.edit {
+                    prefs.all.keys.filter { it.startsWith("package:") && it != "package:None" }
+                        .forEach { remove(it) }
+                }
                 val apps = requireNotNull(
                     preferenceManager.findPreference<PreferenceCategory>("per_app_apps"))
                 for (index in 0 until apps.preferenceCount) {

@@ -15,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.widget.doAfterTextChanged
 import androidx.preference.PreferenceManager
 import com.google.android.material.appbar.MaterialToolbar
@@ -45,6 +46,8 @@ class ActionTargetPickerActivity : AppCompatActivity() {
     private var loaded = false
     private var loadError: String? = null
 
+    // App-provided ACTION_CREATE_SHORTCUT activities still return these legacy extras.
+    @Suppress("DEPRECATION")
     private val configureShortcut = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -144,10 +147,10 @@ class ActionTargetPickerActivity : AppCompatActivity() {
             .map { app ->
                 val packageName = app.activityInfo.packageName
                 Target(app.loadLabel(packageManager).toString(), packageName, app.loadIcon(packageManager)) {
-                    PreferenceManager.getDefaultSharedPreferences(this).edit()
-                        .putString("launch_app_package_$actionKey", packageName)
-                        .putString(actionKey, "launch_app_$actionKey")
-                        .apply()
+                    PreferenceManager.getDefaultSharedPreferences(this).edit {
+                        putString("launch_app_package_$actionKey", packageName)
+                        putString(actionKey, "launch_app_$actionKey")
+                    }
                     finish()
                 }
             }

@@ -3,6 +3,7 @@ package com.lmqr.eink_settings
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import org.json.JSONException
 import org.json.JSONObject
@@ -34,10 +35,10 @@ object ShortcutAssignment {
 
     private fun save(context: Context, actionKey: String, value: JSONObject) {
         require(actionKey in ButtonActionSettings.actionKeys)
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
-            .putString(key(actionKey), value.toString())
-            .putString(actionKey, "launch_shortcut_$actionKey")
-            .apply()
+        PreferenceManager.getDefaultSharedPreferences(context).edit {
+            putString(key(actionKey), value.toString())
+            putString(actionKey, "launch_shortcut_$actionKey")
+        }
     }
 
     fun read(context: Context, actionKey: String): JSONObject? =

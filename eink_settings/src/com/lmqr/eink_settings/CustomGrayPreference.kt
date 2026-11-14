@@ -35,10 +35,10 @@ class CustomGrayPreference(context: Context, attrs: AttributeSet) : Preference(c
         slider.clearOnChangeListeners()
         slider.clearOnSliderTouchListeners()
         slider.value = gray.toFloat()
-        label.text = "#${hexForGray(gray)}"
+        label.text = context.getString(R.string.accent_gray_hex, hexForGray(gray))
         slider.isEnabled = isEnabled
         slider.contentDescription = title
-        slider.setLabelFormatter { "#${hexForGray(it.roundToInt())}" }
+        slider.setLabelFormatter { context.getString(R.string.accent_gray_hex, hexForGray(it.roundToInt())) }
         var dragging = false
         fun commit() {
             val selected = slider.value.roundToInt()
@@ -47,11 +47,11 @@ class CustomGrayPreference(context: Context, attrs: AttributeSet) : Preference(c
                 persistInt(gray)
             }
             slider.value = gray.toFloat()
-            label.text = "#${hexForGray(gray)}"
+            label.text = context.getString(R.string.accent_gray_hex, hexForGray(gray))
         }
         slider.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
-                label.text = "#${hexForGray(value.roundToInt())}"
+                label.text = context.getString(R.string.accent_gray_hex, hexForGray(value.roundToInt()))
                 if (!dragging) commit()
             }
         }

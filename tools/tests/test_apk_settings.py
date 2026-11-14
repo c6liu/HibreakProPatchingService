@@ -188,6 +188,9 @@ class SettingsResourceTests(unittest.TestCase):
                       if node.get("{http://schemas.android.com/apk/res/android}id")
                       == "@+id/video_optimized_refresh")
         self.assertEqual(toggle.get("{http://schemas.android.com/apk/res/android}text"),
+                         "@string/video_refresh")
+        strings = ET.parse(ROOT / "eink_settings/res/values/strings.xml").getroot()
+        self.assertEqual(strings.find("string[@name='video_refresh']").text,
                          "Video refresh (experimental)")
         refresh_source = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                           "CameraLiveRefresh.kt").read_text()

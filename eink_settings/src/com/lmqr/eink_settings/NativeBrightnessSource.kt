@@ -1,5 +1,6 @@
 package com.lmqr.eink_settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.database.ContentObserver
 import android.hardware.display.DisplayManager
@@ -179,6 +180,8 @@ class DisplayBrightnessSource(
         }
     }
 
+    // Privileged GSI integration; failure is logged and disables this fallback.
+    @SuppressLint("PrivateApi")
     private fun readDump(): Float? {
         if (!dumpAllowed) return null
         return try {

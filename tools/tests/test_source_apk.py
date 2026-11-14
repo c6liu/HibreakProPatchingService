@@ -241,7 +241,7 @@ class SourceApkArtifactTests(unittest.TestCase):
         self.assertIn("versionCode='35'", badging)
         self.assertIn("versionName='15'", badging)
         self.assertIn("minSdkVersion:'35'", badging)
-        self.assertIn("targetSdkVersion:'35'", badging)
+        self.assertIn("targetSdkVersion:'37'", badging)
         verification = subprocess.run([self.apksigner, "verify", "--print-certs", self.apk],
                                       check=True, capture_output=True, text=True).stdout
         self.assertIn("Signer #1 certificate SHA-256 digest:", verification)

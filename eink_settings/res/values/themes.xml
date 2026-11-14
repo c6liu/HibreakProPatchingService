@@ -6,7 +6,9 @@
         <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
     </style>
 
-    <style name="Theme.EinkSettings.Settings" parent="Theme.EinkSettings" />
+    <style name="Theme.EinkSettings.Settings" parent="Theme.EinkSettings">
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
 
     <style name="MenuButtonStyle" parent="Widget.Material3.Button.OutlinedButton">
         <item name="android:textSize">12sp</item>

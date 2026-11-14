@@ -254,14 +254,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
-                    android:text="Auto Refresh" />
+                    android:text="@string/auto_refresh" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/anti_shake"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
-                    android:text="Anti-Shake" />
+                    android:text="@string/anti_shake" />
 
             </LinearLayout>
 
@@ -270,7 +270,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="48dp"
-                android:text="Video refresh (experimental)" />
+                android:text="@string/video_refresh" />
 
         </LinearLayout>
 

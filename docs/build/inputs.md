@@ -57,17 +57,23 @@ Do not continue if the checksum differs. Use only one `BASE`.
 
 ## Source-APK prerequisites
 
-Install Gradle 9.8.2, a JDK, and an Android SDK with platform 35 and build tools
+Install Gradle 9.8.2, a JDK, and an Android SDK with platform 37.0 and build tools
 36.0.0. The Android Gradle Plugin is pinned to 9.5.0. Source builds have been
 tested on Linux with JDK 27; Robolectric tests need a compatible test JVM
 (tested with Java 25, not Java 27).
 
 ```bash
 export ANDROID_HOME="$HOME/Android/Sdk"
-android --sdk "$ANDROID_HOME" sdk install platforms/android-35
+android --sdk "$ANDROID_HOME" sdk install platforms/android-37.0
 android --sdk "$ANDROID_HOME" sdk install build-tools/36.0.0
 gradle --version
 ```
+
+The standalone APK compiles and targets API 37; its declared minimum remains
+API 35 (Android 15). The project's supported GSI range is Android 16 and newer;
+the installable minimum is not a claim of Android 15 device compatibility.
+Dependencies are pinned to AppCompat 1.8.0, Core KTX 1.19.1, Material 1.14.0
+and Robolectric 4.18.
 
 Accept SDK licenses when prompted. Gradle resolves plugins and AndroidX/Material
 dependencies from Google Maven and Maven Central, so the first build requires

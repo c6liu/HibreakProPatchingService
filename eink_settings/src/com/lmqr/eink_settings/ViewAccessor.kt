@@ -1,5 +1,6 @@
 package com.lmqr.eink_settings
 
+import android.annotation.SuppressLint
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.Button
@@ -39,6 +40,8 @@ class FloatingMenuViewAccessor(val root: View) {
     )
     
     companion object {
+        // WindowManager supplies the root layout parameters when attaching the overlay.
+        @SuppressLint("InflateParams")
         fun inflate(inflater: LayoutInflater): FloatingMenuViewAccessor {
             val view = inflater.inflate(R.layout.floating_menu_layout, null)
             return FloatingMenuViewAccessor(view)

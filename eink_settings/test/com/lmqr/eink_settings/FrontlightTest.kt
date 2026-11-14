@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35, 36, 37])
 class FrontlightTest {
     private class RecordingRunner : CommandRunner {
         val commands = mutableListOf<String>()

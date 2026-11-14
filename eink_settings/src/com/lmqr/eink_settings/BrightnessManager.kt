@@ -3,6 +3,7 @@ package com.lmqr.eink_settings
 import android.content.SharedPreferences
 import android.view.HapticFeedbackConstants
 import android.view.View
+import androidx.core.content.edit
 import com.google.android.material.slider.Slider
 import com.lmqr.eink_settings.command_runners.CommandRunner
 import kotlin.math.abs
@@ -58,19 +59,19 @@ class BrightnessManager(
     var temperature: Float
         get() = sharedPreferences.getFloat(PREF_TEMPERATURE, DEFAULT_TEMPERATURE).coerceIn(0f, 1f)
         set(value) {
-            sharedPreferences.edit().putFloat(PREF_TEMPERATURE, value.coerceIn(0f, 1f)).apply()
+            sharedPreferences.edit { putFloat(PREF_TEMPERATURE, value.coerceIn(0f, 1f)) }
         }
 
     var coldBrightness: Int
         get() = sharedPreferences.getInt(PREF_COLD_BRIGHTNESS, 64)
         set(value) {
-            sharedPreferences.edit().putInt(PREF_COLD_BRIGHTNESS, value).apply()
+            sharedPreferences.edit { putInt(PREF_COLD_BRIGHTNESS, value) }
         }
 
     var warmBrightness: Int
         get() = sharedPreferences.getInt(PREF_WARM_BRIGHTNESS, 64)
         set(value) {
-            sharedPreferences.edit().putInt(PREF_WARM_BRIGHTNESS, value).apply()
+            sharedPreferences.edit { putInt(PREF_WARM_BRIGHTNESS, value) }
         }
 
     /**

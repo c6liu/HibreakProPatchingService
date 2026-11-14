@@ -2,6 +2,7 @@ package com.lmqr.eink_settings
 
 import android.content.SharedPreferences
 import android.widget.CompoundButton
+import androidx.core.content.edit
 import com.lmqr.eink_settings.command_runners.CommandRunner
 
 class DisplaySettingsManager(
@@ -68,7 +69,7 @@ class DisplaySettingsManager(
     override fun onCheckedChanged(button: CompoundButton, checked: Boolean) {
         val index = switches.indexOf(button)
         check(index >= 0 && packageName.isNotEmpty()) { "No active app for display controls" }
-        sharedPreferences.edit().putBoolean(key(index), checked).apply()
+        sharedPreferences.edit { putBoolean(key(index), checked) }
         applySettings()
     }
 }

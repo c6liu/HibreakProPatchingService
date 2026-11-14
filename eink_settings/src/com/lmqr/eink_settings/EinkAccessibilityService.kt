@@ -12,8 +12,6 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -30,6 +28,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.TextView
+import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import androidx.preference.PreferenceManager
 import com.lmqr.eink_settings.button_mapper.ButtonActionManager
 import com.lmqr.eink_settings.command_runners.CommandRunner
@@ -219,7 +219,7 @@ class EinkAccessibilityService : AccessibilityService(),
     private fun requestOverlayPermission() {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
+            "package:$packageName".toUri()
         )
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
@@ -256,7 +256,7 @@ class EinkAccessibilityService : AccessibilityService(),
     fun openFloatingMenu() {
         try {
             menuBinding?.run {
-                if (root.visibility == View.VISIBLE) {
+                if (root.isVisible) {
                     root.visibility = View.GONE
                 } else {
                     updateMenuLayout()
@@ -453,11 +453,11 @@ class EinkAccessibilityService : AccessibilityService(),
 
             "camera_live_refresh" -> cameraLiveRefresh?.update()
 
-            "close_status_bar" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            "close_status_bar" -> {
                 performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
             }
 
-            "run_clear_screen" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            "run_clear_screen" -> {
                 performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
                 handler.postDelayed({
                     commandRunner.runCommands(arrayOf(Commands.FORCE_CLEAR))

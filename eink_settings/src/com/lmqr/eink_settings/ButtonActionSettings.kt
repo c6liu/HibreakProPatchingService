@@ -1,6 +1,7 @@
 package com.lmqr.eink_settings
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 
 object ButtonActionSettings {
@@ -21,12 +22,12 @@ object ButtonActionSettings {
 
     fun migrateScreenOffClear(context: Context) {
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val editor = preferences.edit()
-        actionKeys.filter { it.endsWith("_screen_off") }.forEach { key ->
-            if (preferences.getString(key, null) == "clear") {
-                editor.putString(key, "dummy")
+        preferences.edit {
+            actionKeys.filter { it.endsWith("_screen_off") }.forEach { key ->
+                if (preferences.getString(key, null) == "clear") {
+                    putString(key, "dummy")
+                }
             }
         }
-        editor.apply()
     }
 }
