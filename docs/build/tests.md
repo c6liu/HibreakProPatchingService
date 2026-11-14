@@ -41,7 +41,8 @@ Frontlight tests cover the exponential code inversion, the 90% output cap,
 constant output across achievable temperatures, colour-preserving endpoint
 dimming, display-dump parsing, exclusive mode ownership, screen-off handling,
 overlay control visibility, the neutral-white stop with a percentage label,
-CIE L* brightness spacing, live overlay brightness and delayed-event handling
+shared exponential brightness spacing, native neutral-code coverage,
+independent reachability of all 256 codes, live overlay brightness and delayed-event handling
 through drag release, and unchanged auto-brightness mode. Brightness-setting
 tests check the integer Android setting, its 1–255 conversion (including the
 endpoints), and rejection of the obsolete float setting as a source of truth.

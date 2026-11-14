@@ -60,20 +60,26 @@ events must not move the thumb or override the live output. Later auto-brightnes
 adjustments should still take effect. Check the independent cold/warm sliders for
 approximately even perceived brightness steps, including off and full output.
 In a dark room, sweep each brightness slider (combined, cold and warm) slowly
-from off to about 60%. The light should rise gradually with no visible jumps
-or dead zone beyond the first ~2% of the combined slider, and there should be no
-change in behaviour at the 60% join. Repeat with Android's system slider in
-native mode: its lowest settings should be dim and step finely, not double per
-step. Above 40% Android brightness, the output should match the previous build.
+from off to full. Relative light changes should feel consistent throughout,
+with no curve joins at 40% or 60%. Off-to-minimum remains a physical step;
+native integer rounding can leave roughly the first 0.2% of popup travel off.
+The first non-off Android setting (2) should reach code 1 on both channels
+at neutral white. Repeat with Android's system slider in native mode: its
+lowest settings should be dim and step finely, not double per step. Android
+maps its own thumb position, so compare normalized brightness values rather
+than physical thumb positions. Intermediate light levels no longer match the
+previous build. Compare popup combined and independent sliders at matching
+percentages: they should follow the same relative curve, allowing for the
+native cap, mixing and rounding.
 After releasing the popup brightness slider, wait for Android display events
 and reopen the popup: it must not return to the previous brightness. Compare
 `adb shell settings get system screen_brightness` with the display service's
 cached brightness; the obsolete `screen_brightness_float` setting is not authoritative.
 For manual brightness without dimming or an app override, the expected linear
 value is approximately `(screen_brightness - 1) / 254`, clamped to 0–1.
-Below 0.4 the light output follows the logarithmic dark curve rather than
-this linear value. The popup percentage is a slider position, not the saved
-integer divided by 255. Inspect the authoritative values with:
+Light output follows the shared exponential curve rather than this linear
+value. The native popup percentage is this normalized value times 100, not
+the saved integer divided by 255. Inspect the authoritative values with:
 
 ```bash
 adb shell settings get system screen_brightness_mode

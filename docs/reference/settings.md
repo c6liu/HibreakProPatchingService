@@ -149,12 +149,11 @@ HiBreak; use the app's Clear Screen action instead.
 
 **Override Max Brightness** is removed on HiBreak: its legacy command only
 sets `sys.linevibrator_touch`, not the frontlight driver or slider limits. With
-native control off, the popup's independent cold/warm sliders follow CIE L*
-lightness from 60% of travel upward. Below that, they move through the
-driver's exponential codes at a steady rate (about 3.5 codes, roughly 10% light,
-per 1% of travel), blending smoothly into L* with no kink. Every code from 1 to
-255 is reachable. The bottom tenth of the slider covers about 40 codes instead
-of the 94 that pure L* would cover, so dark adjustments are gentler.
+native control off, the popup's independent cold/warm sliders use the same
+exponential brightness curve as native control. Travel is spread evenly across
+the driver's codes (about 2.55 codes, roughly 7.4% more light, per 1% of travel).
+Every code from 1 to 255 is reachable; zero is off. The bottom tenth covers
+about 26 codes instead of the 94 that pure CIE L* would cover.
 Saved channel codes are retained within the same app package, so changing
 control modes does not reset independent brightness levels. The
 [package-identity migration](../install/update.md#one-time-app-and-daemon-identity-migration)
@@ -183,14 +182,14 @@ Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
   equal driver codes there, giving the most available combined output. It is
   also the default position. All slider labels remain percentages, including
   50% at neutral white; the centre snap and haptic feedback are retained.
-- Android stores 255 integer brightness levels. At and above 40% Android
-  brightness, light output stays linear, as before. Below 40%, a smooth logarithmic
-  curve (no kink at the join) spreads the remaining levels across the LED range.
-  Each Android step changes light by at most about 7%; previously the first
-  steps doubled it. The lowest non-off setting gives LED code 8 at neutral
-  white (previously code 53), and Android's lowest level remains off. This also
-  applies to the system slider, automatic brightness and app overrides, which
-  are finer and dimmer than before below 40%.
+- Android stores 255 integer brightness levels. They use the same exponential
+  curve as the overlay, across the full range, without the previous 40%/60%
+  joins. Each non-off Android step increases target light by about 2.8%.
+  The lowest non-off setting reaches LED code 1 at neutral white; the lowest
+  setting remains off. The cap and mixing can repeat or skip codes, so native
+  mode does not promise all 256 codes at every temperature. This mapping also
+  applies to automatic brightness and app overrides. Existing Android values
+  are retained, but intermediate light levels are dimmer than with the old curves.
 - Mixing is done in linear light and converted through the LM3630A's
   exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
 - On the tested GSI, Android reports the system slider's brightness change
@@ -203,10 +202,12 @@ Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
   It never changes the auto-brightness mode; subsequent automatic adjustments
   or app brightness overrides can take over.
 - All popup sliders use Material 3 controls. The combined brightness slider
-  uses the same curve as the independent sliders, CIE L* from 60% with a
-  gentler dark range below, converted to Android brightness through the curve
-  above. As a result, the same slider position gives a similar share of each mode's
-  maximum light. Temperature retains its centred neutral-white stop.
+  directly represents normalized Android brightness; no second curve is applied.
+  The same popup position gives the same target share of each mode's maximum,
+  before native mixing, the cap and rounding. Android's system UI applies its
+  own slider-position mapping, so equal physical thumb positions between the
+  system slider and popup are not guaranteed. The unavoidable off-to-minimum
+  hardware step remains. Temperature retains its centred neutral-white stop.
 
 Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone
 8000 K, warm alone 3000 K, both at full 4800 K. That implies the warm channel's

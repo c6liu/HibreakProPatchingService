@@ -86,13 +86,16 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   remained correct; the exact startup writer/timing was not isolated.
   The source change still needs physical post-flash verification. It does
   not write Android brightness or change automatic/manual mode.
-  `FrontlightMixer.outputForAndroidBrightness` maps `b` to light. It is linear
-  from 0.4 up and logarithmic below, so the 255 integer levels reach down to
-  about LED code 8 in steps of at most ~7%. The combined and independent
-  brightness sliders share `outputForSlider`, which is CIE L* from 60% of travel
-  and spreads the dark range evenly across LED codes below that. Inverses
-  (`androidBrightnessForOutput`, `sliderForOutput`) place the thumb when the popup
-  reopens, so saved codes and Android values are reproduced exactly. Temperature retains the centred neutral-white stop with
+  `FrontlightMixer.outputForAndroidBrightness` delegates to `outputForSlider`:
+  one exponential curve spreads travel evenly across LED codes over the full
+  range, with zero explicitly off. Non-off Android steps increase target light
+  by about 2.8%; the first reaches code 1 at neutral white. The cap and mixing
+  still constrain native code coverage. The combined popup slider directly
+  represents normalized Android brightness; independent sliders use
+  `sliderForOutput` to reconstruct saved channel codes. Android's system UI
+  may map its own thumb position differently. Existing settings are retained,
+  but intermediate output is dimmer than with the previous curves.
+  Temperature retains the centred neutral-white stop with
   a percentage-only label. Material Symbols `mode_cool` and `sunny` identify
   the cool and warm channels and the temperature slider's endpoints.
 - Auto Refresh and Anti-Shake use the init bridge by default to write

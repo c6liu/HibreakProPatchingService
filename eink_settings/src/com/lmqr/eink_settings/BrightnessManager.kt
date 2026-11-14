@@ -31,13 +31,10 @@ class BrightnessManager(
         val NEUTRAL_PROGRESS = (FrontlightMixer.NEUTRAL_TEMPERATURE * TEMPERATURE_STEPS).roundToInt()
 
         /** Android brightness requested by a native overlay slider value. */
-        fun brightnessForValue(value: Float): Float =
-            FrontlightMixer.androidBrightnessForOutput(
-                FrontlightMixer.outputForSlider(value / TEMPERATURE_STEPS.toDouble())).toFloat()
+        fun brightnessForValue(value: Float): Float = (value / TEMPERATURE_STEPS).coerceIn(0f, 1f)
 
         fun sliderValueForBrightness(brightness: Float): Float =
-            (FrontlightMixer.sliderForOutput(FrontlightMixer.outputForAndroidBrightness(brightness.toDouble())) *
-                TEMPERATURE_STEPS).toFloat()
+            brightness.coerceIn(0f, 1f) * TEMPERATURE_STEPS
 
         fun snapToNeutral(progress: Int): Int =
             if (abs(progress - NEUTRAL_PROGRESS) <= NEUTRAL_SNAP_STEPS) NEUTRAL_PROGRESS else progress
