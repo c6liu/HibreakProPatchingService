@@ -58,8 +58,15 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   so a later display read reset the slider and lights. Own setting notifications
   no longer trigger an early read of the stale display cache, and releasing a
   drag reaffirms its final value before returning to Android tracking.
-  The combined-brightness slider uses CIE L* spacing, as do the independent channel sliders;
-  temperature retains the centred neutral-white stop with a percentage-only label.
+  For requested linear brightness `b`, the write is
+  `screen_brightness = round(clamp(b, 0, 1) * 254) + 1`; the setting fallback
+  reads `clamp((screen_brightness - 1) / 254, 0, 1)`.
+  Reads queued before a newer local write are discarded. During a drag, live
+  output uses the thumb's requested brightness rather than delayed display
+  events. Later genuine Android brightness changes still take effect.
+  The combined-brightness slider uses CIE L* spacing, as do the independent
+  channel sliders; temperature retains the centred neutral-white stop with
+  a percentage-only label.
 - Auto Refresh and Anti-Shake use the init bridge by default to write
   `/sys/kernel/debug/eink_debug/clean_a2` and `anti_flicker` asynchronously.
   The compatibility daemon uses direct writes instead. Request success does
@@ -73,10 +80,16 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   removed and their popup controls are hidden: native bitmap commit is
   unsupported. The separate AOD inversion switch remains available.
 - Max-brightness override only writes `sys.linevibrator_touch`; it does not
-  change HiBreak frontlight values or the 0–255 popup slider limits. This
+  change HiBreak frontlight values or the physical 0–255 channel-code limits. This
   unsupported legacy preference is removed. Color Scheme instead writes
   Android's `theme_customization_overlay_packages` secure setting to select
-  a system palette/style; it is not an e-ink display mode.
+  a system palette/style; it is not an e-ink display mode. Writes are gated
+  by `force_accent_color` (default false), including service startup and
+  preference-change handling. `accent_color_preset` selects one of five
+  grayscale seeds or `custom`; custom uses `accent_custom_gray` (0–255,
+  default 128) as equal R/G/B channels. Turning the override off makes no
+  palette write and does not restore an older palette. The old
+  `color_scheme_color` value is not read or overwritten.
 - Settings now uses a no-action-bar theme plus an in-layout Toolbar and window
   insets. The prebuilt APK is R8-shrunk: `setSupportActionBar` was missing,
   causing a `NoSuchMethodError`. XML toolbar title/navigation plus a click

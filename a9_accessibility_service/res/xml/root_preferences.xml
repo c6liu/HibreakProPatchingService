@@ -175,17 +175,38 @@
 
     <PreferenceCategory app:order="5" app:title="Color Scheme"
         app:summary="Changes Android system and supported app colours, not the E-Ink refresh mode. Colours appear as shades of grey on this screen.">
+        <SwitchPreferenceCompat
+            app:key="force_accent_color"
+            app:title="@string/force_accent_color"
+            app:summaryOn="@string/force_accent_color_on"
+            app:summaryOff="@string/force_accent_color_off"
+            app:defaultValue="false"
+            app:widgetLayout="@layout/preference_material_switch" />
+
         <ListPreference
             app:key="color_scheme_type"
             app:title="Color Scheme Type"
+            app:dependency="force_accent_color"
             app:entries="@array/color_type_options"
             app:entryValues="@array/color_type_values"
             app:defaultValue="5" />
 
-        <com.lmqr.ha9_comp_service.ColorProgressPreference
-            app:key="color_scheme_color"
-            app:title="Accent Color"
-            app:defaultValue="0" />
+        <ListPreference
+            app:key="accent_color_preset"
+            app:title="@string/accent_color_preset"
+            app:dialogTitle="@string/accent_color_preset"
+            app:dependency="force_accent_color"
+            app:entries="@array/accent_color_entries"
+            app:entryValues="@array/accent_color_values"
+            app:useSimpleSummaryProvider="true"
+            app:defaultValue="808080" />
+
+        <com.lmqr.ha9_comp_service.CustomGrayPreference
+            app:key="accent_custom_gray"
+            app:title="@string/accent_custom"
+            app:summary="@string/accent_custom_summary"
+            app:dependency="force_accent_color"
+            app:defaultValue="128" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -1,4 +1,20 @@
 <resources>
+    <string-array name="accent_color_entries">
+        <item>@string/accent_black</item>
+        <item>@string/accent_dark_gray</item>
+        <item>@string/accent_medium_gray</item>
+        <item>@string/accent_light_gray</item>
+        <item>@string/accent_white</item>
+        <item>@string/accent_custom</item>
+    </string-array>
+    <string-array name="accent_color_values">
+        <item>000000</item>
+        <item>404040</item>
+        <item>808080</item>
+        <item>BFBFBF</item>
+        <item>FFFFFF</item>
+        <item>custom</item>
+    </string-array>
     <string-array name="refresh_options">
         <item>@string/hd</item>
         <item>@string/regal</item>

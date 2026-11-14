@@ -23,6 +23,17 @@
     <string name="frontlight_warm">Warm</string>
     <string name="frontlight_brightness">Frontlight brightness</string>
     <string name="frontlight_brightness_write_failed">Could not save Android brightness. Check the app\'s system settings permission.</string>
+    <string name="force_accent_color">Force accent color</string>
+    <string name="force_accent_color_on">Apply the selected gray preset and color scheme</string>
+    <string name="force_accent_color_off">Leave Android\'s current accent unchanged</string>
+    <string name="accent_color_preset">Accent color preset</string>
+    <string name="accent_black">Black (#000000)</string>
+    <string name="accent_dark_gray">Dark gray (#404040)</string>
+    <string name="accent_medium_gray">Medium gray (#808080)</string>
+    <string name="accent_light_gray">Light gray (#BFBFBF)</string>
+    <string name="accent_white">White (#FFFFFF)</string>
+    <string name="accent_custom">Custom gray</string>
+    <string name="accent_custom_summary">Choose a shade from black to white</string>
     <string name="additional_controls_text">Additional Controls</string>
     <string name="close_overlay">Close overlay</string>
     <string name="launch_app">Launch App</string>

@@ -403,8 +403,17 @@ class A9AccessibilityService : AccessibilityService(),
     }
 
     private fun updateColorScheme(sharedPreferences: SharedPreferences) = sharedPreferences.run {
+        if (!getBoolean("force_accent_color", false)) return@run
         val type = getString("color_scheme_type", "5")
-        val colorString = getInt("color_scheme_color", 20).progressToHex()
+        val preset = getString("accent_color_preset", "808080")
+        if (type !in resources.getStringArray(R.array.color_type_values) ||
+            preset !in resources.getStringArray(R.array.accent_color_values)) {
+            Log.e("A9Service", "Invalid accent preset or color scheme: $preset, $type")
+            return@run
+        }
+        val colorString = if (preset == "custom") {
+            CustomGrayPreference.hexForGray(getInt("accent_custom_gray", 128))
+        } else preset
         commandRunner.runCommands(arrayOf("theme $type $colorString"))
     }
 
@@ -427,7 +436,7 @@ class A9AccessibilityService : AccessibilityService(),
                 sharedPreferences?.let { updateMaxBrightness(it) }
             }
 
-            "color_scheme_type", "color_scheme_color" -> {
+            "force_accent_color", "color_scheme_type", "accent_color_preset", "accent_custom_gray" -> {
                 sharedPreferences?.let { updateColorScheme(it) }
             }
 

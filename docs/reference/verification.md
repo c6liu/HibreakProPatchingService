@@ -27,12 +27,17 @@ Rotate with the popup open and closed, with gesture navigation and three-button
 navigation. It should stay inside system bars/cutouts, remain centred and no wider
 than 640 dp, and scroll to all controls in landscape without resetting their values.
 Rotate again while a settings choice dialog is open; its selection should survive,
-and Back/cancel must leave the saved value unchanged. Check Accent Color's slider
-and hexadecimal readout, including changing it with accessibility input and rotating
-after a saved change.
-Check that the accent slider is thin, has no tick marks/end stops, and moves
-smoothly between saved integer values. At the temperature slider's centre the
-label should be 50%, not a neutral-white label.
+and Back/cancel must leave the saved value unchanged.
+With **Force accent color** off, confirm the shade and scheme controls are
+disabled and service startup does not replace Android's current palette.
+Enable it and try all five gray presets, including black and white. Select
+**Custom gray**: its thin Material slider should appear with a black-to-white
+gradient, no tick marks/end stops, and a live hex readout. Touch drags should
+apply on release; accessibility changes should apply immediately. Rotate after
+saving and check that the custom shade and preset are retained. Switching the
+override off must leave the current Android palette in place, not restore or
+apply a different one; re-enabling it should apply the saved shade.
+At the temperature slider's centre the label should be 50%, not a neutral-white label.
 With **Use Android brightness for frontlight** on (the default), check that the system
 slider, auto-brightness and an app brightness override (e.g. a reader) change
 the frontlight, that the popup shows combined brightness and temperature sliders, that it
@@ -50,6 +55,23 @@ After releasing the popup brightness slider, wait for Android display events
 and reopen the popup: it must not return to the previous brightness. Compare
 `adb shell settings get system screen_brightness` with the display service's
 cached brightness; the obsolete `screen_brightness_float` setting is not authoritative.
+For manual brightness without dimming or an app override, the expected linear
+value is approximately `(screen_brightness - 1) / 254`, clamped to 0–1.
+The popup percentage uses perceptual CIE L* spacing, so it is not the saved
+integer divided by 255. Inspect the authoritative values with:
+
+```bash
+adb shell settings get system screen_brightness_mode
+adb shell settings get system screen_brightness
+adb shell dumpsys display | grep -E 'mCachedBrightnessInfo\.(adjustedBrightness|brightness)='
+```
+
+Repeat with auto-brightness enabled: its mode must remain enabled, but later
+automatic changes may legitimately move the slider. Test a rapid drag followed
+by release without moving the thumb again, then change temperature and rotate
+or reopen the popup. The released brightness must not revert merely because
+a stale display event arrived during the drag. Allow for integer rounding.
+
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.

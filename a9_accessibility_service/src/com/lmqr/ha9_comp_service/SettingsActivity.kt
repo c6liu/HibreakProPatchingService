@@ -60,6 +60,13 @@ class SettingsActivity : AppCompatActivity() {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             if (!requireActivity().intent.getBooleanExtra("per_app_page", false)) {
                 AppLaunchSettings.populate(this)
+                val preset = requireNotNull(findPreference<ListPreference>("accent_color_preset"))
+                val custom = requireNotNull(findPreference<Preference>("accent_custom_gray"))
+                custom.isVisible = preset.value == "custom"
+                preset.setOnPreferenceChangeListener { _, value ->
+                    custom.isVisible = value == "custom"
+                    true
+                }
                 return
             }
 

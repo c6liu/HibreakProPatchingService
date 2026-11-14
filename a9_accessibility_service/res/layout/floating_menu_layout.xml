@@ -156,7 +156,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:tint="?attr/colorOnSurfaceVariant"
-                    android:src="@drawable/baseline_moon_24" />
+                    android:src="@drawable/material_sunny_24" />
 
                 <com.google.android.material.slider.Slider
                     android:id="@+id/light_warm_seekbar"
@@ -224,7 +224,7 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@string/frontlight_warm"
                     android:tint="?attr/colorOnSurfaceVariant"
-                    android:src="@drawable/baseline_moon_24" />
+                    android:src="@drawable/material_sunny_24" />
             </LinearLayout>
 
         </LinearLayout>

@@ -24,9 +24,13 @@ down/up/repeat consumption without gesture dispatch (including absent and
 side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
 in light/dark configurations, overlay close/reopen, and selection of all five
 refresh modes. Adaptive-layout tests cover popup scrolling and width changes
-between portrait and landscape, retaining control values, accent-slider persistence
-and change vetoes, and Material choice-dialog selection/cancellation through
+between portrait and landscape, retaining control values, continuous movement
+of the custom-gray slider, custom-value persistence and change vetoes,
+and Material choice-dialog selection/cancellation through
 activity rotation (including per-app integer storage and default removal).
+Accent tests cover opt-in palette writes, all five preset seeds, custom RGB
+conversion, disabled dependent controls, custom-slider visibility and saved
+selection through rotation, and no palette writes while the override is off.
 Action tests cover screen-off Clear Screen migration and
 dispatch rejection, independent shortcut routing for all 12 gestures, bounded
 screen-off wake locks, malformed assignments, searchable app selection,
@@ -35,8 +39,11 @@ saved launcher shortcuts, and exclusion of modern shortcuts from the picker.
 Frontlight tests cover the exponential code inversion, the 90% output cap,
 constant output across achievable temperatures, colour-preserving endpoint
 dimming, display-dump parsing, exclusive mode ownership, screen-off handling,
-overlay control visibility, the neutral-white stop, CIE L* brightness spacing,
-live overlay brightness and delayed-event handling, and unchanged auto-brightness mode.
+overlay control visibility, the neutral-white stop with a percentage label,
+CIE L* brightness spacing, live overlay brightness and delayed-event handling
+through drag release, and unchanged auto-brightness mode. Brightness-setting
+tests check the integer Android setting, its 1–255 conversion (including the
+endpoints), and rejection of the obsolete float setting as a source of truth.
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 Java 27 can build the app but is not supported by this Robolectric/ASM version.
 If Gradle uses Java 27, run tests with a supported JDK or configure Gradle's

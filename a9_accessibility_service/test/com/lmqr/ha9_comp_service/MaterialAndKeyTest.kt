@@ -24,6 +24,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.shape.MaterialShapeDrawable
 import com.google.android.material.slider.Slider
+import com.lmqr.ha9_comp_service.command_runners.CommandRunner
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -116,7 +117,7 @@ class MaterialAndKeyTest {
     @Test
     fun settingsStartAndUseMaterialPreferenceSwitches() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(RuntimeEnvironment.getApplication())
-        prefs.edit().remove("color_scheme_color").commit()
+        prefs.edit().remove("force_accent_color").commit()
         val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
         try {
             val activity = controller.get()
@@ -124,7 +125,7 @@ class MaterialAndKeyTest {
                 as SettingsActivity.SettingsFragment
             for (key in listOf(
                 "camera_live_refresh", "aod_invert", "allow_custom_broadcast",
-                "refresh_on_lock", "disable_perapprefresh"
+                "refresh_on_lock", "disable_perapprefresh", "force_accent_color"
             )) {
                 val preference = requireNotNull(fragment.findPreference<SwitchPreferenceCompat>(key))
                 assertEquals(R.layout.preference_material_switch, preference.widgetLayoutResource)
@@ -133,7 +134,7 @@ class MaterialAndKeyTest {
                 )
                 assertTrue(widget is MaterialSwitch)
             }
-            assertEquals(0, prefs.getInt("color_scheme_color", 20))
+            assertFalse(prefs.getBoolean("force_accent_color", true))
         } finally {
             controller.pause().stop().destroy()
         }
@@ -192,22 +193,23 @@ class MaterialAndKeyTest {
     }
 
     @Test
-    fun accentSliderRetainsStoredValueAndHonoursChangeVetoAfterRotation() {
+    fun customGraySliderRetainsStoredValueAndHonoursChangeVetoAfterRotation() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(RuntimeEnvironment.getApplication())
-        prefs.edit().putInt("color_scheme_color", 27).commit()
+        prefs.edit().putBoolean("force_accent_color", true)
+            .putString("accent_color_preset", "custom").putInt("accent_custom_gray", 27).commit()
         val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
         try {
             fun bind(): Pair<Slider, TextView> {
                 val activity = controller.get()
                 val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings)
                     as SettingsActivity.SettingsFragment
-                val preference = requireNotNull(fragment.findPreference<ColorProgressPreference>("color_scheme_color"))
+                val preference = requireNotNull(fragment.findPreference<CustomGrayPreference>("accent_custom_gray"))
                 val row = LayoutInflater.from(activity).inflate(preference.layoutResource, null)
                 val holder = PreferenceViewHolder.createInstanceForTests(row)
                 preference.onBindViewHolder(holder)
                 preference.onBindViewHolder(holder)
                 preference.setOnPreferenceChangeListener { _, value -> value != 70 }
-                return row.findViewById<Slider>(R.id.color_slider) to row.findViewById(R.id.color_value)
+                return row.findViewById<Slider>(R.id.custom_gray_slider) to row.findViewById(R.id.custom_gray_value)
             }
             val (slider, label) = bind()
             assertEquals(27f, slider.value)
@@ -220,17 +222,17 @@ class MaterialAndKeyTest {
                 try { slider.onTouchEvent(event) } finally { event.recycle() }
             }
             touch(MotionEvent.ACTION_DOWN)
-            assertEquals(27, prefs.getInt("color_scheme_color", -1))
+            assertEquals(27, prefs.getInt("accent_custom_gray", -1))
             assertTrue(slider.value != slider.value.roundToInt().toFloat())
-            assertEquals("0x${slider.value.roundToInt().progressToHex()}", label.text.toString())
+            assertEquals("#${CustomGrayPreference.hexForGray(slider.value.roundToInt())}", label.text.toString())
             touch(MotionEvent.ACTION_UP)
-            assertEquals(slider.value.toInt(), prefs.getInt("color_scheme_color", -1))
+            assertEquals(slider.value.toInt(), prefs.getInt("accent_custom_gray", -1))
             changeSlider(slider, 65f)
-            assertEquals(65, prefs.getInt("color_scheme_color", -1))
-            assertEquals("0x${65.progressToHex()}", label.text.toString())
+            assertEquals(65, prefs.getInt("accent_custom_gray", -1))
+            assertEquals("#414141", label.text.toString())
             changeSlider(slider, 70f)
             assertEquals(65f, slider.value)
-            assertEquals(65, prefs.getInt("color_scheme_color", -1))
+            assertEquals(65, prefs.getInt("accent_custom_gray", -1))
             controller.configurationChange(Configuration(controller.get().resources.configuration).apply {
                 orientation = Configuration.ORIENTATION_LANDSCAPE
                 screenWidthDp = 900
@@ -240,6 +242,88 @@ class MaterialAndKeyTest {
         } finally {
             controller.pause().stop().destroy()
         }
+    }
+
+    @Test
+    fun accentPresetDialogKeepsCustomVisibilityAndSelectionAcrossRotation() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(RuntimeEnvironment.getApplication())
+        prefs.edit().putBoolean("force_accent_color", false)
+            .putString("accent_color_preset", "808080").commit()
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
+        try {
+            fun fragment() = controller.get().supportFragmentManager.findFragmentById(R.id.settings)
+                as SettingsActivity.SettingsFragment
+            fun preset() = requireNotNull(fragment().findPreference<ListPreference>("accent_color_preset"))
+            fun custom() = requireNotNull(fragment().findPreference<CustomGrayPreference>("accent_custom_gray"))
+            assertFalse(preset().isEnabled)
+            assertFalse(custom().isVisible)
+            requireNotNull(fragment().findPreference<SwitchPreferenceCompat>("force_accent_color")).isChecked = true
+            assertTrue(preset().isEnabled)
+            fragment().onDisplayPreferenceDialog(preset())
+            controller.get().supportFragmentManager.executePendingTransactions()
+            val dialog = controller.get().supportFragmentManager.fragments
+                .filterIsInstance<MaterialListPreferenceDialogFragment>().single().requireDialog() as AlertDialog
+            choose(dialog, preset().findIndexOfValue("custom"))
+            controller.get().supportFragmentManager.executePendingTransactions()
+            assertTrue(custom().isVisible)
+            controller.configurationChange(Configuration(controller.get().resources.configuration).apply {
+                orientation = Configuration.ORIENTATION_LANDSCAPE
+                screenWidthDp = 900
+                screenHeightDp = 400
+            })
+            assertEquals("custom", preset().value)
+            assertTrue(custom().isVisible)
+            requireNotNull(fragment().findPreference<SwitchPreferenceCompat>("force_accent_color")).isChecked = false
+            assertFalse(custom().isEnabled)
+            assertFalse(preset().isEnabled)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun accentWritesAreOptInAndUseAllFivePresetsOrCustomGray() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(RuntimeEnvironment.getApplication())
+        prefs.edit().remove("force_accent_color").putInt("color_scheme_color", 27)
+            .putString("color_scheme_type", "5").putString("accent_color_preset", "808080").commit()
+        val service = Robolectric.buildService(A9AccessibilityService::class.java).get()
+        val commands = mutableListOf<String>()
+        val runner = object : CommandRunner {
+            override fun runCommands(cmds: Array<String>) { commands.addAll(cmds) }
+            override fun onDestroy() {}
+        }
+        ReflectionHelpers.setField(service, "commandRunner", runner)
+        service.onSharedPreferenceChanged(prefs, "force_accent_color")
+        service.onSharedPreferenceChanged(prefs, "color_scheme_type")
+        assertTrue(commands.isEmpty())
+        prefs.edit().putBoolean("force_accent_color", true).commit()
+        service.onSharedPreferenceChanged(prefs, "force_accent_color")
+        assertEquals(listOf("theme 5 808080"), commands)
+        commands.clear()
+        for (shade in listOf("000000", "404040", "808080", "BFBFBF", "FFFFFF")) {
+            prefs.edit().putString("accent_color_preset", shade).commit()
+            service.onSharedPreferenceChanged(prefs, "accent_color_preset")
+            assertEquals(listOf("theme 5 $shade"), commands)
+            commands.clear()
+        }
+        prefs.edit().putString("accent_color_preset", "custom").commit()
+        for ((gray, hex) in listOf(0 to "000000", 65 to "414141", 255 to "FFFFFF")) {
+            prefs.edit().putInt("accent_custom_gray", gray).commit()
+            service.onSharedPreferenceChanged(prefs, "accent_custom_gray")
+            assertEquals(listOf("theme 5 $hex"), commands)
+            commands.clear()
+        }
+        prefs.edit().putBoolean("force_accent_color", false).commit()
+        service.onSharedPreferenceChanged(prefs, "force_accent_color")
+        prefs.edit().putInt("accent_custom_gray", 20).putString("color_scheme_type", "0").commit()
+        service.onSharedPreferenceChanged(prefs, "accent_custom_gray")
+        service.onSharedPreferenceChanged(prefs, "color_scheme_type")
+        assertTrue(commands.isEmpty())
+        assertEquals(27, prefs.getInt("color_scheme_color", -1))
+        prefs.edit().putBoolean("force_accent_color", true)
+            .putString("accent_color_preset", "not-a-color").commit()
+        service.onSharedPreferenceChanged(prefs, "accent_color_preset")
+        assertTrue(commands.isEmpty())
     }
 
     @Test

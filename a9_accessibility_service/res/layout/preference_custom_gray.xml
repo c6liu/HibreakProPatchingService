@@ -21,7 +21,7 @@
             android:textColor="?attr/colorOnSurface" />
 
         <TextView
-            android:id="@+id/color_value"
+            android:id="@+id/custom_gray_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -36,14 +36,29 @@
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
-    <com.google.android.material.slider.Slider
-        android:id="@+id/color_slider"
-        style="@style/Widget.Material3.Slider.Legacy"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:valueFrom="0"
-        android:valueTo="100"
-        app:tickVisible="false"
-        app:trackStopIndicatorSize="0dp" />
+        android:layoutDirection="ltr">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginHorizontal="16dp"
+            android:background="@drawable/custom_gray_gradient"
+            android:importantForAccessibility="no" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/custom_gray_slider"
+            style="@style/Widget.Material3.Slider.Legacy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:valueFrom="0"
+            android:valueTo="255"
+            app:trackColor="@android:color/transparent"
+            app:tickVisible="false"
+            app:trackStopIndicatorSize="0dp" />
+    </FrameLayout>
 </LinearLayout>

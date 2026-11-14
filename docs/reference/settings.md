@@ -13,11 +13,24 @@ and scrolls when the available height is short, without resetting control values
 Settings choice dialogs use Material styling and retain their selected choice
 through rotation; cancelling does not change the setting.
 
-**Color Scheme → Accent Color** uses the compact Material 3 slider style with
-a thin track and a 48 dp minimum touch target. It moves continuously without
-tick marks or end stops and shows a live hexadecimal greyscale value. Touch
-drags apply on release; keyboard and accessibility changes apply immediately.
-Existing saved integer accent values are retained.
+**Color Scheme → Force accent color** is off by default. While off, the app
+does not write Android's accent or palette, including when its service starts.
+Turning it off leaves the current palette in place; it does not restore an
+earlier Android palette. The scheme and shade controls are disabled while off.
+
+Turn it on to apply the selected **Color Scheme Type** and **Accent color
+preset**. Five presets are available: black (`#000000`), dark gray (`#404040`),
+medium gray (`#808080`, the default), light gray (`#BFBFBF`), and white
+(`#FFFFFF`). These are palette seed colors; Android generates the resulting
+UI colors, which need not match the seed exactly.
+
+Select **Custom gray** to show a compact Material 3 slider with a black-to-white
+gradient behind its track and a live hex readout. It retains a 48 dp minimum
+touch target and has no tick marks or stops. Touch drags apply on release,
+rounding to an integer channel value from 0 to 255; keyboard and accessibility
+changes apply immediately. The custom shade and preset choice survive rotation
+and toggling the override off/on. Old accent-slider values remain stored but
+are no longer used; enabling the override uses the new preset or custom shade.
 
 ## Button mappings
 
@@ -145,8 +158,11 @@ Saved channel codes are retained, so existing brightness levels do not change.
 default) switches to native control. Android's effective brightness — the
 system slider, automatic brightness, screen dimming and per-app window
 overrides — then sets the combined frontlight output, and the popup shows a
-combined brightness slider and a cool-to-warm slider instead of the two channel sliders. The saved
-independent values are kept and restored when the switch is turned off.
+combined brightness slider and a cool-to-warm slider instead of the two
+channel sliders. The saved independent values are kept and restored when
+the switch is turned off. There is no explanatory hint row beneath the sliders.
+The warm-light slider and the warm end of the temperature slider use the
+Material Symbols **sunny** indicator.
 
 - Combined output is capped at 90% of both channels at full code.
 - Changing the colour temperature keeps the combined output constant wherever
@@ -157,17 +173,21 @@ independent values are kept and restored when the switch is turned off.
   colour changes about 0.82× as fast as the old uniform spacing on the cool
   half and 1.18× on the warm half (about 1:1.45). The two rates blend
   smoothly between 40% and 60% of the slider, so there is no kink.
-- The slider snaps to the neutral-white centre within ±3%. There both channels
-  run equally at full, so it gives the most output. It is also the default
-  position. Its label remains a percentage, including 50% at neutral white.
+- The slider snaps to the neutral-white centre within ±3%. Both channels use
+  equal driver codes there, giving the most available combined output. It is
+  also the default position. All slider labels remain percentages, including
+  50% at neutral white; the centre snap and haptic feedback are retained.
 - Mixing is done in linear light and converted through the LM3630A's
   exponential code curve (`0.85^(44 − (code + 1) / 5.8181818)`).
-- Android only reports a finished brightness change, so the frontlight
-  follows the system slider when it is released, not while dragging.
+- On the tested GSI, Android reports the system slider's brightness change
+  on release rather than continuously while dragging.
   The popup brightness slider instead updates the lights live and saves Android's
-  supported integer brightness setting (rounded to its 1–255 range). It never
-  changes the auto-brightness mode; subsequent
-  automatic adjustments or app brightness overrides can take over.
+  supported integer brightness setting (rounded to its 1–255 range).
+  Releasing the popup slider saves its final requested value again before
+  resuming Android tracking, so a delayed value received during the drag does
+  not become the released position. Small rounding changes are possible.
+  It never changes the auto-brightness mode; subsequent automatic adjustments
+  or app brightness overrides can take over.
 - All popup sliders use Material 3 controls. Brightness sliders use CIE L*
   spacing; the native slider converts between perceptual lightness and Android's
   linear brightness value. Temperature retains its centred neutral-white stop.
