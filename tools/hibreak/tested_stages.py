@@ -28,20 +28,20 @@ STAGES = {
         "system/etc/selinux/plat_sepolicy.cil": "2861169cc66345af3a419e120722a2da882089c132197a5bdc0cf611e6c36dc1",
         "system/etc/selinux/plat_property_contexts": "eacd9fb872befc051b7ec04a3b98e41af00366983d89e0cb7a29e159ae2de20e",
         "system/etc/selinux/plat_file_contexts": "2a6512f2d8c4ce82f802f3101035a7bdbeca2ea21671fa1fe28f0994f2bcd7e6",
-        "system/etc/init/a9_eink_gsi.rc": "ad3fc218f5972616fa02e0f8c3e665db5b25a1faf558f54b62e3d1b6f398d8a4",
+        "system/etc/init/eink_gsi.rc": "16196282c9dd3d781a63ff2ae0efa35a34ef4531ade8e1804a6e66428181add0",
     },
     "bridge": {
         "system/etc/selinux/plat_sepolicy.cil": "54708c06c71c3a1cd0d9c00e81f9a6477a0a1d39e638d681bb083289d4993170",
         "system/etc/selinux/plat_property_contexts": "b73c84bac51174f426f5667b1d4f03cd5c3ef1f2395b1cdb55c891e811f9e457",
         "system/etc/selinux/plat_file_contexts": "2a6512f2d8c4ce82f802f3101035a7bdbeca2ea21671fa1fe28f0994f2bcd7e6",
-        "system/etc/init/a9_eink_gsi.rc": "ad3fc218f5972616fa02e0f8c3e665db5b25a1faf558f54b62e3d1b6f398d8a4",
+        "system/etc/init/eink_gsi.rc": "16196282c9dd3d781a63ff2ae0efa35a34ef4531ade8e1804a6e66428181add0",
         "system/etc/init/hibreak-init-eink-bridge.rc": "6a9f38505d90a655763bcfd44991202ef501130a2fa622ed6cb9a9b297dd6bfe",
     },
     "daemon": {
         "system/etc/selinux/plat_sepolicy.cil": "9d8fb8d2bda2fb8d00ffaf199ad3d48c71dae2bb22df48a79b8848a0b85600d5",
         "system/etc/selinux/plat_property_contexts": "0e8b440c2480d56325db2cb569b8a0592413c0562ecf5ef6577084e97c72f002",
-        "system/etc/selinux/plat_file_contexts": "18759464b4e9d6652087a91db4d2ee4bb286e4af85e3eac7a44c7442589d8781",
-        "system/etc/init/a9_eink_gsi.rc": "fd6072361487121bd594972d494bd0888b99d9f0d2b273c7d26791dac904ce36",
+        "system/etc/selinux/plat_file_contexts": "805e68ad3dc922308800d9448101c6b162214f8a6f7578e1bf8a2d2b673f4bb4",
+        "system/etc/init/eink_gsi.rc": "05bf0ef81ebd17245a41f3cb31c29d7e4d824b9aa6d667061f7d1fde2ace6b94",
         "system/etc/init/hibreak-init-eink-bridge.rc": "6a9f38505d90a655763bcfd44991202ef501130a2fa622ed6cb9a9b297dd6bfe",
         "system/etc/init/hibreak-eink-control.rc": "93f9070eb0e7174dc10dd40645598790ed4b0a9ffea2f6d1db56a5c579eb15ff",
     },
@@ -50,9 +50,9 @@ STAGES = {
 
 def validate_metadata(source, stage):
     files = {
-        "system/bin/a9_eink_server": ("0755", "hibreak_eink_exec" if stage == "daemon" else "system_file"),
+        "system/bin/eink_server": ("0755", "hibreak_eink_exec" if stage == "daemon" else "system_file"),
         "system/bin/hibreak-aod.sh": ("0755", "system_file"),
-        "system/etc/init/a9_eink_gsi.rc": ("0644", "system_file"),
+        "system/etc/init/eink_gsi.rc": ("0644", "system_file"),
         "system/etc/init/hibreak-display.rc": ("0644", "system_file"),
     }
     if stage != "base":

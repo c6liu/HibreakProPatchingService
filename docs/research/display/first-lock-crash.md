@@ -99,7 +99,7 @@ The overlay workaround was accepted before unlock, and the automatic wake
 helper completed about eight seconds before the crash. This rules out the
 simple explanation that the overlay workaround never ran, and weakens the
 idea of a crash simultaneous with the helper. It does not exclude a display
-state left behind by that helper. No pre-crash `A9Service` settings-application
+state left behind by that helper. No pre-crash accessibility-service settings-application
 or daemon mode-application messages were found in the relevant captured boot
 segment; absence of those messages does not prove that the service was unbound.
 

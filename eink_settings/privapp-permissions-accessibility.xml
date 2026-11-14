@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- eink_settings/privapp-permissions-accessibility.xml -->
 <permissions>
-    <privapp-permissions package="com.lmqr.ha9_comp_service">
+    <privapp-permissions package="com.lmqr.eink_settings">
         <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
         <permission name="android.permission.WRITE_SETTINGS"/>
         <permission name="android.permission.SYSTEM_ALERT_WINDOW"/>

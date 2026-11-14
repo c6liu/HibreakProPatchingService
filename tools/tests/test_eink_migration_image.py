@@ -13,13 +13,13 @@ class EinkMigrationImageTests(unittest.TestCase):
             path = Path(directory) / "contexts"
             path.write_text("/system/bin(/.*)? u:object_r:system_file:s0\n")
             overlay.prepare_file_contexts(path)
-            self.assertIn(f"/system/bin/a9_eink_server {overlay.EXEC_CONTEXT}\n", path.read_text())
+            self.assertIn(f"/system/bin/eink_server {overlay.EXEC_CONTEXT}\n", path.read_text())
             with self.assertRaisesRegex(ValueError, "already exists"):
                 overlay.prepare_file_contexts(path)
 
     def test_service_uses_transition_and_package_registry_groups(self):
         rc = (ROOT / "tools/display/hibreak-eink-migration.rc").read_text()
-        self.assertIn("service a9_eink_server /system/bin/a9_eink_server\n", rc)
+        self.assertIn("service eink_server /system/bin/eink_server\n", rc)
         self.assertIn("    group root system package_info\n", rc)
         self.assertNotIn("seclabel", rc)
 

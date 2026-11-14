@@ -1,0 +1,7 @@
+# eink_daemon/etc/init/eink_daemon.rc
+
+service eink_server /system/bin/eink_server
+    disabled
+
+on property:sys.boot_completed=1
+    start eink_server

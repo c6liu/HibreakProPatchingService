@@ -7,7 +7,7 @@
 2. **Blind HWC stride changes:** the RGBA pitch was consistent; successful
    EINK ioctl return codes did not establish correct panel output.
 3. **EROFS GSIs:** the tested kernel lacks the required support; use ext4.
-4. **Hisense A9 image patcher unchanged:** Qualcomm paths, model/density
+4. **Upstream Hisense image patcher unchanged:** Qualcomm paths, model/density
    spoofing, framework modifications, and unverified policy changes do not
    form a safe HiBreak patch. Missing tools/labels also broke an attempted run.
 5. **`adb root` as the fix:** hung or was unavailable on tested builds;

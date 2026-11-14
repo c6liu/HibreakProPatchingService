@@ -176,7 +176,7 @@ class DisplayScriptTests(unittest.TestCase):
             "# HIBREAK-RELEASE-REMOVE-END: restart-surfaceflinger-diagnostic\n"
         )
         eink.write_text(
-            "service a9_eink_server /system/bin/a9_eink_server\n"
+            "service eink_server /system/bin/eink_server\n"
             "# HIBREAK-RELEASE-REMOVE-BEGIN: eink-diagnostics\n"
             "on property:debug.hibreak.eink_restart=1\n"
             "# HIBREAK-RELEASE-REMOVE-END: eink-diagnostics\n"
@@ -190,8 +190,8 @@ class DisplayScriptTests(unittest.TestCase):
             "on boot\n",
         )
         self.assertEqual(
-            (output / "a9_eink_gsi-release.rc").read_text(),
-            "service a9_eink_server /system/bin/a9_eink_server\n",
+            (output / "eink_gsi-release.rc").read_text(),
+            "service eink_server /system/bin/eink_server\n",
         )
 
     def test_release_transform_rejects_missing_marker(self):

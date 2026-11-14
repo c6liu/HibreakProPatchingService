@@ -1,0 +1,83 @@
+package com.lmqr.eink_settings.button_mapper
+
+import android.content.Context
+import androidx.preference.PreferenceManager
+import com.lmqr.eink_settings.command_runners.CommandRunner
+import com.lmqr.eink_settings.command_runners.Commands
+import com.lmqr.eink_settings.RefreshModeManager
+import com.lmqr.eink_settings.ButtonActionSettings
+
+class ButtonActionManager(commandRunner: CommandRunner, refreshModeManager: RefreshModeManager) {
+    private val buttonCommands = (mapOf(
+        "clear" to ClearScreenButtonAction(commandRunner, refreshModeManager),
+        "next_track" to NextTrackButtonAction(),
+        "toggle_music" to TogglePauseButtonAction(),
+        "back" to BackButtonAction(),
+        "home" to HomeButtonAction(),
+        "recents" to RecentsButtonAction(),
+        "open_menu" to ToggleMenuButtonAction(),
+        "dpad_up" to DpadButtonAction(commandRunner, Commands.DPAD_UP),
+        "dpad_down" to DpadButtonAction(commandRunner, Commands.DPAD_DOWN),
+        "dpad_left" to DpadButtonAction(commandRunner, Commands.DPAD_LEFT),
+        "dpad_right" to DpadButtonAction(commandRunner, Commands.DPAD_RIGHT),
+        "previous_track" to PreviousTrackButtonAction(),
+    ) + ButtonActionSettings.actionKeys.flatMap { preferenceKey ->
+        listOf(
+            "launch_app_$preferenceKey" to LaunchAppButtonAction("launch_app_package_$preferenceKey"),
+            "launch_shortcut_$preferenceKey" to LaunchShortcutButtonAction(preferenceKey),
+        )
+    }).withDefault { DummyButtonAction() }
+
+    private fun executeScreenOff(context: Context, key: String) {
+        ButtonActionSettings.migrateScreenOffClear(context)
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context)
+            .getString(key, "dummy")]?.execute(context)
+    }
+
+    fun executeLongPress(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("long_press_eink_action", "dummy")]?.execute(context)
+    }
+
+    fun executeDoublePress(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("double_press_eink_action", "open_menu")]?.execute(context)
+    }
+
+    fun executeSinglePress(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("single_press_eink_action", "clear")]?.execute(context)
+    }
+
+    fun executeLongPressScreenOff(context: Context){
+        executeScreenOff(context, "long_press_eink_action_screen_off")
+    }
+
+    fun executeDoublePressScreenOff(context: Context){
+        executeScreenOff(context, "double_press_eink_action_screen_off")
+    }
+
+    fun executeSinglePressScreenOff(context: Context){
+        executeScreenOff(context, "single_press_eink_action_screen_off")
+    }
+    fun executeLongPressTop(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_long_press_eink_action", "dummy")]?.execute(context)
+    }
+
+    fun executeDoublePressTop(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_double_press_eink_action", "open_menu")]?.execute(context)
+    }
+
+    fun executeSinglePressTop(context: Context){
+        buttonCommands[PreferenceManager.getDefaultSharedPreferences(context).getString("top_single_press_eink_action", "clear")]?.execute(context)
+    }
+
+    fun executeLongPressScreenOffTop(context: Context){
+        executeScreenOff(context, "top_long_press_eink_action_screen_off")
+    }
+
+    fun executeDoublePressScreenOffTop(context: Context){
+        executeScreenOff(context, "top_double_press_eink_action_screen_off")
+    }
+
+    fun executeSinglePressScreenOffTop(context: Context){
+        executeScreenOff(context, "top_single_press_eink_action_screen_off")
+    }    
+}

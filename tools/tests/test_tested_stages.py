@@ -12,9 +12,9 @@ class TestedStageTests(unittest.TestCase):
         stat = 'Type: regular Mode:  0755\nUser:     0   Group:     0\nu:object_r:system_file:s0'
         with mock.patch.object(tested_stages.image, "run",
                                return_value=CompletedProcess([], 0, stdout=stat.encode())):
-            with self.assertRaisesRegex(ValueError, "a9_eink_server"):
+            with self.assertRaisesRegex(ValueError, "eink_server"):
                 tested_stages.validate_metadata(Path("source"), "daemon")
-            with self.assertRaisesRegex(ValueError, "a9_eink_gsi.rc"):
+            with self.assertRaisesRegex(ValueError, "eink_gsi.rc"):
                 tested_stages.validate_metadata(Path("source"), "base")
 
     def test_each_component_is_required_and_fingerprinted(self):

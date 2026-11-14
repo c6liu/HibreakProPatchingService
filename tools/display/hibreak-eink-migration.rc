@@ -1,4 +1,4 @@
-service a9_eink_server /system/bin/a9_eink_server
+service eink_server /system/bin/eink_server
     class late_start
     user root
     group root system package_info

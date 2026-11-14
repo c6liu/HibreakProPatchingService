@@ -13,19 +13,19 @@ migration = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(migration)
 
 DISPLAY = ROOT / "tools/display"
-EXEC_PATH = "system/bin/a9_eink_server"
+EXEC_PATH = "system/bin/eink_server"
 EXEC_CONTEXT = "u:object_r:hibreak_eink_exec:s0"
-INIT_PATH = "system/etc/init/a9_eink_gsi.rc"
+INIT_PATH = "system/etc/init/eink_gsi.rc"
 PROPERTY_CONTEXTS = f"{image.POLICY}/plat_property_contexts"
 FILE_CONTEXTS = f"{image.POLICY}/plat_file_contexts"
 
 
 def prepare_file_contexts(path):
     text = path.read_text()
-    if any(line.split("#", 1)[0].split()[:1] == ["/system/bin/a9_eink_server"]
+    if any(line.split("#", 1)[0].split()[:1] == ["/system/bin/eink_server"]
            for line in text.splitlines()):
         raise ValueError("An exact daemon executable file context already exists")
-    path.write_text(text.rstrip("\n") + f"\n/system/bin/a9_eink_server {EXEC_CONTEXT}\n")
+    path.write_text(text.rstrip("\n") + f"\n/system/bin/eink_server {EXEC_CONTEXT}\n")
 
 
 def policy_digest(inputs, vendor, work):

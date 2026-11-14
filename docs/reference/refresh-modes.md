@@ -46,7 +46,7 @@ existing phh root domain can. To override for diagnosis without interactive su:
 
 ```bash
 adb shell setprop debug.hibreak.refresh_mode 179
-adb logcat -d -s a9EinkService
+adb logcat -d -s EinkDaemon
 ```
 
 The accessibility service may overwrite that diagnostic value when switching

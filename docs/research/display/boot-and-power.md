@@ -71,8 +71,8 @@ crash at 13:32:38.465. Post-crash package state was already `enabled=0`
 (default), and accessibility was bound. The cause of the enablement reset is
 not established. The package was explicitly returned to its original default
 state and its accessibility binding verified. This run does **not** exclude
-Eink Settings as a contributor. Evidence is local in
-`build/a9-disabled-first-lock-20261027/`.
+Eink Settings as a contributor. Evidence was retained in the original
+disabled-app first-lock investigation directory from 2026-10-27.
 
 A second attempt cleared enabled accessibility services after boot while the
 phone was still locked. Dumps verified `Bound services:{}`,
@@ -83,7 +83,8 @@ enable accessibility on `BOOT_COMPLETED`, which may arrive after first unlock;
 retained logs do not establish whether re-enablement preceded the crash or
 followed framework recovery. This test therefore also cannot exclude Eink Settings.
 Saved accessibility settings were restored and binding verified. Evidence is
-local in `build/a9-unbound-first-lock-20261027/`. A better runtime isolation
+local in the original unbound-service first-lock investigation directory
+from 2026-10-27. A better runtime isolation
 requires disabling and verifying accessibility **after first unlock and before
 first lock**, not before unlock.
 

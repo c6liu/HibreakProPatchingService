@@ -33,7 +33,7 @@ def main() -> None:
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "hibreak-display-release.rc").write_text(display)
-    (output_dir / "a9_eink_gsi-release.rc").write_text(eink)
+    (output_dir / "eink_gsi-release.rc").write_text(eink)
 
 
 if __name__ == "__main__":

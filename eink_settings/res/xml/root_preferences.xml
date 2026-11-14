@@ -166,7 +166,7 @@
             app:defaultValue="1" />
     </PreferenceCategory>
 
-    <com.lmqr.ha9_comp_service.PerAppRefreshPagePreference
+    <com.lmqr.eink_settings.PerAppRefreshPagePreference
         app:key="per_app_refresh_modes"
         app:order="4"
         app:title="Per-App Refresh Modes"
@@ -201,7 +201,7 @@
             app:useSimpleSummaryProvider="true"
             app:defaultValue="808080" />
 
-        <com.lmqr.ha9_comp_service.CustomGrayPreference
+        <com.lmqr.eink_settings.CustomGrayPreference
             app:key="accent_custom_gray"
             app:title="@string/accent_custom"
             app:summary="@string/accent_custom_summary"

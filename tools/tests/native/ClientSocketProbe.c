@@ -5,12 +5,12 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#include "../../../a9_eink_daemon/client_auth.h"
+#include "../../../eink_daemon/client_auth.h"
 
 static uid_t peer_uid = 10263;
 static int peer_failure;
 static int short_peer;
-static const char *registry = "com.lmqr.ha9_comp_service 10263 0 /data/user/0/app default 3003\n";
+static const char *registry = "com.lmqr.eink_settings 10263 0 /data/user/0/app default 3003\n";
 static int errors;
 
 int __android_log_print(int priority, const char *tag, const char *format, ...) {
@@ -51,7 +51,7 @@ int main(void) {
     peer_uid = 10264;
     assert(!hibreak_authorize_client(42) && errors == 1);
     peer_uid = 10263;
-    registry = "com.lmqr.ha9_comp_service 10263\nother.package 10263\n";
+    registry = "com.lmqr.eink_settings 10263\nother.package 10263\n";
     assert(!hibreak_authorize_client(42) && errors == 2);
     registry = NULL;
     assert(!hibreak_authorize_client(42) && errors == 3);

@@ -5,10 +5,15 @@ What Eink Settings and its native daemon contain. Build them with
 summarized in the [settings reference](settings.md).
 
 The app is named **Eink Settings**, and its accessibility service is
-**Eink Accessibility Service**. The package `com.lmqr.ha9_comp_service`
-and component IDs are unchanged to preserve saved settings and bindings.
+**Eink Accessibility Service**. The package is `com.lmqr.eink_settings`,
+with accessibility component `.EinkAccessibilityService`. This identity
+change is a new app installation: settings and accessibility bindings from
+the previous package do not carry over automatically.
 Source lives in `eink_settings/`; the image installs the APK at
 `/system/priv-app/EinkSettings/HiBreakEink.apk`.
+Daemon source lives in `eink_daemon/`; its binary and init service are
+`eink_server`, using the abstract socket `eink_socket`. Deploy the app and
+daemon together so their socket and side-key broadcast identities match.
 
 The APK gains five modes, the in-layout toolbar, the AOD inversion switch,
 screen-on DPAD button actions, an opt-in video-refresh popup toggle, and per-app

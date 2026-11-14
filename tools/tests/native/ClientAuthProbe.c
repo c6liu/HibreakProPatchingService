@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../../a9_eink_daemon/client_auth.h"
+#include "../../../eink_daemon/client_auth.h"
 
 int __android_log_print(int priority, const char *tag, const char *format, ...) {
     (void)priority;
@@ -23,17 +23,17 @@ static int matches(const char *text, uid_t uid) {
 
 int main(void) {
     const char *valid = "other.package 10123 0 /data/user/0/other default 3003\n"
-                        "com.lmqr.ha9_comp_service 10263 0 /data/user/0/app default 3003\n";
+                        "com.lmqr.eink_settings 10263 0 /data/user/0/app default 3003\n";
     assert(matches(valid, 10263));
     assert(matches(valid, 110263));
     assert(!matches(valid, 10264));
     assert(!matches(valid, 263));
     assert(!matches("", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service 10263\nother.package 10263\n", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service 10263\ncom.lmqr.ha9_comp_service 10263\n", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service 10264\nother.package 10263\n", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service 10263x\n", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service -10263\n", 10263));
-    assert(!matches("com.lmqr.ha9_comp_service 10263\nmalformed\n", 10263));
+    assert(!matches("com.lmqr.eink_settings 10263\nother.package 10263\n", 10263));
+    assert(!matches("com.lmqr.eink_settings 10263\ncom.lmqr.eink_settings 10263\n", 10263));
+    assert(!matches("com.lmqr.eink_settings 10264\nother.package 10263\n", 10263));
+    assert(!matches("com.lmqr.eink_settings 10263x\n", 10263));
+    assert(!matches("com.lmqr.eink_settings -10263\n", 10263));
+    assert(!matches("com.lmqr.eink_settings 10263\nmalformed\n", 10263));
     return 0;
 }

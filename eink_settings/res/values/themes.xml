@@ -1,12 +1,12 @@
 <resources>
-    <style name="Theme.Ha9_comp_service" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.EinkSettings" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">?attr/colorSurface</item>
         <item name="android:navigationBarColor">?attr/colorSurface</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
         <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
     </style>
 
-    <style name="Theme.Ha9_comp_service.Settings" parent="Theme.Ha9_comp_service" />
+    <style name="Theme.EinkSettings.Settings" parent="Theme.EinkSettings" />
 
     <style name="MenuButtonStyle" parent="Widget.Material3.Button.OutlinedButton">
         <item name="android:textSize">12sp</item>

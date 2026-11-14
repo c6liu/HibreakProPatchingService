@@ -167,7 +167,7 @@ class SourceApkArtifactTests(unittest.TestCase):
         cls.manifest = ET.parse(cls.decoded / "AndroidManifest.xml").getroot()
 
     def test_manifest_preserves_privileged_boot_contract(self):
-        self.assertEqual(self.manifest.get("package"), "com.lmqr.ha9_comp_service")
+        self.assertEqual(self.manifest.get("package"), "com.lmqr.eink_settings")
         self.assertNotIn(ANDROID + "sharedUserId", self.manifest.attrib)
         application = self.manifest.find("application")
         if application is None:
@@ -187,10 +187,10 @@ class SourceApkArtifactTests(unittest.TestCase):
         self.assertTrue(required_permissions <= actual)
         components = {node.get(ANDROID + "name") for node in application
                       if node.tag in ("activity", "service", "receiver")}
-        for name in ("SettingsActivity", "A9AccessibilityService", "BootReceiver",
+        for name in ("SettingsActivity", "EinkAccessibilityService", "BootReceiver",
                      "ActionTargetPickerActivity",
                      "quick_settings.LaunchSettingsTile", "quick_settings.ClearScreenTile"):
-            self.assertIn(f"com.lmqr.ha9_comp_service.{name}", components)
+            self.assertIn(f"com.lmqr.eink_settings.{name}", components)
         picker = next(node for node in application.findall("activity")
                       if node.get(ANDROID + "name", "").endswith(".ActionTargetPickerActivity"))
         self.assertEqual(picker.get(ANDROID + "exported"), "false")
@@ -202,18 +202,18 @@ class SourceApkArtifactTests(unittest.TestCase):
                          "android.intent.action.MY_PACKAGE_REPLACED"} <= actions)
 
     def test_compiled_dex_uses_the_system_api_without_packaging_the_stub(self):
-        boot = list(self.decoded.glob("smali*/com/lmqr/ha9_comp_service/BootReceiver.smali"))
+        boot = list(self.decoded.glob("smali*/com/lmqr/eink_settings/BootReceiver.smali"))
         self.assertEqual(len(boot), 1)
         self.assertIn("Landroid/os/SystemProperties;->get(Ljava/lang/String;"
                       "Ljava/lang/String;)Ljava/lang/String;", boot[0].read_text())
         self.assertFalse(list(self.decoded.glob("smali*/android/os/SystemProperties.smali")))
-        for name in ("A9AccessibilityService", "SettingsActivity", "AppLaunchSettings",
+        for name in ("EinkAccessibilityService", "SettingsActivity", "AppLaunchSettings",
                      "PerAppRefreshPreference", "CameraLiveRefresh", "ActionTargetPickerActivity",
                      "ShortcutAssignment", "ButtonActionSettings"):
             self.assertEqual(len(list(self.decoded.glob(
-                f"smali*/com/lmqr/ha9_comp_service/{name}.smali"))), 1)
+                f"smali*/com/lmqr/eink_settings/{name}.smali"))), 1)
         service = next(self.decoded.glob(
-            "smali*/com/lmqr/ha9_comp_service/A9AccessibilityService.smali")).read_text()
+            "smali*/com/lmqr/eink_settings/EinkAccessibilityService.smali")).read_text()
         self.assertIn('"camera_live_refresh"', service)
         self.assertIn("CameraLiveRefresh;->update()V", service)
 
@@ -237,7 +237,7 @@ class SourceApkArtifactTests(unittest.TestCase):
     def test_version_and_signature_are_valid(self):
         badging = subprocess.run([self.aapt, "dump", "badging", self.apk],
                                  check=True, capture_output=True, text=True).stdout
-        self.assertIn("name='com.lmqr.ha9_comp_service'", badging)
+        self.assertIn("name='com.lmqr.eink_settings'", badging)
         self.assertIn("versionCode='35'", badging)
         self.assertIn("versionName='15'", badging)
         self.assertIn("minSdkVersion:'35'", badging)

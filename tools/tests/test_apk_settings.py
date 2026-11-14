@@ -17,10 +17,10 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertEqual(arrays.find("string-array[@name='refresh_values']")[0].text, "2")
         strings = ET.parse(ROOT / "eink_settings/res/values/strings.xml").getroot()
         self.assertEqual(strings.find("string[@name='hd']").text, "HD")
-        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                    "RefreshModeManager.kt").read_text()
         self.assertIn("SMOOTH(Commands.SPEED_SMOOTH, 2)", manager)
-        commands = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        commands = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                     "command_runners/Commands.kt").read_text()
         self.assertIn('const val SPEED_SMOOTH = "s"', commands)
 
@@ -29,19 +29,19 @@ class SettingsResourceTests(unittest.TestCase):
         refresh = next(node for node in root.iter()
                        if node.get(APP + "key") == "refresh_setting")
         self.assertEqual(refresh.get(APP + "defaultValue"), "1")
-        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                    "RefreshModeManager.kt").read_text()
         self.assertIn('getString("refresh_setting", "1")', manager)
-        controls = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        controls = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                     "DisplaySettingsManager.kt").read_text()
         self.assertIn("index < 2 && sharedPreferences.getBoolean(keys[index], true)", controls)
 
     def test_settings_and_menu_use_standard_material3(self):
         themes = ET.parse(ROOT / "eink_settings/res/values/themes.xml").getroot()
-        base = themes.find("style[@name='Theme.Ha9_comp_service']")
+        base = themes.find("style[@name='Theme.EinkSettings']")
         self.assertEqual(base.get("parent"), "Theme.Material3.DayNight.NoActionBar")
-        settings = themes.find("style[@name='Theme.Ha9_comp_service.Settings']")
-        self.assertEqual(settings.get("parent"), "Theme.Ha9_comp_service")
+        settings = themes.find("style[@name='Theme.EinkSettings.Settings']")
+        self.assertEqual(settings.get("parent"), "Theme.EinkSettings")
         self.assertFalse(any((item.text or "").startswith("#") for item in base))
 
         night = ET.parse(ROOT / "eink_settings/res/values-night/themes.xml").getroot()
@@ -55,8 +55,8 @@ class SettingsResourceTests(unittest.TestCase):
         menu = ET.parse(ROOT / "eink_settings/res/layout/floating_menu_layout.xml").getroot()
         self.assertEqual(len(menu.findall(".//com.google.android.material.button.MaterialButton")), 5)
         self.assertEqual(len(menu.findall(".//com.google.android.material.materialswitch.MaterialSwitch")), 3)
-        for source in ("SettingsActivity.kt", "A9AccessibilityService.kt"):
-            text = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service" / source).read_text()
+        for source in ("SettingsActivity.kt", "EinkAccessibilityService.kt"):
+            text = (ROOT / "eink_settings/src/com/lmqr/eink_settings" / source).read_text()
             self.assertIn("ThemeOverlay_Material3_DynamicColors_DayNight", text)
 
     def test_category_order_and_button_mappings(self):
@@ -90,7 +90,7 @@ class SettingsResourceTests(unittest.TestCase):
         self.assertEqual(keyed["frontlight_native_brightness"].get(APP + "defaultValue"), "true")
         self.assertIn("allow_custom_broadcast", keyed)
         self.assertEqual(keyed["per_app_refresh_modes"].tag,
-                         "com.lmqr.ha9_comp_service.PerAppRefreshPagePreference")
+                         "com.lmqr.eink_settings.PerAppRefreshPagePreference")
         self.assertEqual(keyed["per_app_refresh_modes"].get(APP + "dependency"),
                          "disable_perapprefresh")
         self.assertNotIn(APP + "dependency", keyed["refresh_setting"].attrib)
@@ -142,17 +142,17 @@ class SettingsResourceTests(unittest.TestCase):
             "double_press_eink_action_screen_off",
             "long_press_eink_action_screen_off",
         )
-        settings = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        settings = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                     "AppLaunchSettings.kt").read_text()
-        manager = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        manager = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                    "button_mapper/ButtonActionManager.kt").read_text()
-        action = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        action = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                   "button_mapper/LaunchAppButtonAction.kt").read_text()
-        shared = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        shared = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                   "ButtonActionSettings.kt").read_text()
-        picker = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        picker = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                   "ActionTargetPickerActivity.kt").read_text()
-        launch = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        launch = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                   "button_mapper/LaunchTarget.kt").read_text()
         for key in action_keys:
             with self.subTest(action=key):
@@ -189,7 +189,7 @@ class SettingsResourceTests(unittest.TestCase):
                       == "@+id/video_optimized_refresh")
         self.assertEqual(toggle.get("{http://schemas.android.com/apk/res/android}text"),
                          "Video refresh (experimental)")
-        refresh_source = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        refresh_source = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                           "CameraLiveRefresh.kt").read_text()
         self.assertNotIn('.getBoolean("video_optimized_refresh"', refresh_source)
 
@@ -198,11 +198,11 @@ class SettingsResourceTests(unittest.TestCase):
         cameras = [node for node in root.iter() if node.get(APP + "key") == "camera_live_refresh"]
         self.assertEqual(len(cameras), 1)
         self.assertEqual(cameras[0].get(APP + "defaultValue"), "true")
-        service = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
-                   "A9AccessibilityService.kt").read_text()
+        service = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
+                   "EinkAccessibilityService.kt").read_text()
         self.assertIn('"camera_live_refresh" -> cameraLiveRefresh?.update()', service)
 
     def test_app_picker_uses_standard_preference_layout(self):
-        settings = (ROOT / "eink_settings/src/com/lmqr/ha9_comp_service/"
+        settings = (ROOT / "eink_settings/src/com/lmqr/eink_settings/"
                     "AppLaunchSettings.kt").read_text()
         self.assertNotIn("layoutResource", settings)

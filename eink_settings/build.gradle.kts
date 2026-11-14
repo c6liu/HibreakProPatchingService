@@ -5,12 +5,12 @@ plugins {
 layout.buildDirectory.set(rootProject.layout.buildDirectory.dir("gradle/app"))
 
 android {
-    namespace = "com.lmqr.ha9_comp_service"
+    namespace = "com.lmqr.eink_settings"
     compileSdk = 35
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
-        applicationId = "com.lmqr.ha9_comp_service"
+        applicationId = "com.lmqr.eink_settings"
         minSdk = 35
         targetSdk = 35
         versionCode = 35

@@ -154,7 +154,7 @@ def main():
         parser.error(f"Cannot create build directory: {error}")
 
     apk = build_dir / "HiBreakEink-release.apk"
-    daemon = build_dir / "a9_eink_server-release"
+    daemon = build_dir / "eink_server-release"
     final_image = build_dir / "HiBreakPro-release.img"
     stage_directory = tempfile.TemporaryDirectory(prefix=".release-stages-", dir=build_dir)
     stage_dir = Path(stage_directory.name)

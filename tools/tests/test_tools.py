@@ -59,7 +59,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.base.read_bytes(), original)
         files = {
-            "system/bin/a9_eink_server": self.daemon,
+            "system/bin/eink_server": self.daemon,
             "system/priv-app/EinkSettings/HiBreakEink.apk": self.apk,
             "system/bin/hibreak-disable-hwc.sh": ROOT / "tools/display/hibreak-disable-hwc.sh",
             "system/bin/hibreak-aod.sh": ROOT / "tools/display/hibreak-aod.sh",
@@ -231,7 +231,7 @@ class ToolTests(unittest.TestCase):
         result = self.patch("--release")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         display = self.read_image_text("system/etc/init/hibreak-display.rc")
-        eink = self.read_image_text("system/etc/init/a9_eink_gsi.rc")
+        eink = self.read_image_text("system/etc/init/eink_gsi.rc")
         self.assertNotIn("setprop persist.sys.usb.config", display)
         self.assertNotIn("setprop sys.usb.config", display)
         self.assertNotIn("mtp,adb", display)
@@ -240,7 +240,7 @@ class ToolTests(unittest.TestCase):
         self.assertIn("service hibreak_aod_doze", display)
         self.assertIn("service hibreak_wake_cycle", display)
         self.assertNotIn("debug.hibreak", eink)
-        self.assertIn("service a9_eink_server", eink)
+        self.assertIn("service eink_server", eink)
         build_prop = self.read_image_text("system/build.prop")
         self.assertIn("persist.sys.usb.config=mtp", build_prop)
         self.assertNotIn("persist.sys.usb.config=adb", build_prop)
@@ -474,7 +474,7 @@ class RefreshModeTests(unittest.TestCase):
             result = subprocess.run(
                 [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
                  ROOT / "tools/tests/native/ClientAuthProbe.c",
-                 ROOT / "a9_eink_daemon/client_auth.c", "-o", binary],
+                 ROOT / "eink_daemon/client_auth.c", "-o", binary],
                 capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             result = subprocess.run([binary], capture_output=True, text=True)
@@ -483,7 +483,7 @@ class RefreshModeTests(unittest.TestCase):
                 [compiler, "-Wall", "-Wextra", "-Werror", "-I", str(work),
                  "-Dgetsockopt=probe_getsockopt", "-Dfopen=probe_fopen",
                  ROOT / "tools/tests/native/ClientSocketProbe.c",
-                 ROOT / "a9_eink_daemon/client_auth.c", "-o", binary],
+                 ROOT / "eink_daemon/client_auth.c", "-o", binary],
                 capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             result = subprocess.run([binary], capture_output=True, text=True)

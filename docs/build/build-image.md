@@ -134,7 +134,7 @@ The option is recorded in the manifest. No build command flashes a device.
 
 Keep a working image and recovery path before testing. Compare all five modes
 (especially HD_256), app switching, sleep/wake, and Auto Refresh/Anti-Shake
-against the working image. `adb logcat -s a9EinkService:I '*:S'` shows
+against the working image. `adb logcat -s EinkDaemon:I '*:S'` shows
 `Property-only refresh test: requested ...` when a property request succeeds
 and an error if setting it fails; that log confirms neither composer receipt
 nor physical panel behavior. See the [investigation](../reference/verification.md#debugfs-alternative-investigation-2026-11-11).
@@ -144,13 +144,13 @@ nor physical panel behavior. See the [investigation](../reference/verification.m
 The default release builder installs the init bridge and migrates the e-ink
 daemon and display/AOD helpers to enforcing domains. It never flashes.
 Keep the previous working image and recovery path. After boot, observe
-`adb logcat -b all -s a9EinkService:I init:I '*:S'` while testing toggles,
+`adb logcat -b all -s EinkDaemon:I init:I '*:S'` while testing toggles,
 rapid changes, repeated settings, app changes and sleep/wake. Daemon request
 success is not hardware-write acknowledgement; init logs failed actions.
 Compare actual panel behavior against the previous image. After a separately authorized flash,
 confirm `adb shell getenforce` reports `Enforcing` and
-`adb shell 'ps -AZ | grep a9_eink'` shows `u:r:hibreak_eink:s0`. Check
-`adb logcat -b all -s a9EinkService:V A9SideKeys:V init:I auditd:V '*:S'`
+`adb shell 'ps -AZ | grep eink'` shows `u:r:hibreak_eink:s0`. Check
+`adb logcat -b all -s EinkDaemon:V EinkSideKeys:V init:I auditd:V '*:S'`
 for rejected socket clients, package-registry errors, init action failures,
 and AVC denials. Exercise both frontlights, all refresh modes, Auto Refresh,
 Anti-Shake, per-app switching, sleep/wake, AOD, custom side keys, DPAD and
@@ -216,14 +216,14 @@ also supports `--check-only` without producing an image.
 ```bash
 cd "$HOME/HibreakProPatchingService"
 tools/build/build-source-apk.sh build/HiBreakEink-release.apk
-tools/build/build-daemon.sh build/a9_eink_server-release
+tools/build/build-daemon.sh build/eink_server-release
 ```
 
 Stop on an error. On success, build the display/AOD release base:
 
 ```bash
 tools/image/patch-gsi.sh "$BASE" build/HiBreakPro-release-base.img \
-  build/HiBreakEink-release.apk build/a9_eink_server-release --release
+  build/HiBreakEink-release.apk build/eink_server-release --release
 ```
 
 Do not add an ADB key or `--root`. These scripts refuse existing output

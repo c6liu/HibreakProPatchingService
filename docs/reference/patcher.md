@@ -14,7 +14,7 @@ For personal debugging builds, you can embed **your own ADB public key**:
 adb start-server
 # If the key does not exist, generate it using: adb keygen "$HOME/.android/adbkey"
 tools/image/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
-  build/HiBreakPro.img build/HiBreakEink.apk build/a9_eink_server \
+  build/HiBreakPro.img build/HiBreakEink.apk build/eink_server \
   "$HOME/.android/adbkey.pub"
 ```
 
@@ -33,7 +33,7 @@ For a public-release candidate, use `--release` and do not pass an ADB key:
 
 ```bash
 tools/image/patch-gsi.sh /path/to/EvoX-11.11-GSI_treble_arm64-ab-MICROG-20260920.img \
-  build/HiBreakPro-release.img build/HiBreakEink.apk build/a9_eink_server \
+  build/HiBreakPro-release.img build/HiBreakEink.apk build/eink_server \
   --release
 ```
 

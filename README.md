@@ -32,7 +32,7 @@ device with stock 3.1.6 vendor. Ordinary-app NEC IR has been tested on EvoX.
 The fully patched LineageOS image has not yet been checked on the device.
 These results are not a guarantee for other firmware, GSIs, or the Pro Color.
 Some app controls remain unsupported. Back up the exact stock firmware first.
-**Do not use the Hisense A9 system-image patcher unchanged.**
+**Do not use the upstream Hisense system-image patcher unchanged.**
 
 ## Settings and tools
 

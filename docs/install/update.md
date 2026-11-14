@@ -26,5 +26,15 @@ compatible. **Press Power after reboot.** The Eink Settings APK is a persistent
 system app, so update it through a new image, not `adb install`.
 The installed app folder is now `/system/priv-app/EinkSettings/`. When
 repatching an older image, the patcher removes the previous `HiBreakEink`
-folder so the image does not contain two copies of the package. The package
-ID and signing-key requirements are unchanged.
+folder so the image does not contain two APKs in those locations.
+
+The identity-renaming release changes the app package to
+`com.lmqr.eink_settings` and renames the daemon service to `eink_server`.
+Build this release from the original unmodified GSI, not an older patched
+image, to avoid retaining obsolete daemon binaries or init services.
+App settings, side-key assignments, permissions, and accessibility bindings
+from the previous package do not migrate automatically. After flashing,
+open **Eink Settings**, enable **Eink Accessibility Service**, check overlay
+access, and configure your preferences again. Keep using the same signing
+key for subsequent releases of the new package. Deploy the app and daemon
+in the same image.

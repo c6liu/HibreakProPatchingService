@@ -93,7 +93,7 @@ adb shell getprop sys.boot_completed
 adb shell getprop debug.sf.enable_gl_backpressure
 adb shell getprop debug.sf.enable_hwc_backpressure
 adb shell dumpsys SurfaceFlinger | grep 'h/w composer disabled'
-adb logcat -d -s hibreak-display a9EinkService
+adb logcat -d -s hibreak-display EinkDaemon
 tools/device/collect-diagnostics.sh build/diagnostics-after-boot
 ```
 
@@ -108,7 +108,7 @@ Eink Settings is a persistent system app: `adb install` fails with
 If the popup still shows the old order after flashing, check the active APK:
 
 ```bash
-adb shell pm path com.lmqr.ha9_comp_service
+adb shell pm path com.lmqr.eink_settings
 ```
 
 A `/data/app/` path means an older installed update overrides the system copy.
@@ -116,8 +116,8 @@ After confirming the new image contains the corrected app, remove only that
 package's update (this may reset app preferences):
 
 ```bash
-adb shell cmd package uninstall-system-updates com.lmqr.ha9_comp_service
-adb shell pm path com.lmqr.ha9_comp_service
+adb shell cmd package uninstall-system-updates com.lmqr.eink_settings
+adb shell pm path com.lmqr.eink_settings
 ```
 
 The path should now be `/system/priv-app/EinkSettings/HiBreakEink.apk`.

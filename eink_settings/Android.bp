@@ -1,5 +1,5 @@
 android_app {
-    name: "A9AccessibilityService",
+    name: "EinkSettings",
     srcs: ["src/**/*.kt"],
     resource_dirs: ["res"],
     platform_apis: true,
@@ -16,14 +16,14 @@ android_app {
     ],
     
     required: [
-        "privapp_whitelist_com.lmqr.ha9_comp_service",
+        "privapp_whitelist_com.lmqr.eink_settings",
     ],
     
     kotlincflags: ["-Xjvm-default=all-compatibility"],
 }
 
 prebuilt_etc {
-    name: "privapp_whitelist_com.lmqr.ha9_comp_service",
+    name: "privapp_whitelist_com.lmqr.eink_settings",
     sub_dir: "permissions",
     src: "privapp-permissions-accessibility.xml",
 }

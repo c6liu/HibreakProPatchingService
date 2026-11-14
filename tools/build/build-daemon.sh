@@ -57,7 +57,7 @@ hibreak_ndk_bin aarch64-linux-android30-clang llvm-strip
 hibreak_refuse_overwrite "$output"
 "$HIBREAK_NDK_BIN/aarch64-linux-android30-clang" -O2 -Wall -Wextra -Werror \
     "${flags[@]}" \
-    "$ROOT/a9_eink_daemon/eink_daemon.c" "$ROOT/a9_eink_daemon/side_keys.c" \
-    "$ROOT/a9_eink_daemon/client_auth.c" -llog -o "$output"
+    "$ROOT/eink_daemon/eink_daemon.c" "$ROOT/eink_daemon/side_keys.c" \
+    "$ROOT/eink_daemon/client_auth.c" -llog -o "$output"
 "$HIBREAK_NDK_BIN/llvm-strip" "$output"
 sha256sum "$output"

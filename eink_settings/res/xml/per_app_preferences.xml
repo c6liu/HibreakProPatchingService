@@ -1,5 +1,5 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
-    <com.lmqr.ha9_comp_service.ResetAppRefreshPreference
+    <com.lmqr.eink_settings.ResetAppRefreshPreference
         app:key="reset_app_refresh_modes"
         app:order="0"
         app:title="Reset all to default"

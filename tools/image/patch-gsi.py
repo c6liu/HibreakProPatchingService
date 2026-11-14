@@ -90,7 +90,7 @@ def prepare_release_files(display_rc, eink_rc, work):
     image.run(
         sys.executable, str(helper), str(display_rc), str(eink_rc), str(work),
     )
-    return work / "hibreak-display-release.rc", work / "a9_eink_gsi-release.rc"
+    return work / "hibreak-display-release.rc", work / "eink_gsi-release.rc"
 
 
 def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=True):
@@ -103,7 +103,7 @@ def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=T
         adb_context = work / "adb-context"
         adb_context.write_bytes(b"u:object_r:adb_keys_file:s0\0")
         display_rc = ROOT / "tools/display/hibreak-display.rc"
-        eink_rc = ROOT / "a9_eink_daemon/etc/init/a9_eink_gsi.rc"
+        eink_rc = ROOT / "eink_daemon/etc/init/eink_gsi.rc"
         if not exists("system/etc/init/vndk.rc", source):
             raise ValueError("GSI has no system/etc/init/vndk.rc")
         vndk = image.extract(source, "system/etc/init/vndk.rc", work / "vndk.rc")
@@ -158,13 +158,13 @@ def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=T
             image.ensure_directory(
                 output, "system/priv-app/EinkSettings", "u:object_r:system_file:s0", work,
             )
-            if exists("system/etc/init/a9_eink_daemon.rc", output):
+            if exists("system/etc/init/eink_daemon.rc", output):
                 raise ValueError("Conflicting AOSP daemon init file exists; start from the unmodified GSI.")
             put(output, apk, "system/priv-app/EinkSettings/HiBreakEink.apk",
                 "0100644", "u:object_r:system_file:s0", work)
-            put(output, daemon, "system/bin/a9_eink_server",
+            put(output, daemon, "system/bin/eink_server",
                 "0100755", "u:object_r:system_file:s0", work)
-            put(output, eink_rc, "system/etc/init/a9_eink_gsi.rc",
+            put(output, eink_rc, "system/etc/init/eink_gsi.rc",
                 "0100644", "u:object_r:system_file:s0", work)
             put(
                 output, ROOT / "eink_settings/privapp-permissions-accessibility.xml",
@@ -227,7 +227,7 @@ def validate_patched_image(image_path, key, release, keep_root):
         raise ValueError("Image still contains /system/xbin/su")
     if release:
         print("Release mode: saved USB debugging state preserved; diagnostic hooks disabled.")
-        for path in ("system/etc/init/hibreak-display.rc", "system/etc/init/a9_eink_gsi.rc"):
+        for path in ("system/etc/init/hibreak-display.rc", "system/etc/init/eink_gsi.rc"):
             if "debug.hibreak" in read_image(image_path, path):
                 raise ValueError(f"Release image retains a diagnostic hook in {path}")
     if key is not None and not exists("adb_keys", image_path):

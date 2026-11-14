@@ -108,7 +108,7 @@ int hibreak_authorize_client(int socket_fd) {
 #define stat(path, info) probeStat(path, info)
 #define getxattr probeGetxattr
 #define main daemonMain
-#include "../../../a9_eink_daemon/eink_daemon.c"
+#include "../../../eink_daemon/eink_daemon.c"
 #undef main
 
 int main(void) {
