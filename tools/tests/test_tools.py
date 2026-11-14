@@ -70,6 +70,8 @@ class ToolTests(unittest.TestCase):
             dumped = self.work / "dump"
             self.debug(f'dump {dest} "{dumped}"', image=self.out)
             self.assertEqual(dumped.read_bytes(), expected.read_bytes())
+        self.assertIn("sys.brightness.disable_gamma_conversion=true",
+                      self.read_image_text("system/build.prop").splitlines())
         self.assertNotEqual(self.patch().returncode, 0)
 
     def test_bad_public_key_rejected_before_output(self):
@@ -152,7 +154,42 @@ class ToolTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertEqual(self.read_image_text("system/build.prop"),
                                      original.rstrip("\n") +
-                                     "\npersist.sys.usb.config=mtp\n")
+                                     "\npersist.sys.usb.config=mtp\n"
+                                     "sys.brightness.disable_gamma_conversion=true\n")
+
+    def test_native_slider_gamma_default_replaces_overrides_and_is_idempotent(self):
+        key = "sys.brightness.disable_gamma_conversion"
+        for directory in ("system/system_ext", "system/system_ext/etc",
+                          "system/product", "system/product/etc"):
+            self.debug(f"mkdir {directory}", write=True)
+        build_prop = self.work / "slider.prop"
+        build_prop.write_text(f"{key}=false\n")
+        for path in ("system/build.prop", "system/system_ext/etc/build.prop",
+                     "system/product/etc/build.prop"):
+            if path == "system/build.prop":
+                self.debug(f"rm {path}", write=True)
+            self.debug(f'write "{build_prop}" {path}', write=True)
+        for attempt in range(2):
+            self.out = self.work / f"native-slider-{attempt}.img"
+            result = self.patch("--release")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for path in ("system/build.prop", "system/system_ext/etc/build.prop",
+                         "system/product/etc/build.prop"):
+                entries = [line for line in self.read_image_text(path).splitlines()
+                           if line.startswith(key + "=")]
+                self.assertEqual(entries, [f"{key}=true"])
+            self.base = self.out
+
+    def test_duplicate_native_slider_gamma_defaults_are_rejected(self):
+        key = "sys.brightness.disable_gamma_conversion"
+        build_prop = self.work / "slider.prop"
+        build_prop.write_text(f"{key}=false\n{key}=true\n")
+        self.debug("rm system/build.prop", write=True)
+        self.debug(f'write "{build_prop}" system/build.prop', write=True)
+        result = self.patch()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"Duplicate {key}", result.stderr)
+        self.assertNotIn("Verified image ready", result.stdout)
 
     def test_external_storage_property_is_not_added(self):
         result = self.patch()

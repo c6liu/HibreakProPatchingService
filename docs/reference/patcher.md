@@ -66,6 +66,17 @@ authorizations.
 The old helper that forced USB debugging on is removed, including when updating
 an already-patched image.
 
+All builds set `sys.brightness.disable_gamma_conversion=true` in
+`system/build.prop` and replace existing entries in the system-ext/product
+property files. Duplicate entries are rejected and the patched image is
+verified. The tested EvoX System UI implements this switch in both brightness
+conversion directions, making its slider use the overlay's direct normalized
+positions with the tested 0-1 brightness limits. The frontlight's shared
+exponential curve is not changed. The property is available before System UI
+starts and is read once, so deploy it through a rebuilt image and boot.
+No System UI APK modification or re-signing is needed. Other GSIs may ignore
+the property; this behavior is only verified in the tested EvoX code.
+
 Root is off by default: all builds remove the base image's `/system/xbin/su`.
 The historical LineageOS input had a setuid root binary for the ADB shell.
 Pass `--root` to keep a base image's `su`, for example for development.

@@ -205,8 +205,12 @@ def patch_image(source, output, apk, daemon, key, release, keep_root, finalize=T
 
 
 def validate_patched_image(image_path, key, release, keep_root):
-    if "persist.sys.usb.config=mtp" not in read_image(image_path, "system/build.prop").splitlines():
+    system_properties = read_image(image_path, "system/build.prop").splitlines()
+    if "persist.sys.usb.config=mtp" not in system_properties:
         raise ValueError("Image does not default to MTP-only USB configuration")
+    gamma_property = "sys.brightness.disable_gamma_conversion"
+    if f"{gamma_property}=true" not in system_properties:
+        raise ValueError("Image does not disable native brightness slider gamma conversion")
     display = read_image(image_path, "system/etc/init/hibreak-display.rc")
     if re.search(r"setprop (?:persist\.sys\.usb\.config|sys\.usb\.config)|hibreak_enable_adb", display):
         raise ValueError("Image init script overrides saved USB debugging state")
@@ -217,6 +221,8 @@ def validate_patched_image(image_path, key, release, keep_root):
             for line in read_image(image_path, prop).splitlines():
                 if line.startswith("persist.sys.usb.config=") and line != "persist.sys.usb.config=mtp":
                     raise ValueError(f"{prop} overrides the MTP-only USB configuration")
+                if line.startswith(gamma_property + "=") and line != f"{gamma_property}=true":
+                    raise ValueError(f"{prop} overrides native brightness slider gamma conversion")
     for prop in ("system/build.prop", "system/system_ext/etc/build.prop",
                  "system/product/etc/build.prop"):
         if exists(prop, image_path) and "ro.adb.secure=0" in read_image(image_path, prop).splitlines():

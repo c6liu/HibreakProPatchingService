@@ -204,9 +204,13 @@ Symbols **mode_cool**; the warm-light slider and warm end use **sunny**.
 - All popup sliders use Material 3 controls. The combined brightness slider
   directly represents normalized Android brightness; no second curve is applied.
   The same popup position gives the same target share of each mode's maximum,
-  before native mixing, the cap and rounding. Android's system UI applies its
-  own slider-position mapping, so equal physical thumb positions between the
-  system slider and popup are not guaranteed. The unavoidable off-to-minimum
+  before native mixing, the cap and rounding. The image sets
+  `sys.brightness.disable_gamma_conversion=true`, using the tested EvoX System UI's
+  built-in switch to disable its additional perceptual conversion. With the
+  tested 0-1 display brightness limits, the native system slider then follows
+  the overlay's positions and response, allowing for integer rounding. The
+  overlay curve is unchanged. Other GSIs must support this property; setting it
+  alone cannot change a System UI that ignores it. The unavoidable off-to-minimum
   hardware step remains. Temperature retains its centred neutral-white stop.
 
 Calibration in `FrontlightMixer.kt` comes from panel measurements: cool alone

@@ -97,8 +97,13 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
   by about 2.8%; the first reaches code 1 at neutral white. The cap and mixing
   still constrain native code coverage. The combined popup slider directly
   represents normalized Android brightness; independent sliders use
-  `sliderForOutput` to reconstruct saved channel codes. Android's system UI
-  may map its own thumb position differently. Existing settings are retained,
+  `sliderForOutput` to reconstruct saved channel codes. The image sets
+  `sys.brightness.disable_gamma_conversion=true` before System UI starts. The
+  tested EvoX `BrightnessUtils` reads this once at class initialization and
+  uses direct interpolation in both directions. Its 0-1 brightness limits
+  then make the native slider match the overlay, apart from rounding. This
+  requires a rebuilt image and boot; it is not an APK-only change. Other
+  GSIs may not implement the switch. Existing settings are retained,
   but intermediate output is dimmer than with the previous curves.
   Temperature retains the centred neutral-white stop with
   a percentage-only label. Material Symbols `mode_cool` and `sunny` identify

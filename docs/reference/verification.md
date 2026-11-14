@@ -65,9 +65,18 @@ with no curve joins at 40% or 60%. Off-to-minimum remains a physical step;
 native integer rounding can leave roughly the first 0.2% of popup travel off.
 The first non-off Android setting (2) should reach code 1 on both channels
 at neutral white. Repeat with Android's system slider in native mode: its
-lowest settings should be dim and step finely, not double per step. Android
-maps its own thumb position, so compare normalized brightness values rather
-than physical thumb positions. Intermediate light levels no longer match the
+lowest settings should be dim and step finely, not double per step.
+After booting the rebuilt image, check
+`adb shell getprop sys.brightness.disable_gamma_conversion` returns `true`.
+In manual mode without an app override or screen dimming, set the system
+slider near 25%, 50% and 75%, then reopen the popup: its combined slider should
+show approximately the same position. Move the popup slider to those positions
+and reopen the system slider to check the reverse direction. Saved integer
+settings should be about 65, 128 and 192, respectively. Allow for rounding
+and the native slider's track padding. The property is read once by the
+tested System UI; changing it after startup does not update the existing
+process. No System UI restart or reboot is performed by the builder.
+Intermediate light levels no longer match the
 previous build. Compare popup combined and independent sliders at matching
 percentages: they should follow the same relative curve, allowing for the
 native cap, mixing and rounding.
