@@ -37,8 +37,12 @@ class ScreenOffKeyReceiver(private val service: EinkAccessibilityService) : Broa
     }
 
     fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_F9) return true
-        if (event.scanCode !in 59..60) return false
+        val device = event.device ?: return false
+        if (device.isExternal || device.isVirtual) return false
+        if (device.name == "madev" &&
+            (event.keyCode == KeyEvent.KEYCODE_F7 || event.keyCode == KeyEvent.KEYCODE_F9)
+        ) return true
+        if (device.name != "mtk-kpd" || event.scanCode !in 59..60) return false
         if (event.repeatCount == 0) {
             dispatch(event.scanCode, event.action, event.eventTime, false)
         }

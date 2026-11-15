@@ -20,10 +20,12 @@ again; old app data and bindings are not migrated automatically. See the
 [migration notes](../install/update.md#one-time-app-and-daemon-identity-migration).
 Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
-With the accessibility service enabled, fingerprint-sensor F9 events are consumed
-without running a custom-button action. Verify that touching the power button
-does not send F9 to the focused app, while pressing Power still locks/wakes the
-phone and fingerprint unlocking still works. Other F9 input is also consumed.
+With the accessibility service enabled, internal `madev` fingerprint-sensor F9
+touch and F7 touch-and-hold events are consumed without running a custom-button
+action. Verify that neither reaches the focused app, while pressing Power still
+locks/wakes the phone and fingerprint unlocking still works. A USB/Bluetooth
+keyboard must retain F7, F9, F1/F2 and other keys; side-button scan-code handling
+is restricted to the internal `mtk-kpd` device.
 Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back

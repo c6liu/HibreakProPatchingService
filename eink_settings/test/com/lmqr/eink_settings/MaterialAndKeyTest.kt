@@ -40,6 +40,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.InputDeviceBuilder
 import org.robolectric.util.ReflectionHelpers
 import kotlin.math.roundToInt
 
@@ -69,22 +70,97 @@ class MaterialAndKeyTest {
     }
 
     @Test
-    fun fingerprintF9IsConsumedWithoutDispatch() {
+    fun fingerprintF7AndF9AreConsumedWithoutDispatch() {
         val service = Robolectric.buildService(EinkAccessibilityService::class.java).get()
+        val device =
+            InputDeviceBuilder.newBuilder().setId(5).setName("madev").build()
         val receiver = ScreenOffKeyReceiver(service)
         try {
-            for (scanCode in listOf(0, 67, 59, 60)) {
-                for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
-                    for (repeat in 0..2) {
-                        assertTrue(receiver.onKeyEvent(
-                            KeyEvent(0, 0, action, KeyEvent.KEYCODE_F9, repeat, 0, 0, scanCode)
-                        ))
+            for (key in listOf(KeyEvent.KEYCODE_F7, KeyEvent.KEYCODE_F9)) {
+                for (scanCode in listOf(0, 65, 67, 472, 474, 59, 60)) {
+                    for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
+                        for (repeat in 0..2) {
+                            val event = KeyEvent(0, 0, action, key, repeat, 0, 5, scanCode)
+                            shadowOf(event).setDevice(device)
+                            assertTrue("Unexpected pass-through: $event device=${event.device}",
+                                receiver.onKeyEvent(event))
+                        }
                     }
                 }
             }
-            for (key in listOf(KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_F8, KeyEvent.KEYCODE_F10)) {
+            for ((key, scanCode) in listOf(
+                KeyEvent.KEYCODE_POWER to 116,
+                KeyEvent.KEYCODE_F8 to 66,
+                KeyEvent.KEYCODE_F10 to 68,
+                KeyEvent.KEYCODE_F1 to 59,
+                KeyEvent.KEYCODE_F2 to 60,
+            )) {
                 for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
-                    assertFalse(receiver.onKeyEvent(KeyEvent(action, key)))
+                    val event = KeyEvent(0, 0, action, key, 0, 0, 5, scanCode)
+                    shadowOf(event).setDevice(device)
+                    assertFalse(receiver.onKeyEvent(event))
+                }
+            }
+        } finally {
+            receiver.close()
+        }
+    }
+
+    @Test
+    fun internalSideKeyReleasesAndRepeatsAreStillConsumed() {
+        val service = Robolectric.buildService(EinkAccessibilityService::class.java).get()
+        val device = InputDeviceBuilder.newBuilder().setId(4).setName("mtk-kpd").build()
+        val receiver = ScreenOffKeyReceiver(service)
+        try {
+            for ((key, scanCode) in listOf(KeyEvent.KEYCODE_F1 to 59, KeyEvent.KEYCODE_F2 to 60)) {
+                for ((action, repeat) in listOf(KeyEvent.ACTION_UP to 0, KeyEvent.ACTION_DOWN to 1)) {
+                    val event = KeyEvent(0, 0, action, key, repeat, 0, 4, scanCode)
+                    shadowOf(event).setDevice(device)
+                    assertTrue(receiver.onKeyEvent(event))
+                }
+            }
+            val event = KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_F7, 0, 0, 4, 65)
+            shadowOf(event).setDevice(device)
+            assertFalse(receiver.onKeyEvent(event))
+        } finally {
+            receiver.close()
+        }
+    }
+
+    @Test
+    fun keyboardAndUnknownDeviceKeysPassThrough() {
+        val service = Robolectric.buildService(EinkAccessibilityService::class.java).get()
+        val devices = listOf(
+            Triple(10, "USB keyboard", true),
+            Triple(11, "Bluetooth keyboard", true),
+            Triple(12, "madev", true),
+            Triple(13, "mtk-kpd", true),
+            Triple(14, "Other internal keyboard", false),
+            Triple(-1, "madev", false),
+        ).map { (id, name, external) ->
+            InputDeviceBuilder.newBuilder().setId(id).setName(name).setExternal(external).build()
+        } + null
+        val receiver = ScreenOffKeyReceiver(service)
+        try {
+            for (device in devices) {
+                for ((key, scanCode) in listOf(
+                    KeyEvent.KEYCODE_F1 to 59,
+                    KeyEvent.KEYCODE_F2 to 60,
+                    KeyEvent.KEYCODE_F7 to 65,
+                    KeyEvent.KEYCODE_F7 to 472,
+                    KeyEvent.KEYCODE_F9 to 67,
+                    KeyEvent.KEYCODE_F9 to 474,
+                    KeyEvent.KEYCODE_A to 30,
+                    KeyEvent.KEYCODE_POWER to 116,
+                )) {
+                    for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
+                        for (repeat in 0..2) {
+                            val event = KeyEvent(0, 0, action, key, repeat, 0, device?.id ?: 999, scanCode)
+                            shadowOf(event).setDevice(device)
+                            assertFalse("Unexpected consumption: $event device=$device",
+                                receiver.onKeyEvent(event))
+                        }
+                    }
                 }
             }
         } finally {

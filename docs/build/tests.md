@@ -19,9 +19,11 @@ instrumentation tests have been removed.
 ANDROID_HOME="$HOME/Android/Sdk" gradle --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
 ```
 
-Robolectric tests execute the source classes on Android APIs 35, 36 and 37. They verify F9
-down/up/repeat consumption without gesture dispatch (including absent and
-side-button scan codes), Power/F8/F10 pass-through, Material menu inflation
+Robolectric tests execute the source classes on Android APIs 35, 36 and 37. They verify
+internal `madev` F7/F9 down/up/repeat consumption without gesture dispatch
+(including absent and side-button scan codes), Power/F8/F10 pass-through,
+USB/Bluetooth keyboard and virtual/unknown-device pass-through (including
+F1/F2 scan codes), Material menu inflation
 in light/dark configurations, themed icon tints when inflated outside an
 activity, overlay close/reopen, and selection of all five refresh modes.
 Adaptive-layout tests cover popup scrolling and width changes

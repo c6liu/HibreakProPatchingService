@@ -53,6 +53,11 @@ rebuilding. A failed image build can leave an incomplete output; do not flash it
 - Customization-button scan codes: **59 bottom**, **60 top**. Separate
   gesture detectors and mappings support single, double and long presses,
   including screen-off actions. Enable accessibility and overlay permission.
+  Accessibility handles these scan codes only from the internal `mtk-kpd`
+  device. It consumes F7 (touch-and-hold) and F9 (touch) from the internal
+  `madev` fingerprint/power-button sensor without dispatching button actions.
+  External keyboards, virtual/unknown devices, and unrelated keys pass through.
+  The daemon remains a non-grabbing side-key monitor; filtering is in the app.
 - Screen-on button actions can send Android DPAD up/down/left/right key events
   through the root daemon. The focused app decides whether those keys scroll,
   move focus, or do nothing. Legacy Night Light and Backlight actions modified
