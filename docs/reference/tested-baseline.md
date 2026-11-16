@@ -21,6 +21,7 @@ overlays and migrates the HiBreak daemon and display helpers to enforcing
 domains; it does not disable SELinux. Standard Android IR transmission
 through the HXD019 driver is included in that default build via the NEC-only
 adapter described in [Android IR adapter](ir-adapter.md).
+
 See the [IR compatibility investigation](../research/ir/README.md) for the APK
 analysis and ROM integration. Learning did not work on the tested phone:
 button and no-button captures matched. Do not treat capture as a supported
@@ -28,6 +29,7 @@ user feature. The
 standalone CLI and privileged capture/test-app paths are legacy, opt-in
 development diagnostics; the HAL-only release does not install them. See
 the [historical diagnostic results](../research/ir/historical-diagnostics.md).
+
 The optional TCL test app is a fixed-command diagnostic, not a general
 remote. The [NEC ROM adapter](ir-adapter.md#experimental-standard-android-nec-adapter)
 accepts single-frame NEC/NECext requests through ConsumerIrManager
@@ -36,6 +38,7 @@ it rejects other protocols, repeat sequences, and frequencies. It is not
 a general waveform HAL. The user reported the standard API test working
 and later confirmed IR Blaster's NEC control; other protocols remain
 unsupported.
+
 Check other firmware/GSIs independently; do not assume compatibility.
 
 The previously tested LineageOS image omits `persist.sys.usb.config` from

@@ -55,7 +55,9 @@ an existing entry or adding a missing one in `system/build.prop`. An existing
 entry in `system_ext/etc/build.prop` or `product/etc/build.prop`, which would
 override it, is also set to `mtp`. Any `ro.adb.secure` entry in those files
 is set to `1` so ADB always asks before trusting a computer. Duplicate entries
-for these patched properties are rejected. This is done without
+for these patched properties are rejected.
+
+This is done without
 forcing USB configuration at boot or changing Android's saved USB debugging
 setting. On an update without a data wipe, ADB stays enabled or disabled as
 previously selected, and existing computer authorizations remain in userdata.
@@ -63,6 +65,7 @@ The tested EvoX base defaults to ADB off on fresh installs; other bases may
 have upstream debug policies that enable ADB. Enable or disable USB debugging
 in Developer options as needed. A factory reset erases saved settings and
 authorizations.
+
 The old helper that forced USB debugging on is removed, including when updating
 an already-patched image.
 

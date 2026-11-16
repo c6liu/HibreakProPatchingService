@@ -23,6 +23,7 @@ settings appear top-first. Unsupported legacy static-lockscreen controls are
 removed/hidden, as are the LCD-only Night Light and Backlight button actions.
 The legacy max-brightness override is removed. Build the daemon from the
 matching source so it can dispatch the new DPAD commands.
+
 The popup's Auto Refresh, Anti-Shake, and Video Refresh controls are saved
 per app, independently of the per-app refresh-mode enable/disable setting.
 Auto Refresh and Anti-Shake default on when no global or app-specific value has
@@ -34,6 +35,7 @@ without saving the previous app's values into the new app. Controls remain
 disabled until an active app is detected. The per-app page's reset action resets
 refresh modes only, not these controls. The camera-preview keep-alive remains
 independent of the per-app Video Refresh choice.
+
 It has `sharedUserId` removed so it can run without the GSI's platform signing
 key. The AOSP module keeps its platform-signed integration configuration.
 Manifest lint suppressions document intentional system-app behavior:

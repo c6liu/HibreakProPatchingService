@@ -40,6 +40,7 @@ changed in Eink Settings. Button mappings are shown **top button first, then
 bottom button**. Available screen-on actions include **Up, Down, Left, and
 Right**, which send Android DPAD key presses to the focused app. Screen-off
 actions include media, **Launch App**, **Launch Shortcut**, and Nothing.
+
 Clear Screen is available only with the screen on. Existing screen-off
 Clear Screen assignments are migrated to Nothing; new installs also default
 to Nothing with the screen off. Actions can be assigned to single, double
@@ -154,6 +155,7 @@ exponential brightness curve as native control. Travel is spread evenly across
 the driver's codes (about 2.55 codes, roughly 7.4% more light, per 1% of travel).
 Every code from 1 to 255 is reachable; zero is off. The bottom tenth covers
 about 26 codes instead of the 94 that pure CIE L* would cover.
+
 Saved channel codes are retained within the same app package, so changing
 control modes does not reset independent brightness levels. The
 [package-identity migration](../install/update.md#one-time-app-and-daemon-identity-migration)

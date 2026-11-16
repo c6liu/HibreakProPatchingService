@@ -26,7 +26,9 @@ result to the application's void `transmit()` call.
 Consequently **a normal API return, this app's success result, and
 `hasIrEmitter = true` are not proof of emitted IR** on this configuration.
 That behavior was checked in AOSP source, not the GSI's exact framework
-binary. Separately, the user reports actual TCL response through the API
+binary.
+
+Separately, the user reports actual TCL response through the API
 adapter and IR Blaster on the tested image; those observations are useful
 end-to-end evidence for those commands, but are not an optical waveform
 measurement or a guarantee for other commands/devices.

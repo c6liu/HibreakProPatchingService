@@ -78,6 +78,7 @@ The helper logs its selected method, accepts whitespace in Parcel replies,
 and verifies `h/w composer disabled` in SurfaceFlinger's dump before reporting
 success. It retries for 30 seconds and logs failures, including unavailable
 services, rejected transactions and unconfirmed composition state.
+
 Do not interpret a successful shell exit alone as a successful Binder call.
 
 The enforcing migration launches all five display/AOD helpers through
@@ -96,12 +97,14 @@ client composition. After rebuilding and flashing the corrected image,
 verify `h/w composer disabled` in `adb shell dumpsys SurfaceFlinger` and test
 both color modes, sleep/wake and AOD on the physical panel. The correction
 must remain effective after boot and any separately required SF restart.
+
 The shell-entrypoint correction alone did not establish forced composition
 on the subsequently flashed image. EvoX also deliberately grays out its
 Developer Options overlay switch. A direct AIDL request did set `h/w composer
 disabled`; Natural then retained client composition and physical updates
 were confirmed working. This live test did not require an SF restart or
 broader SELinux permissions.
+
 The new dump-based verification additionally needs SurfaceFlinger to use
 and write the helper's output pipe. The migration grants only that `fd use`
 and `fifo_file write` access; the previously flashed policy lacked both.
@@ -113,7 +116,9 @@ TrebleApp (system UID) replays its **Disable HW overlays** preference
 after `sys.boot_completed`. With the switch off, it sends
 `SurfaceFlinger 1008` with 0, re-enabling device composition. Enable that
 switch in Treble Settings so TrebleApp forces GPU composition itself at
-every boot. As a fallback for fresh installs, the wake helper also checks
+every boot.
+
+As a fallback for fresh installs, the wake helper also checks
 SurfaceFlinger every 5 seconds for 180 seconds after boot and reapplies if
 HWC was re-enabled. A later TrebleApp restart outside that window still
 depends on the switch.

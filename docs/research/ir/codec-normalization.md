@@ -123,6 +123,7 @@ structures in the software classifier. Crucially, one, two, and three
 copies of A all yield `1,8,8`: **the metadata is not the number of copies
 captured or the number of transmissions to request**. Entries 2/3 are
 decoded stream positions/counts, not necessarily packed-byte offsets.
+
 Input flags `0x80` and `0x88` preserve those bits and produce the same
 classifications. For these small-separator vectors, input flag `0x40`
 instead produces classification zero and both counts equal the whole

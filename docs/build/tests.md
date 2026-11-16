@@ -26,19 +26,23 @@ USB/Bluetooth keyboard and virtual/unknown-device pass-through (including
 F1/F2 scan codes), Material menu inflation
 in light/dark configurations, themed icon tints when inflated outside an
 activity, overlay close/reopen, and selection of all five refresh modes.
+
 Adaptive-layout tests cover popup scrolling and width changes
 between portrait and landscape, retaining control values, continuous movement
 of the custom-gray slider, custom-value persistence and change vetoes,
 and Material choice-dialog selection/cancellation through
 activity rotation (including per-app integer storage and default removal).
+
 Accent tests cover opt-in palette writes, all five preset seeds, custom RGB
 conversion, disabled dependent controls, custom-slider visibility and saved
 selection through rotation, and no palette writes while the override is off.
+
 Action tests cover screen-off Clear Screen migration and
 dispatch rejection, independent shortcut routing for all 12 gestures, bounded
 screen-off wake locks, malformed assignments, searchable app selection,
 shortcut-provider results across activity recreation, rejection of previously
 saved launcher shortcuts, and exclusion of modern shortcuts from the picker.
+
 Frontlight tests cover the exponential code inversion, the 90% output cap,
 constant output across achievable temperatures, colour-preserving endpoint
 dimming, display-dump parsing, exclusive mode ownership, screen-off handling,
@@ -48,10 +52,12 @@ independent reachability of all 256 codes, live overlay brightness and delayed-e
 through drag release, and unchanged auto-brightness mode. Brightness-setting
 tests check the integer Android setting, its 1–255 conversion (including the
 endpoints), and rejection of the obsolete float setting as a source of truth.
+
 Boot-reapply tests check resending unchanged channel codes, refreshing past
 the boot brightness override, screen-off safety, and independent mode.
 Boot-receiver tests reject missing/unexpected actions while retaining setup
 for boot, locked boot and package replacement.
+
 Use a Robolectric-compatible Java runtime; Java 25 was tested successfully.
 JDK 27 can build the app. If the build JDK is incompatible with the test
 runtime, configure Gradle's `Test` task launcher separately from the compiler.
@@ -64,7 +70,9 @@ suppressions document the platform-signed AOSP shared UID, non-Play storage
 access, the privileged display-dump reflection fallback, and rootless overlay
 inflation with WindowManager-supplied layout parameters. They do not grant
 permissions or disable unrelated lint checks. Unused legacy resources are
-removed rather than hidden from lint. The APK builder runs
+removed rather than hidden from lint.
+
+The APK builder runs
 release assembly and its vital lint checks, not the full `lintRelease` task,
 so run the command above before distributing a release.
 
@@ -102,7 +110,7 @@ and flashing safeguards. Real merged-policy validation needs matching vendor,
 
 The user reported that the 2026-11-11 HiBreak update's overlay close control,
 screen-off action choices, and app/shortcut assignments work. ADB confirmed
-that the active system APK matches the supplied release APK. This does not
+that the then-active system APK matched the supplied release APK. This does not
 replace testing every gesture, shortcut-provider implementation, lock-screen
 state, or display condition.
 
@@ -115,6 +123,7 @@ both light/dark modes on the physical panel. Check updates with the intended
 signing certificate. Test both screen orientations, rotation while the popup or a
 choice dialog is open, and navigation-bar insets on different screen edges.
 See [post-install verification](../reference/verification.md).
+
 The package-identity rename does not migrate old app data; verify fresh app
 setup when crossing that boundary. Historical device checks predate the
 rename and do not validate the current package, socket, or icon-tint changes.

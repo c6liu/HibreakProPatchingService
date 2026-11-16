@@ -1,6 +1,12 @@
 # Documentation
 
 Pages are grouped by who needs them. Most users only need **install/**.
+Start with the [installation guide](../Guide.md) for a prebuilt image, or the
+[build guide](build/README.md) to create one. Use the reference pages for
+current behavior and the research pages for dated evidence and experiments.
+
+The recommended structure keeps these four audiences separate; existing paths
+are retained so links and bookmarks continue to work.
 
 | Folder | Audience | Contents |
 |--------|----------|----------|

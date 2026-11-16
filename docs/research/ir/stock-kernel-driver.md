@@ -42,7 +42,9 @@ These are offsets within the `/pinctrl` GPIO controller, not an assumption
 about global Linux GPIO numbering. The probe resolves these properties
 and drives IR enable high. `ctrl_init` registers the platform driver and
 character device, allocates shared private storage, creates the device,
-and calls `gpio_init`. That helper sets state input, SDA high, SCL high,
+and calls `gpio_init`.
+
+That helper sets state input, SDA high, SCL high,
 then SCL input. Neither initialization path uploads firmware or sends a
 carrier/timer configuration packet. `ctrl_open` only associates the shared
 private storage with the file; release and platform removal return zero.
@@ -103,6 +105,7 @@ discarded. This includes the one-byte request case, which clocks two
 bytes and returns `[0]`. It returns `N` after a successful user copy,
 or `-EFAULT` if that copy fails. Zero-length reads return immediately.
 There is no receive checksum or record-length validation in this path.
+
 `gpio_read_data` samples eight bits MSB-first and calls `gpio_send_ack`;
 that helper pulses SCL without explicitly driving SDA low.
 
@@ -175,6 +178,7 @@ to establish that writes ignore them. Execution is bounded to the driver
 and fails on unexpected external calls. Kernel virtual addresses are
 rebased to low addresses inside the emulator; this is not a kernel boot,
 concurrency test, bus-timing test, or hardware simulation.
+
 The later custom-mode check likewise verifies only that `30 30 60` is
 forwarded and SDA/SCL ioctl requests reach the mocked pins.
 

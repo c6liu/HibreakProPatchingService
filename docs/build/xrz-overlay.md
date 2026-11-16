@@ -9,6 +9,7 @@ vendor, add a new driver, or disable SELinux. It may affect display behavior;
 is not a proven fix for the native composer crash.** The short post-flash
 snapshot showed no composer crash or framework restart; missing startup logs
 and dropped audit events prevent confirmation of successful property writes.
+
 Keep the previous system image and a complete backup for
 recovery. See [the policy comparison](../research/display/xrz-graphics-policy.md)
 for evidence and limitations.
@@ -29,6 +30,7 @@ from a kernel ioctl and publishes it at startup. The overlay permits this
 existing write; it does not supply a guessed panel value or set the read-only
 property from init. Because it is `ro.*`, a normal boot after flashing is needed
 to exercise that startup write; do not restart the composer to test it.
+
 The tool preserves existing effective SELinux `allow` permissions
 on the four properties and checks that the only additional effective `allow`
 is the stock composer's property-service `set`. It rejects unexpected grants,

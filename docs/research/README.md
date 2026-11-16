@@ -16,7 +16,7 @@ these pages keep the dated evidence behind them.
   specific `system_server` Binder callback grant was added. The separate
   enforcing display/AOD helper image was also reported working, with AOD
   inversion retained. These reports are not a complete feature-by-feature
-  regression matrix. See the [migration investigation](../reference/verification.md#migration-investigation-history).
+  regression matrix. See the [migration verification status](../reference/verification.md#migration-verification-status).
 - For the tested EvoX/stock-vendor merge, the 70-grant PHH reduction leaves
   371 ordinary and 15 extended neverallow diagnostic blocks. The combined
   release policy added none, but `phhsu_daemon` remains permissive; this is

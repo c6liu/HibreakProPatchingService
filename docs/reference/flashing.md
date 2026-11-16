@@ -50,9 +50,11 @@ longer in fastbootd, and runs `fastboot -w` before rebooting. This erases
 shared userdata—including installed apps, settings, and personal files—and
 affects both slots. The option is never implicit; omit `--wipe-data` when
 updating the same GSI to preserve data.
+
 On successful wipes, the helper filters fastboot's notices that optional
 `cache` or `metadata` partitions are absent; other output is preserved, and all
 wipe output is shown if the wipe fails.
+
 Back up anything important before using it. A failed system flash does not run
 the wipe; if the wipe itself fails, the helper stops without rebooting.
 

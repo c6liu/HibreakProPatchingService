@@ -30,4 +30,4 @@
     stalled on a framework helper and frontlight/refresh controls failed.
     Adding the specific `system_server` Binder callback grant produced a test
     image the user reported working. See the
-    [migration investigation](../../reference/verification.md#migration-investigation-history).
+    [migration verification status](../../reference/verification.md#migration-verification-status).

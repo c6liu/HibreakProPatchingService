@@ -68,6 +68,7 @@ checks the final files, labels, permissions, and filesystem before publication.
 Use `--strict-verification` to retain the separate policy checks at each stage.
 Other feature combinations continue to use per-stage verification and report
 that choice; they are not silently treated as having combined verification.
+
 The manifest records input and final-output checksums and elapsed times for
 each stage; there are no intermediate image checksums.
 The final image is always
@@ -153,7 +154,9 @@ Keep the previous working image and recovery path. After boot, observe
 `adb logcat -b all -s EinkDaemon:I init:I '*:S'` while testing toggles,
 rapid changes, repeated settings, app changes and sleep/wake. Daemon request
 success is not hardware-write acknowledgement; init logs failed actions.
-Compare actual panel behavior against the previous image. After a separately authorized flash,
+Compare actual panel behavior against the previous image.
+
+After a separately authorized flash,
 confirm `adb shell getenforce` reports `Enforcing` and
 `adb shell 'ps -AZ | grep eink'` shows `u:r:hibreak_eink:s0`. Check
 `adb logcat -b all -s EinkDaemon:V EinkSideKeys:V init:I auditd:V '*:S'`
@@ -173,6 +176,7 @@ The disable-overlays and wake-cycle services also select the helper's
 helper forwards this mode to both of its composition requests. Compatibility
 builds retain the legacy transaction; the AIDL transaction number must not
 be assumed valid on other GSIs.
+
 AOD inversion is retained; the migration imports
 existing setup/inversion markers into separate, scoped persistent state
 properties. The existing AOD toggle and original property labels remain
@@ -186,6 +190,7 @@ display, screen wake, AOD on/off, inversion on doze and restoration on wake,
 and user-enabled inversion. Also retest frontlights, refresh modes and side
 keys. The helpers are short-lived, so their domain may not appear in a later
 process listing; look for `hibreak_display` in AVCs if a helper fails.
+
 Confirm `adb shell dumpsys SurfaceFlinger` reports `h/w composer disabled`,
 then switch between Natural and Boosted color modes and check physical
 screen updates. GPU composition must not depend on a nonidentity color matrix.

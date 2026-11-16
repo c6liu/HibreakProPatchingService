@@ -20,8 +20,9 @@ stock firmware backups are deliberately not copied into the supported path.
 The user reported that separate test images for the init e-ink bridge, the
 enforcing daemon (after the Binder callback fix), and enforcing display/AOD
 helpers worked. The reports did not include a complete regression matrix.
-The [verification history](../../reference/verification.md#migration-investigation-history)
-distinguishes the initial failures from the later reported results.
+See the [failed approaches](failed-approaches.md) for the initial daemon
+failure and [verification status](../../reference/verification.md#migration-verification-status)
+for the limits of the later reports.
 
 The default release builder now uses those migrations on the pinned EvoX
 system and stock 3.1.6 vendor inputs. It prepares one private working ext4

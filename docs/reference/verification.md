@@ -1,5 +1,8 @@
 # Post-install verification
 
+Use these checks after installing an image. Host tests and historical reports
+do not replace checks on the physical phone.
+
 ## HiBreak action and overlay update
 
 On 2026-11-11, the user reported that the updated overlay, screen-off actions,
@@ -13,11 +16,14 @@ state, or lock-screen condition; use the remaining checks below for broader
 release validation. The subsequent removal of modern launcher shortcuts
 requires a fresh device check.
 
+### Setup and input
+
 Press Power right after the Bigme logo flashes, wait for boot, open **Eink
 Settings**, enable **Eink Accessibility Service**, and allow **Display over
 other apps**. When crossing the package-identity rename, configure preferences
 again; old app data and bindings are not migrated automatically. See the
 [migration notes](../install/update.md#one-time-app-and-daemon-identity-migration).
+
 Top/bottom customization buttons have separate
 single/double/long-press mappings, including screen-off mappings.
 With the accessibility service enabled, internal `madev` fingerprint-sensor F9
@@ -26,6 +32,9 @@ action. Verify that neither reaches the focused app, while pressing Power still
 locks/wakes the phone and fingerprint unlocking still works. A USB/Bluetooth
 keyboard must retain F7, F9, F1/F2 and other keys; side-button scan-code handling
 is restricted to the internal `mtk-kpd` device.
+
+### Appearance and layout
+
 Settings and the floating menu use standard Material 3 widgets and system
 dynamic colors in light/dark mode. Check text contrast, selected refresh-mode
 highlighting, all three switches, frontlight sliders, dialogs, and back
@@ -33,11 +42,13 @@ navigation on the physical e-ink panel after updating the source-built APK.
 Check the settings/close icons and all frontlight icons for visible,
 theme-appropriate tints in both light and dark mode. Cool indicators should
 use **mode_cool** and warm indicators **sunny**.
+
 Rotate with the popup open and closed, with gesture navigation and three-button
 navigation. It should stay inside system bars/cutouts, remain centred and no wider
 than 640 dp, and scroll to all controls in landscape without resetting their values.
 Rotate again while a settings choice dialog is open; its selection should survive,
 and Back/cancel must leave the saved value unchanged.
+
 With **Force accent color** off, confirm the shade and scheme controls are
 disabled and service startup does not replace Android's current palette.
 Enable it and try all five gray presets, including black and white. Select
@@ -47,6 +58,9 @@ apply on release; accessibility changes should apply immediately. Rotate after
 saving and check that the custom shade and preset are retained. Switching the
 override off must leave the current Android palette in place, not restore or
 apply a different one; re-enabling it should apply the saved shade.
+
+### Frontlight controls
+
 At the temperature slider's centre the label should be 50%, not a neutral-white label.
 With **Use Android brightness for frontlight** on (the default), check that the system
 slider, auto-brightness and an app brightness override (e.g. a reader) change
@@ -55,12 +69,14 @@ snaps to the neutral-white stop, that moving
 it keeps brightness steady at medium brightness, and that turning the switch
 off restores the previous cold/warm values. `adb logcat -s DisplayBrightness`
 reports if the app fell back to the slider-only setting.
+
 Drag the popup brightness slider and check that output changes before release,
 Android's saved brightness updates, and auto-brightness remains in its previous
 mode (test both enabled and disabled). While dragging, delayed Android brightness
 events must not move the thumb or override the live output. Later auto-brightness
 adjustments should still take effect. Check the independent cold/warm sliders for
 approximately even perceived brightness steps, including off and full output.
+
 In a dark room, sweep each brightness slider (combined, cold and warm) slowly
 from off to full. Relative light changes should feel consistent throughout,
 with no curve joins at 40% or 60%. Off-to-minimum remains a physical step;
@@ -68,6 +84,7 @@ native integer rounding can leave roughly the first 0.2% of popup travel off.
 The first non-off Android setting (2) should reach code 1 on both channels
 at neutral white. Repeat with Android's system slider in native mode: its
 lowest settings should be dim and step finely, not double per step.
+
 After booting the rebuilt image, check
 `adb shell getprop sys.brightness.disable_gamma_conversion` returns `true`.
 In manual mode without an app override or screen dimming, set the system
@@ -82,6 +99,7 @@ Intermediate light levels no longer match the
 previous build. Compare popup combined and independent sliders at matching
 percentages: they should follow the same relative curve, allowing for the
 native cap, mixing and rounding.
+
 After releasing the popup brightness slider, wait for Android display events
 and reopen the popup: it must not return to the previous brightness. Compare
 `adb shell settings get system screen_brightness` with the display service's
@@ -104,6 +122,8 @@ by release without moving the thumb again, then change temperature and rotate
 or reopen the popup. The released brightness must not revert merely because
 a stale display event arrived during the drag. Allow for integer rounding.
 
+### Boot brightness
+
 For boot-brightness verification, select a manual brightness and record both
 Android values above. After a separately authorized reboot, inspect the
 physical frontlight **before touching any sliders or cycling the screen**.
@@ -115,12 +135,15 @@ correct Android values, record that mismatch first; screen off/on was a
 confirmed workaround on the earlier build. Host reapply tests do not prove
 the physical boot fix.
 
+### App and shortcut actions
+
 The Apps and Shortcuts picker supports search and preserves the current
 assignment when cancelled. Only app-provided shortcut configuration is
 supported; modern launcher shortcuts are not listed or launched.
 Screen-off app/shortcut launches wake the display without bypassing the
 lock screen. Screen-off Clear Screen is removed, with existing assignments
 migrated to Nothing. The overlay's top-right X closes it.
+
 On Android 16, noninteractive keys may be dropped before reaching accessibility.
 The root daemon therefore monitors the HiBreak's `mtk-kpd` side-key events without
 grabbing the input device and forwards them to a receiver restricted to senders
@@ -129,6 +152,8 @@ the screen off; normal accessibility input continues to handle screen-on gesture
 Both the updated APK **and daemon** are required, so install this fix with an image
 update, not just an APK update. Launching an app wakes the display but does not
 bypass a secure lock screen.
+
+### Service and display diagnostics
 
 ```bash
 adb devices
@@ -152,6 +177,8 @@ the app can send commands or that the panel responds.
 
 Eink Settings is a persistent system app: `adb install` fails with
 "persistent app, not updateable". Update it by building and flashing a new image.
+
+### Check for an APK override
 
 If the popup still shows the old order after flashing, check the active APK:
 
