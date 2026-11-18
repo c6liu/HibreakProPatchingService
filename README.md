@@ -1,8 +1,7 @@
 # HiBreak Pro E-Ink service
 
 Android E-Ink accessibility service, native daemon, and offline GSI patching
-tools for the **Bigme HiBreak Pro (black-and-white, MT6877)**. The working
-configuration uses the **stock vendor**, not the HiBreak Pro Color HWC shim.
+tools for the **Bigme HiBreak Pro (black-and-white, MT6877)**. 
 
 ![Evolution X][image]
 
