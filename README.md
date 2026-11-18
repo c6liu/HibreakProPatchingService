@@ -16,7 +16,8 @@ indexed in [docs/](docs/README.md).
 
 > **Press Power after every restart.** Every time the phone restarts or powers
 > up, press Power once right after the Bigme logo flashes, otherwise it can go
-> back to powered-off. This is a known issue and is not fixed.
+> back to powered-off. This is a known issue caused by a confirmation screen
+> failed to displayed by the Eink screen.
 
 - [Research notes](docs/research/README.md): tested hardware/software,
   display fixes, stock mode research, AOD, boot/power evidence, limitations,
