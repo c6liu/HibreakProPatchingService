@@ -4,6 +4,10 @@ Android E-Ink accessibility service, native daemon, and offline GSI patching
 tools for the **Bigme HiBreak Pro (black-and-white, MT6877)**. The working
 configuration uses the **stock vendor**, not the HiBreak Pro Color HWC shim.
 
+![Evolution X][image]
+
+[image]: https://github.com/c6liu/HibreakProPatchingService/blob/1c1e1c535a3827b31e031749d447f377725e32de/android16.jpg
+
 ## Using an EvoX Treble GSI
 
 **Start with the [install guide](Guide.md).** It covers backup, unlocking,
